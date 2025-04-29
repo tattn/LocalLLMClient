@@ -1,11 +1,12 @@
 import Foundation
 import LlamaSwift
+import Synchronization
 
-public final class LlamaClient: Client {
-    private let context: Context
+public final class LlamaClient: LLMClient {
+    private let context: Mutex<Context>
 
     public init(url: URL, parameter: LLMParameter = .default) throws {
-        context = try Context(url: url, parameter: parameter)
+        context = try .init(Context(url: url, parameter: parameter))
     }
 
     public func predict(_ input: String) async throws -> String {
@@ -20,6 +21,8 @@ public final class LlamaClient: Client {
     }
 
     public func predict(_ input: String) -> Generator {
-        Generator(text: input, context: context)
+        context.withLock {
+            Generator(text: input, context: $0)
+        }
     }
 }

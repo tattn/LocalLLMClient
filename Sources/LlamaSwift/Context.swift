@@ -4,13 +4,15 @@ import LLMCommon
 
 public final class Context {
     let parameter: LLMParameter
-    let model: OpaquePointer
     let context: OpaquePointer
     var batch: llama_batch
     var sampling: Sampler
-    let vocab: OpaquePointer
-
     var cursor: [llama_token_data]
+    private let model: OpaquePointer
+
+    var vocab: OpaquePointer {
+        llama_model_get_vocab(model)
+    }
 
     public init(url: URL, parameter: LLMParameter = .default) throws(Error) {
         initializeLlama()
@@ -42,7 +44,6 @@ public final class Context {
         self.model = model
         self.context = context
         batch = llama_batch_init(Int32(parameter.batch), 0, 1)
-        vocab = llama_model_get_vocab(model)
 
         // https://github.com/ggml-org/llama.cpp/blob/master/common/sampling.cpp
         sampling = llama_sampler_chain_init(llama_sampler_chain_default_params())
@@ -54,7 +55,7 @@ public final class Context {
         llama_sampler_chain_add(sampling, llama_sampler_init_typical(parameter.typicalP, minKeep))
         llama_sampler_chain_add(sampling, llama_sampler_init_penalties(Int32(parameter.penaltyLastN), parameter.penaltyRepeat, 0, 0))
 
-        let cursorCount = Int(llama_vocab_n_tokens(vocab))
+        let cursorCount = Int(llama_vocab_n_tokens(llama_model_get_vocab(model)))
         cursor = Array(unsafeUninitializedCapacity: cursorCount) { _, initializedCount in
             initializedCount = cursorCount
         }

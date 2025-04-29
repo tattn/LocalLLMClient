@@ -1,4 +1,4 @@
-public struct LLMParameter {
+public struct LLMParameter: Sendable {
     public init(
         context: Int = 2048,
         numberOfThreads: Int? = nil,
@@ -34,5 +34,5 @@ public struct LLMParameter {
     public var penaltyRepeat: Float = 1
     public var maxTokenLength: Int
 
-    nonisolated(unsafe) public static let `default` = LLMParameter()
+    public static let `default` = LLMParameter()
 }
