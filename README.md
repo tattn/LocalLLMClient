@@ -1,5 +1,10 @@
 # LocalLLMClient
 
+![logo](https://github.com/user-attachments/assets/3975c03a-cb1a-474f-94a1-726fd2de93b2)
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/tattn/LocalLLMClient/actions/workflows/test.yml/badge.svg)](https://github.com/tattn/LocalLLMClient/actions/workflows/test.yml)
+
 A Swift package to interact with local Large Language Models (LLMs) on Apple platforms.
 
 > [!IMPORTANT]
@@ -45,19 +50,18 @@ print(text)
 
 ### Streaming Example
 
-The generator provides an async sequence API for accessing tokens as they're generated:
+The client provides an async sequence API for accessing tokens as they're generated:
 
 ```swift
 import LocalLLMClient
-import LlamaSwift
 
-// Initialize the context and generator directly
+// Initialize a client with the path to your model file
 let modelURL = URL(fileURLWithPath: "path/to/your/model.gguf")
-let context = try Context(url: modelURL)
-let generator = Generator(text: "Tell me a story about a cat", context: context)
+let client = try LocalLLMClient.makeClient(url: modelURL)
 
-// Process tokens as they arrive
-for try await token in generator {
+// Process tokens as they arrive in real-time
+let prompt = "Tell me a story about a cat"
+for try await token in client.predict(prompt) {
     print(token, terminator: "")
 }
 ```
@@ -68,9 +72,6 @@ You can customize the LLM parameters when initializing the context:
 
 ```swift
 import LocalLLMClient
-import LlamaSwift
-
-let modelURL = URL(fileURLWithPath: "path/to/your/model.gguf")
 
 // Configure custom parameters
 let params = LLMParameter(
@@ -81,12 +82,13 @@ let params = LLMParameter(
     topP: 0.9,                 // Top-P (nucleus) sampling
 )
 
-let context = try Context(url: modelURL, parameter: params)
-let generator = Generator(text: "Write a poem about a cat", context: context)
+let modelURL = URL(fileURLWithPath: "path/to/your/model.gguf")
+let client = try LocalLLMClient.makeClient(url: modelURL, parameter: params)
 
-for try await token in generator {
-    print(token, terminator: "")
-}
+// Generate text
+let prompt = "Write a poem about a cat"
+let text = try await client.predict(prompt)
+print(text)
 ```
 
 ## Tested models
@@ -94,6 +96,7 @@ for try await token in generator {
 - LLaMA 3
 - Gemma 3 / 2
 
+[*Most text models supported by llama.cpp can work.*](https://github.com/ggml-org/llama.cpp?tab=readme-ov-file#text-only)  
 *If you have a model that works, please open an issue or PR to add it to the list.*
 
 ## Requirements
