@@ -1,0 +1,22 @@
+name: Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    runs-on: macos-15
+    env:
+      DEVELOPER_DIR: "/Applications/Xcode_16.3.app/Contents/Developer"
+      LOCAL_LLM_PATH: "${{ github.workspace }}/model/SmolLM2-135M-Instruct-Q5_K_M.gguf"
+    steps:
+    - uses: actions/checkout@v4
+    - name: Download model file
+      run: |
+        mkdir -p model
+        wget -O model/SmolLM2-135M-Instruct-Q5_K_M.gguf https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q5_K_M.gguf
+    - name: Run tests
+      run: swift test

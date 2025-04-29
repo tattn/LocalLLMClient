@@ -18,8 +18,6 @@ public final class Context {
         var model_params = llama_model_default_params()
 #if targetEnvironment(simulator)
         model_params.n_gpu_layers = 0
-#else
-        model_params.n_gpu_layers = 100
 #endif
 
         guard let model = llama_model_load_from_file(url.path(), model_params) else {
