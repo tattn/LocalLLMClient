@@ -17,6 +17,7 @@ A Swift package to interact with local Large Language Models (LLMs) on Apple pla
 - Configurable parameters for inference (temperature, top-k, top-p, etc.)
 - Streaming token generation
 - Command-line interface
+- Multimodal models (experimental)
 
 ## Installation
 
@@ -98,6 +99,51 @@ You can use LocalLLMClient directly from the terminal using the command line too
 ```bash
 swift run localllm --model path/to/your/model.gguf "Your prompt here"
 ```
+
+## Multimodal for Image (Experimental)
+
+LocalLLMClient supports multimodal models like LLaVA for processing images along with text prompts. To use this feature:
+
+```swift
+import LlamaSwiftExperimental
+
+// Initialize with paths to your CLIP projection model and LLM model
+let clipURL = URL(filePath: "path/to/mmproj-model-f16.gguf")
+let modelURL = URL(filePath: "path/to/multimodal-model.gguf")
+let imageURL = URL(filePath: "path/to/your/image.jpeg")
+
+// Create context with the LLM model
+let context = try Context(url: modelURL)
+
+// Load the CLIP model for image embedding
+let clipModel = try ClipModel(url: clipURL)
+
+// Generate image embedding
+let embed = try clipModel.embedded(imageURL: imageURL)
+
+// Process the image in the context
+var cursor = try context.decode(text: "<start_of_image>", cursor: 0, special: true)
+cursor = try context.decode(imageEmbed: embed, cursor: cursor)
+cursor = try context.decode(text: "<end_of_image>", cursor: cursor, special: true)
+
+// Create your prompt
+let prompt = "<start_of_turn>user\nWhat's in this image?<end_of_turn>\n<start_of_turn>assistant\n"
+
+// Generate response based on the image and prompt
+let generator = Generator(text: prompt, context: context, cursor: cursor, special: true)
+
+for try await token in generator {
+    print(token, terminator: "")
+}
+```
+
+When using multimodal models, you'll need:
+1. A GGUF format LLM that supports multimodal inputs (like LLaVA, Gemma 3, etc.)
+    1. Try [gemma-3-4b-it-GGUF](https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF/tree/main) (Q8_0)
+2. A matching CLIP projection model (.gguf format)
+3. The image you want to analyze
+
+Supported image formats include JPEG, PNG, and other common formats.
 
 ## Tested models
 
