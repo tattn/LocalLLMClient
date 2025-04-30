@@ -4,14 +4,18 @@ import LLMCommon
 
 public final class Context {
     let parameter: LLMParameter
-    let context: OpaquePointer
-    var batch: llama_batch
+    package let context: OpaquePointer
+    package var batch: llama_batch
     var sampling: Sampler
     var cursor: [llama_token_data]
     private let model: OpaquePointer
 
-    var vocab: OpaquePointer {
+    package var vocab: OpaquePointer {
         llama_model_get_vocab(model)
+    }
+
+    package var addBos: Bool {
+        llama_vocab_get_add_bos(vocab)
     }
 
     public init(url: URL, parameter: LLMParameter = .default) throws(Error) {
@@ -21,6 +25,7 @@ public final class Context {
 #if targetEnvironment(simulator)
         model_params.n_gpu_layers = 0
 #endif
+        model_params.use_mmap = true
 
         guard let model = llama_model_load_from_file(url.path(), model_params) else {
             throw .modelNotFound
@@ -30,7 +35,6 @@ public final class Context {
         ctx_params.n_ctx = UInt32(parameter.context)
         ctx_params.n_threads = Int32(parameter.numberOfThreads ?? max(1, min(8, ProcessInfo.processInfo.processorCount - 2)))
         ctx_params.n_threads_batch = ctx_params.n_threads
-        model_params.use_mmap = true
 
         guard let context = llama_init_from_model(model, ctx_params) else {
             throw .couldNotInitializeContext

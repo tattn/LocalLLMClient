@@ -3,8 +3,18 @@ import LlamaSwift
 @_exported import LLMCommon
 
 public protocol LLMClient: Sendable {
-    func predict(_ input: String) async throws -> String
-    func predict(_ input: String) -> Generator
+    func predict(_ input: String, options: PredictOptions) async throws -> String
+    func predict(_ input: String, options: PredictOptions) -> Generator
+}
+
+public extension LLMClient {
+    func predict(_ input: String) async throws -> String {
+        try await predict(input, options: .default)
+    }
+
+    func predict(_ input: String) -> Generator {
+        predict(input, options: .default)
+    }
 }
 
 public enum LocalLLMClient {

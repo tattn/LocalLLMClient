@@ -1,6 +1,6 @@
 @preconcurrency import llama
 
-extension llama_batch {
+package extension llama_batch {
     mutating func clear() {
         n_tokens = 0
     }

@@ -9,9 +9,9 @@ public final class LlamaClient: LLMClient {
         context = try .init(Context(url: url, parameter: parameter))
     }
 
-    public func predict(_ input: String) async throws -> String {
+    public func predict(_ input: String, options: PredictOptions) async throws -> String {
         var finalResult = ""
-        for try await token in predict(input) {
+        for try await token in predict(input, options: options) {
             finalResult += token
 #if DEBUG
             print(token)
@@ -20,9 +20,9 @@ public final class LlamaClient: LLMClient {
         return finalResult
     }
 
-    public func predict(_ input: String) -> Generator {
+    public func predict(_ input: String, options: PredictOptions) -> Generator {
         context.withLock {
-            Generator(text: input, context: $0)
+            Generator(text: input, context: $0, special: options.parsesSpecial ?? false)
         }
     }
 }

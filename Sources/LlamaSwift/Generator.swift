@@ -2,50 +2,45 @@ import Foundation
 @preconcurrency import llama
 
 public struct Generator: AsyncSequence {
-    public init(text: String, context: Context) {
+    public init(text: String, context: Context, cursor: Int32 = 0, special: Bool = false) {
         self.text = text
         self.context = context
+        self.cursor = cursor
+        self.special = special
     }
 
     let text: String
     let context: Context
+    let cursor: Int32
+    let special: Bool
 
     public func makeAsyncIterator() -> TokenGenerator {
-        TokenGenerator(text: text, context: context)
+        TokenGenerator(text: text, context: context, cursor: cursor, special: special)
     }
 }
 
 public struct TokenGenerator: AsyncIteratorProtocol {
-    init(text: String, context: Context) {
-        let tokens = [llama_token](text, add_bos: true, vocab: context.vocab)
-
-        context.batch.clear()
-
-        for (index, token) in tokens.enumerated() {
-            context.batch.add(id: token, pos: llama_pos(index), seq_ids: [0], logits: false)
-        }
-        context.batch.logits[Int(context.batch.n_tokens) - 1] = 1
-
-        self.cursor = context.batch.n_tokens
+    init(text: String, context: Context, cursor: Int32, special: Bool) {
+        let tokens = [llama_token](text, add_bos: true, special: special, vocab: context.vocab)
+        self.cursor = context.evaluate(with: tokens, cursor: cursor)
         self.context = context
+        self.special = special
     }
 
     private let context: Context
     private var cursor: Int32
+    private var iteration = 0
     private var temporaryInvalidCharacters: [CChar] = []
+    private let special: Bool
 
     mutating public func next() async throws -> String? {
         try Task.checkCancellation()
-
-        guard llama_decode(context.context, context.batch) == 0 else {
-            throw Error.decodingFailed
-        }
+        try context.decode()
 
         let newTokenId = context.sampling.sample(context: context, index: -1)
 
         if llama_vocab_is_eog(context.vocab, newTokenId) || cursor == context.parameter.maxTokenLength {
-            let isFirstToken = cursor > context.batch.n_tokens
-            if isFirstToken, temporaryInvalidCharacters.isEmpty {
+            if iteration > 0, temporaryInvalidCharacters.isEmpty {
                 return nil
             } else {
                 let newToken = String(utf8String: temporaryInvalidCharacters + [0]) ?? ""
@@ -54,7 +49,7 @@ public struct TokenGenerator: AsyncIteratorProtocol {
             }
         }
 
-        temporaryInvalidCharacters.append(contentsOf: newTokenId.piece(vocab: context.vocab))
+        temporaryInvalidCharacters.append(contentsOf: newTokenId.piece(vocab: context.vocab, special: special))
 
         let newToken: String
         if let token = String(utf8String: temporaryInvalidCharacters + [0]) {
@@ -68,10 +63,10 @@ public struct TokenGenerator: AsyncIteratorProtocol {
             newToken = ""
         }
 
-        context.batch.clear()
         context.batch.add(id: newTokenId, pos: llama_pos(cursor), seq_ids: [0], logits: true)
 
         cursor += 1
+        iteration += 1
         return newToken
     }
 }

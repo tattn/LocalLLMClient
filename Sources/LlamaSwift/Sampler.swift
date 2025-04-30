@@ -2,7 +2,7 @@
 
 typealias Sampler = UnsafeMutablePointer<llama_sampler>
 
-extension Sampler {
+package extension Sampler {
     func sample(context: Context, index: Int32) -> llama_token {
         let logits = llama_get_logits_ith(context.context, Int32(index))!
 
