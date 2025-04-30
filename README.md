@@ -13,10 +13,10 @@ A Swift package to interact with local Large Language Models (LLMs) on Apple pla
 ## Features
 
 - Support for GGUF model format
-- Async/await support for non-blocking text generation
-- Streaming token generation
-- Configurable parameters for inference (temperature, top-k, top-p, etc.)
 - Support for iOS and macOS
+- Configurable parameters for inference (temperature, top-k, top-p, etc.)
+- Streaming token generation
+- Command-line interface
 
 ## Installation
 
@@ -89,6 +89,14 @@ let client = try LocalLLMClient.makeClient(url: modelURL, parameter: params)
 let prompt = "Write a poem about a cat"
 let text = try await client.predict(prompt)
 print(text)
+```
+
+### CLI tool
+
+You can use LocalLLMClient directly from the terminal using the command line tool:
+
+```bash
+swift run localllm --model path/to/your/model.gguf "Your prompt here"
 ```
 
 ## Tested models
