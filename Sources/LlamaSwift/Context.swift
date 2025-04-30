@@ -18,7 +18,11 @@ public final class Context {
         llama_vocab_get_add_bos(vocab)
     }
 
-    public init(url: URL, parameter: LLMParameter = .default) throws(Error) {
+    package var numberOfBatch: Int32 {
+        Int32(llama_n_batch(context))
+    }
+
+    public init(url: URL, parameter: LLMParameter = .default) throws(LLMError) {
         initializeLlama()
 
         var model_params = llama_model_default_params()
@@ -28,7 +32,7 @@ public final class Context {
         model_params.use_mmap = true
 
         guard let model = llama_model_load_from_file(url.path(), model_params) else {
-            throw .modelNotFound
+            throw .failedToLoad
         }
 
         var ctx_params = llama_context_default_params()
@@ -37,11 +41,7 @@ public final class Context {
         ctx_params.n_threads_batch = ctx_params.n_threads
 
         guard let context = llama_init_from_model(model, ctx_params) else {
-            throw .couldNotInitializeContext
-        }
-
-        guard parameter.maxTokenLength >= llama_n_ctx(context) else {
-            throw .tokenLengthExceeded
+            throw .invalidParameter
         }
 
         self.parameter = parameter

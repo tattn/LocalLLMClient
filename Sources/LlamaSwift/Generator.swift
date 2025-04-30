@@ -39,7 +39,7 @@ public struct TokenGenerator: AsyncIteratorProtocol {
 
         let newTokenId = context.sampling.sample(context: context, index: -1)
 
-        if llama_vocab_is_eog(context.vocab, newTokenId) || cursor == context.parameter.maxTokenLength {
+        if llama_vocab_is_eog(context.vocab, newTokenId) || cursor >= context.parameter.context {
             if iteration > 0, temporaryInvalidCharacters.isEmpty {
                 return nil
             } else {

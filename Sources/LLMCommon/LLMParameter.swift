@@ -9,7 +9,6 @@ public struct LLMParameter: Sendable {
         typicalP: Float = 1,
         penaltyLastN: Int = 64,
         penaltyRepeat: Float = 1,
-        maxTokenLength: Int = 2048,
     ) {
         self.context = context
         self.numberOfThreads = numberOfThreads
@@ -20,7 +19,6 @@ public struct LLMParameter: Sendable {
         self.typicalP = typicalP
         self.penaltyLastN = penaltyLastN
         self.penaltyRepeat = penaltyRepeat
-        self.maxTokenLength = maxTokenLength
     }
 
     public var context: Int
@@ -32,7 +30,6 @@ public struct LLMParameter: Sendable {
     public var typicalP: Float
     public var penaltyLastN: Int
     public var penaltyRepeat: Float = 1
-    public var maxTokenLength: Int
 
     public static let `default` = LLMParameter()
 }
