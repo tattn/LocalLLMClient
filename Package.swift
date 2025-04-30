@@ -58,12 +58,5 @@ let package = Package(
 
         .target(name: "LlamaSwiftExperimental", dependencies: ["LlamaSwiftExperimentalC", "LlamaSwift"]),
         .target(name: "LlamaSwiftExperimentalC", dependencies: ["LlamaFramework"]),
-        .executableTarget(
-            name: "LLMCExperimentalCLI",
-            dependencies: [
-                "LlamaSwift",
-                "LlamaSwiftExperimental",
-            ]
-        ),
     ]
 )

@@ -1,7 +1,7 @@
 @preconcurrency import llama
 import LLMCommon
 
-package extension Context {
+public extension Context {
     func decode() throws(LLMError) {
         guard batch.n_tokens > 0 else {
             return // no data to decode
