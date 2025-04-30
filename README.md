@@ -7,6 +7,10 @@
 
 A Swift package to interact with local Large Language Models (LLMs) on Apple platforms.
 
+https://github.com/user-attachments/assets/478d5c58-19e4-4c33-8ad2-53ec511a86e8
+
+*This video shows a multimodal LLM running on iPhone 16 Pro at natural, real-time speed (MobileVLM-3B)*
+
 > [!IMPORTANT]
 > This project is still experimental. The API is subject to change.
 
