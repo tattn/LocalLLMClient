@@ -41,5 +41,4 @@ jobs:
           branch: update-llama-dependency-${{ env.DATE }}
           base: main
           labels: |
-            automated
-            dependencies
+            bot
