@@ -14,6 +14,9 @@ let package = Package(
         .executable(
             name: "localllm",
             targets: ["LocalLLMCLI"]),
+        .library(
+            name: "LocalLLMClientExperimental",
+            targets: ["LlamaSwiftExperimental"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0")
@@ -52,5 +55,15 @@ let package = Package(
         ),
 
         .target(name: "LLMCommon"),
+
+        .target(name: "LlamaSwiftExperimental", dependencies: ["LlamaSwiftExperimentalC", "LlamaSwift"]),
+        .target(name: "LlamaSwiftExperimentalC", dependencies: ["LlamaFramework"]),
+        .executableTarget(
+            name: "LLMCExperimentalCLI",
+            dependencies: [
+                "LlamaSwift",
+                "LlamaSwiftExperimental",
+            ]
+        ),
     ]
 )
