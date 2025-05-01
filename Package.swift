@@ -57,6 +57,6 @@ let package = Package(
         .target(name: "LLMCommon"),
 
         .target(name: "LlamaSwiftExperimental", dependencies: ["LlamaSwiftExperimentalC", "LlamaSwift"]),
-        .target(name: "LlamaSwiftExperimentalC", dependencies: ["LlamaFramework"]),
+        .target(name: "LlamaSwiftExperimentalC", dependencies: ["LlamaFramework"], exclude: ["exclude"]),
     ]
 )
