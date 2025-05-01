@@ -23,6 +23,8 @@ jobs:
       LOCAL_LLM_PATH: "${{ github.workspace }}/model/SmolLM2-135M-Instruct-Q5_K_M.gguf"
     steps:
     - uses: actions/checkout@v4
+      with:
+        submodules: recursive
     
     - name: Cache model file
       id: cache-model

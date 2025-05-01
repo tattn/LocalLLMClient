@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Get current datetime
         run: echo "DATE=$(date '+%Y%m%d%H%M%S')" >> $GITHUB_ENV
