@@ -9,7 +9,7 @@ public final class LlamaClient: LLMClient {
         context = try .init(Context(url: url, parameter: parameter))
     }
 
-    public func predict(_ input: String, options: PredictOptions) async throws -> String {
+    public func predict(_ input: LLMInput, options: PredictOptions) async throws -> String {
         var finalResult = ""
         for try await token in predict(input, options: options) {
             finalResult += token
@@ -20,9 +20,9 @@ public final class LlamaClient: LLMClient {
         return finalResult
     }
 
-    public func predict(_ input: String, options: PredictOptions) -> Generator {
+    public func predict(_ input: LLMInput, options: PredictOptions) -> Generator {
         context.withLock {
-            Generator(text: input, context: $0, special: options.parsesSpecial ?? false)
+            Generator(text: input.prompt, context: $0, special: options.parsesSpecial ?? false)
         }
     }
 }

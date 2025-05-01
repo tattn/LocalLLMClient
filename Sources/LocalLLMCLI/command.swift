@@ -55,8 +55,10 @@ struct LocalLLMCommand: AsyncParsableCommand {
             print("---")
         }
 
+        let input = LLMInput(prompt: prompt)
+
         // Generate response
-        for try await token in client.predict(prompt) {
+        for try await token in client.predict(input) {
             print(token, terminator: "")
             fflush(stdout)
         }
