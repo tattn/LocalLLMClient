@@ -1,4 +1,4 @@
-// https://github.com/ggml-org/llama.cpp/blob/master/examples/llava/llava.cpp
+// $SOURCE=https://github.com/ggml-org/llama.cpp/blob/master/examples/llava/llava.cpp
 #include "clip.h"
 #include "llava.h"
 

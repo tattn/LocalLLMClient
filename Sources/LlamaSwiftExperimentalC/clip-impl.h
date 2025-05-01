@@ -1,8 +1,6 @@
-// https://github.com/ggml-org/llama.cpp/blob/master/examples/llava/clip-impl.h
+// $SOURCE=https://github.com/ggml-org/llama.cpp/blob/master/examples/llava/clip-impl.h
 #include "ggml.h"
 #include "gguf.h"
-#include "clip.h"
-
 #include "clip.h"
 
 #include <climits>

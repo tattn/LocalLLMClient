@@ -4,21 +4,24 @@ import LLMCommon
 @_exported import LlamaSwiftExperimentalC
 
 public class ClipModel {
-    package let clipContext: OpaquePointer
+    package let clip: OpaquePointer
 
     public init(url: URL) throws(LLMError) {
         guard let clipContext = clip_model_load(url.path(), 1) else {
             throw .failedToLoad
         }
-        self.clipContext = clipContext
+        self.clip = clipContext
     }
 
     deinit {
-        clip_free(clipContext)
+        clip_free(clip)
     }
 
-    public func embedded(imageURL: URL, threads: Int = 4) throws(LLMError) -> ImageEmbed {
-        guard let embed = llava_image_embed_make_with_filename(clipContext, Int32(threads), imageURL.path()) else {
+    public func embedded(imageData: Data, threads: Int = 4) throws(LLMError) -> ImageEmbed {
+        guard let embed = imageData.withUnsafeBytes({ buffer in
+            let bytes = buffer.bindMemory(to: UInt8.self).baseAddress
+            return llava_image_embed_make_with_bytes(clip, Int32(threads), bytes, Int32(buffer.count))
+        }) else {
             throw .failedToLoad
         }
         return ImageEmbed(embed: embed)

@@ -1,4 +1,4 @@
-// https://github.com/ggml-org/llama.cpp/blob/master/examples/llava/clip.cpp
+// $SOURCE=https://github.com/ggml-org/llama.cpp/blob/master/examples/llava/clip.cpp
 // NOTE: This is modified from clip.cpp only for LLaVA,
 // so there might be still unnecessary artifacts hanging around
 // I'll gradually clean and extend it

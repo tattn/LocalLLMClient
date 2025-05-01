@@ -123,7 +123,7 @@ let context = try Context(url: modelURL)
 let clipModel = try ClipModel(url: clipURL)
 
 // Generate image embedding
-let embed = try clipModel.embedded(imageURL: imageURL)
+let embed = try clipModel.embedded(imageData: Data(contentsOf: imageURL))
 
 // Process the image in the context
 var cursor = try context.decode(text: "<start_of_image>", cursor: 0, special: true)

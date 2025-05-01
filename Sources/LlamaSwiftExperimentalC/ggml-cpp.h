@@ -1,4 +1,4 @@
-// https://github.com/ggml-org/llama.cpp/blob/master/ggml/include/ggml-cpp.h
+// $SOURCE=https://github.com/ggml-org/llama.cpp/blob/master/ggml/include/ggml-cpp.h
 #pragma once
 
 #ifndef __cplusplus
@@ -25,7 +25,7 @@ typedef std::unique_ptr<gguf_context, gguf_context_deleter> gguf_context_ptr;
 
 struct ggml_gallocr_deleter { void operator()(ggml_gallocr_t galloc) { ggml_gallocr_free(galloc); } };
 
-typedef std::unique_ptr<ggml_gallocr_t, ggml_gallocr_deleter> ggml_gallocr_ptr;
+typedef std::unique_ptr<ggml_gallocr, ggml_gallocr_deleter> ggml_gallocr_ptr;
 
 // ggml-backend
 

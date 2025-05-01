@@ -1,4 +1,4 @@
-// https://github.com/ggml-org/llama.cpp/blob/master/examples/llava/llava.h
+// $SOURCE=https://github.com/ggml-org/llama.cpp/blob/master/examples/llava/llava.h
 #ifndef LLAVA_H
 #define LLAVA_H
 
