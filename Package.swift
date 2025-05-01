@@ -6,7 +6,7 @@ let llamaVersion = "b5228"
 
 let package = Package(
     name: "LocalLLMClient",
-    platforms: [.iOS(.v18), .macOS(.v15), .watchOS(.v11), .tvOS(.v18), .visionOS(.v2)],
+    platforms: [.iOS(.v18), .macOS(.v15), .tvOS(.v18), .visionOS(.v2)],
     products: [
         .library(
             name: "LocalLLMClient",
