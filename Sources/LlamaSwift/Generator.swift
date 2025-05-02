@@ -2,27 +2,24 @@ import Foundation
 @preconcurrency import llama
 
 public struct Generator: AsyncSequence {
-    public init(text: String, context: Context, cursor: Int32 = 0, special: Bool = false) {
-        self.text = text
+    public init(context: Context, cursor: Int32 = 0, special: Bool = false) {
         self.context = context
         self.cursor = cursor
         self.special = special
     }
 
-    let text: String
     let context: Context
     let cursor: Int32
     let special: Bool
 
     public func makeAsyncIterator() -> TokenGenerator {
-        TokenGenerator(text: text, context: context, cursor: cursor, special: special)
+        TokenGenerator(context: context, cursor: cursor, special: special)
     }
 }
 
 public struct TokenGenerator: AsyncIteratorProtocol {
-    init(text: String, context: Context, cursor: Int32, special: Bool) {
-        let tokens = [llama_token](text, add_bos: true, special: special, vocab: context.vocab)
-        self.cursor = context.evaluate(with: tokens, cursor: cursor)
+    init(context: Context, cursor: Int32, special: Bool) {
+        self.cursor = cursor
         self.context = context
         self.special = special
     }

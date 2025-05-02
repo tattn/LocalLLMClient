@@ -28,7 +28,7 @@ public class ClipModel {
     }
 }
 
-public class ImageEmbed {
+public final class ImageEmbed: LLMEmbedding, @unchecked Sendable {
     package let embed: UnsafeMutablePointer<llava_image_embed>
 
     public init(embed: UnsafeMutablePointer<llava_image_embed>) {
