@@ -1,8 +1,8 @@
 import ArgumentParser
 import Foundation
 import LocalLLMClient
-import LlamaClient
-import MLXClient
+import LocalLLMClientLlama
+import LocalLLMClientMLX
 
 @main
 struct LocalLLMCommand: AsyncParsableCommand {

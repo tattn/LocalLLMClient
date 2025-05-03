@@ -39,6 +39,7 @@ dependencies: [
 
 ```swift
 import LocalLLMClient
+import LocalLLMClientLlama
 
 // Download a model file
 let remoteURL = URL(string: "https://huggingface.co/unsloth/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q5_K_M.gguf")!
@@ -59,6 +60,7 @@ The client provides an async sequence API for accessing tokens as they're genera
 
 ```swift
 import LocalLLMClient
+import LocalLLMClientLlama
 
 // Initialize a client with the path to your model file
 let modelURL = URL(fileURLWithPath: "path/to/your/model.gguf")
@@ -77,18 +79,17 @@ You can customize the LLM parameters when initializing the context:
 
 ```swift
 import LocalLLMClient
+import LocalLLMClientLlama
 
 // Configure custom parameters
-let params = LLMParameter(
+let modelURL = URL(fileURLWithPath: "path/to/your/model.gguf")
+let client = try LocalLLMClient.llama(url: modelURL, parameter: .init(
     context: 4096,             // Text context size (0 = size the model was trained on)
     numberOfThreads: 4,        // CPU threads to use (nil = auto)
     temperature: 0.7,          // Randomness (0.0 to 1.0)
     topK: 40,                  // Top-K sampling
     topP: 0.9,                 // Top-P (nucleus) sampling
-)
-
-let modelURL = URL(fileURLWithPath: "path/to/your/model.gguf")
-let client = try LocalLLMClient.llama(url: modelURL, parameter: params)
+))
 
 // Generate text
 let prompt = "Write a poem about a cat"
@@ -110,7 +111,7 @@ LocalLLMClient supports multimodal models like LLaVA for processing images along
 
 ```swift
 import LocalLLMClient
-import LlamaClientExperimental
+import LocalLLMClientLlama
 
 let clipURL = URL(filePath: "path/to/mmproj-model-f16.gguf")
 let modelURL = URL(filePath: "path/to/multimodal-model.gguf")

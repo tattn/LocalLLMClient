@@ -12,15 +12,15 @@ let package = Package(
             name: "LocalLLMClient",
             targets: ["LocalLLMClient"]),
         .library(
-            name: "LlamaClient",
-            targets: ["LlamaClient"]),
+            name: "LocalLLMClientLlama",
+            targets: ["LocalLLMClientLlama"]),
         .executable(
             name: "localllm",
             targets: ["LocalLLMCLI"]),
 
         .library(
-            name: "MLXClient",
-            targets: ["MLXClient"]),
+            name: "LocalLLMClientMLX",
+            targets: ["LocalLLMClientMLX"]),
     ],
     dependencies: [
         .package(url: "https://github.com/ml-explore/mlx-swift-examples", branch: "main"),
@@ -33,34 +33,34 @@ let package = Package(
         .executableTarget(
             name: "LocalLLMCLI",
             dependencies: [
-                "LlamaClient",
-                "MLXClient",
+                "LocalLLMClientLlama",
+                "LocalLLMClientMLX",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
         ),
         .testTarget(
             name: "LocalLLMClientTests",
-            dependencies: ["LlamaClient"]
+            dependencies: ["LocalLLMClientLlama"]
         ),
 
         .target(
-            name: "LlamaClient",
+            name: "LocalLLMClientLlama",
             dependencies: [
                 "LocalLLMClient",
-                "LlamaClientExperimentalC",
-                "LlamaFramework",
+                "LocalLLMClientLlamaC",
+                "LocalLLMClientLlamaFramework",
             ],
         ),
         .binaryTarget(
-            name: "LlamaFramework",
+            name: "LocalLLMClientLlamaFramework",
             url:
                 "https://github.com/ggml-org/llama.cpp/releases/download/\(llamaVersion)/llama-\(llamaVersion)-xcframework.zip",
             checksum: "482aa58c47c8dba464d589c6f7986d4035c403dad18696597f918ecb95cb3e19"
         ),
 
         .target(
-            name: "LlamaClientExperimentalC",
-            dependencies: ["LlamaFramework"],
+            name: "LocalLLMClientLlamaC",
+            dependencies: ["LocalLLMClientLlamaFramework"],
             exclude: ["exclude"],
             cSettings: [
                 .unsafeFlags(["-w"])
@@ -68,7 +68,7 @@ let package = Package(
         ),
 
         .target(
-            name: "MLXClient",
+            name: "LocalLLMClientMLX",
             dependencies: [
                 "LocalLLMClient",
 //                .product(name: "MLX", package: "mlx-swift-examples"),

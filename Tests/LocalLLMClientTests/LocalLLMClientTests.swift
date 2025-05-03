@@ -1,7 +1,7 @@
 import Testing
 import Foundation
 import LocalLLMClient
-import LlamaClient
+import LocalLLMClientLlama
 
 private let url = URL(fileURLWithPath: ProcessInfo.processInfo.environment["LOCAL_LLM_PATH"]!)
 
