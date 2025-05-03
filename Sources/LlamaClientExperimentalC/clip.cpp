@@ -1,1 +1,1 @@
-exclude/llama.cpp/examples/llava/clip.cpp
+exclude/llama.cpp/tools/llava/clip.cpp
