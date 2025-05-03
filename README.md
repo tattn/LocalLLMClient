@@ -16,7 +16,7 @@ https://github.com/user-attachments/assets/478d5c58-19e4-4c33-8ad2-53ec511a86e8
 
 ## Features
 
-- Support for GGUF model format
+- Support for GGUF / MLX models
 - Support for iOS and macOS
 - Configurable parameters for inference (temperature, top-k, top-p, etc.)
 - Streaming token generation
@@ -37,6 +37,9 @@ dependencies: [
 
 ### Basic Example
 
+<details>
+<summary>Using with llama.cpp (LocalLLMClientLlama)</summary>
+
 ```swift
 import LocalLLMClient
 import LocalLLMClientLlama
@@ -53,10 +56,30 @@ let prompt = "1 + 2 = ?"
 let text = try await client.generateText(from: prompt)
 print(text)
 ```
+</details>
+
+<details>
+<summary>Using with Apple MLX (LocalLLMClientMLX)</summary>
+
+```swift
+import LocalLLMClient
+import LocalLLMClientMLX
+
+// Initialize a client with the path to your model
+let modelURL = URL(fileURLWithPath: "path/to/your/mlx-model")
+let client = try await LocalLLMClient.mlx(url: modelURL)
+
+// Generate text
+let prompt = "1 + 2 = ?"
+let text = try await client.generateText(from: prompt)
+print(text)
+```
+</details>
 
 ### Streaming Example
 
-The client provides an async sequence API for accessing tokens as they're generated:
+<details>
+<summary>Using with llama.cpp (LocalLLMClientLlama)</summary>
 
 ```swift
 import LocalLLMClient
@@ -72,10 +95,31 @@ for try await token in try client.textStream(from: prompt) {
     print(token, terminator: "")
 }
 ```
+</details>
+
+<details>
+<summary>Using with Apple MLX (LocalLLMClientMLX)</summary>
+
+```swift
+import LocalLLMClient
+import LocalLLMClientMLX
+
+// Initialize a client with the path to your model
+let modelURL = URL(fileURLWithPath: "path/to/your/mlx-model")
+let client = try await LocalLLMClient.mlx(url: modelURL)
+
+// Process tokens as they arrive in real-time
+let prompt = "Tell me a story about a cat"
+for try await token in try await client.textStream(from: prompt) {
+    print(token, terminator: "")
+}
+```
+</details>
 
 ### Custom Parameters
 
-You can customize the LLM parameters when initializing the context:
+<details>
+<summary>Using with llama.cpp (LocalLLMClientLlama)</summary>
 
 ```swift
 import LocalLLMClient
@@ -96,6 +140,28 @@ let prompt = "Write a poem about a cat"
 let text = try await client.generateText(from: prompt)
 print(text)
 ```
+</details>
+
+<details>
+<summary>Using with Apple MLX (LocalLLMClientMLX)</summary>
+
+```swift
+import LocalLLMClient
+import LocalLLMClientMLX
+
+// Configure custom parameters
+let modelURL = URL(fileURLWithPath: "path/to/your/mlx-model")
+let client = try await LocalLLMClient.mlx(url: modelURL, parameter: .init(
+    temperature: 0.7,          // Randomness (0.0 to 1.0)
+    topP: 0.9                  // Top-P (nucleus) sampling
+))
+
+// Generate text
+let prompt = "Write a poem about a cat"
+let text = try await client.generateText(from: prompt)
+print(text)
+```
+</details>
 
 ### CLI tool
 
@@ -161,7 +227,7 @@ Supported image formats include JPEG, PNG, and other common formats.
 
 ## Acknowledgements
 
-This package uses [llama.cpp](https://github.com/ggml-org/llama.cpp).
+This package uses [llama.cpp](https://github.com/ggml-org/llama.cpp) and [Apple's MLX](https://opensource.apple.com/projects/mlx/) for model inference.
 
 ---
 
