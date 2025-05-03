@@ -5,22 +5,11 @@ import LocalLLMClient
 public final class LlamaClient: LLMClient {
     private let context: Mutex<Context>
 
-    public init(url: URL, parameter: LLMParameter = .default) throws {
+    public init(url: URL, parameter: Parameter = .default) throws {
         context = try .init(Context(url: url, parameter: parameter))
     }
 
-    public func predict(_ input: LLMInput) async throws -> String {
-        var finalResult = ""
-        for try await token in try predict(input) {
-            finalResult += token
-#if DEBUG
-            print(token)
-#endif
-        }
-        return finalResult
-    }
-
-    public func predict(_ input: LLMInput) throws -> Generator {
+    public func textStream(from input: LLMInput) throws -> Generator {
         try context.withLock { context in
             var decodeContext = DecodingContext(cursor: 0, special: input.parsesSpecial ?? false)
             var promptCursor = input.prompt.startIndex
@@ -71,14 +60,11 @@ public final class LlamaClient: LLMClient {
             return Generator(context: context, decodeContext: decodeContext)
         }
     }
-
-    public static func setVerbose(_ verbose: Bool) {
-        setLlamaVerbose(verbose)
-    }
 }
 
 public extension LocalLLMClient {
-    static func llama(url: URL, parameter: LLMParameter = .default) throws -> LlamaClient {
-        try LlamaClient(url: url, parameter: parameter)
+    static func llama(url: URL, parameter: LlamaClient.Parameter = .default, verbose: Bool = false) throws -> LlamaClient {
+        setLlamaVerbose(verbose)
+        return try LlamaClient(url: url, parameter: parameter)
     }
 }

@@ -49,7 +49,7 @@ let client = try LocalLLMClient.llama(url: modelURL)
 
 // Generate text
 let prompt = "1 + 2 = ?"
-let text = try await client.predict(prompt)
+let text = try await client.generateText(from: prompt)
 print(text)
 ```
 
@@ -66,7 +66,7 @@ let client = try LocalLLMClient.llama(url: modelURL)
 
 // Process tokens as they arrive in real-time
 let prompt = "Tell me a story about a cat"
-for try await token in try client.predict(prompt) {
+for try await token in try client.textStream(from: prompt) {
     print(token, terminator: "")
 }
 ```
@@ -92,7 +92,7 @@ let client = try LocalLLMClient.llama(url: modelURL, parameter: params)
 
 // Generate text
 let prompt = "Write a poem about a cat"
-let text = try await client.predict(prompt)
+let text = try await client.generateText(from: prompt)
 print(text)
 ```
 
@@ -110,7 +110,7 @@ LocalLLMClient supports multimodal models like LLaVA for processing images along
 
 ```swift
 import LocalLLMClient
-import LlamaSwiftExperimental
+import LlamaClientExperimental
 
 let clipURL = URL(filePath: "path/to/mmproj-model-f16.gguf")
 let modelURL = URL(filePath: "path/to/multimodal-model.gguf")
@@ -132,7 +132,7 @@ let input = LLMInput(
     ]
 )
 
-for try await token in client.predict(input) {
+for try await token in client.textStream(from: input) {
     print(token, terminator: "")
 }
 ```

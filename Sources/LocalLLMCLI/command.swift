@@ -1,7 +1,8 @@
 import ArgumentParser
 import Foundation
 import LocalLLMClient
-import LlamaSwift
+import LlamaClient
+import MLXClient
 
 @main
 struct LocalLLMCommand: AsyncParsableCommand {
@@ -15,6 +16,9 @@ struct LocalLLMCommand: AsyncParsableCommand {
 
     @Option(name: [.short, .long], help: "Path to the model file")
     var model: String
+
+    @Option(name: [.short, .long], help: "Backend to use: \(Backend.allCases.map(\.rawValue).joined(separator: ", "))")
+    var backend: String = Backend.llama.rawValue
 
     @Option(name: [.short, .long], help: "Temperature for sampling")
     var temperature: Float = 0.8
@@ -38,24 +42,31 @@ struct LocalLLMCommand: AsyncParsableCommand {
     @Argument(help: "The prompt to send to the model")
     var prompt: String
 
-    func run() async throws {
-        setLlamaLog(callback: verbose ? { level, message in
-            llamaLog(level: level, message: message)
-            print(message, terminator: "")
-        } : nil)
+    enum Backend: String, CaseIterable {
+        case llama
+        case mlx
+    }
 
+    func run() async throws {
         if verbose {
             print("Loading model from: \(model)")
         }
 
         // Initialize client
-        let parameter = LLMParameter(
-            temperature: temperature,
-            topK: topK,
-            topP: topP,
-        )
         let modelURL = URL(fileURLWithPath: model)
-        let client = try LocalLLMClient.llama(url: modelURL, parameter: parameter)
+        let client: any LLMClient = switch Backend(rawValue: backend) {
+        case .llama, nil:
+            try LocalLLMClient.llama(url: modelURL, parameter: .init(
+                temperature: temperature,
+                topK: topK,
+                topP: topP,
+            ), verbose: verbose)
+        case .mlx:
+            try await LocalLLMClient.mlx(url: modelURL, parameter: .init(
+                temperature: temperature,
+                topP: topP,
+            ))
+        }
 
         var attachments: [String: LLMAttachment] = [:]
         if let clip, let imageURL {
@@ -77,7 +88,7 @@ struct LocalLLMCommand: AsyncParsableCommand {
         )
 
         // Generate response
-        for try await token in try client.predict(input) {
+        for try await token in try await client.textStream(from: input) {
             print(token, terminator: "")
             fflush(stdout)
         }

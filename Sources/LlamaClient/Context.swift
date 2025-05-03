@@ -3,7 +3,7 @@ import Foundation
 import LocalLLMClient
 
 public final class Context {
-    let parameter: LLMParameter
+    let parameter: LlamaClient.Parameter
     package let context: OpaquePointer
     package var batch: llama_batch
     var sampling: Sampler
@@ -22,7 +22,7 @@ public final class Context {
         Int32(llama_n_batch(context))
     }
 
-    public init(url: URL, parameter: LLMParameter = .default) throws(LLMError) {
+    public init(url: URL, parameter: LlamaClient.Parameter = .default) throws(LLMError) {
         initializeLlama()
 
         var model_params = llama_model_default_params()

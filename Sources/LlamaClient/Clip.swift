@@ -1,6 +1,6 @@
 import Foundation
 import LocalLLMClient
-@_exported import LlamaSwiftExperimentalC
+@_exported import LlamaClientExperimentalC
 
 public class ClipModel {
     package let clip: OpaquePointer

@@ -1,7 +1,7 @@
 import Testing
 import Foundation
 import LocalLLMClient
-import LlamaSwift
+import LlamaClient
 
 private let url = URL(fileURLWithPath: ProcessInfo.processInfo.environment["LOCAL_LLM_PATH"]!)
 
@@ -9,7 +9,7 @@ private let url = URL(fileURLWithPath: ProcessInfo.processInfo.environment["LOCA
     let client = try LocalLLMClient.llama(url: url)
     let input = "What is the answer to one plus two?"
 
-    let result = try await client.predict(input)
+    let result = try await client.generateText(from: input)
     print(result)
 
     #expect(!result.isEmpty)
@@ -20,7 +20,7 @@ private let url = URL(fileURLWithPath: ProcessInfo.processInfo.environment["LOCA
     let input = "What is the answer to one plus two?"
 
     var result = ""
-    for try await text in try client.predict(input) {
+    for try await text in try await client.textStream(from: input) {
         print(text)
         result += text
     }

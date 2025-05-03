@@ -1,19 +1,26 @@
 import Foundation
 
 public protocol LLMClient: Sendable {
-    associatedtype Generator
-    func predict(_ input: LLMInput) async throws -> String
-    func predict(_ input: LLMInput) throws -> Generator
-    static func setVerbose(_ verbose: Bool)
+    associatedtype Generator: AsyncSequence where Generator.Element == String
+    func generateText(from input: LLMInput) async throws -> String
+    func textStream(from input: LLMInput) async throws -> Generator
 }
 
 public extension LLMClient {
-    func predict(_ input: String) async throws -> String {
-        try await predict(.init(prompt: input))
+    func generateText(from input: LLMInput) async throws -> String {
+        var finalResult = ""
+        for try await token in try await textStream(from: input) as Generator {
+            finalResult += token
+        }
+        return finalResult
     }
 
-    func predict(_ input: String) throws -> Generator {
-        try predict(.init(prompt: input))
+    func generateText(from input: String) async throws -> String {
+        try await generateText(from: .init(prompt: input))
+    }
+
+    func textStream(from input: String) async throws -> Generator {
+        try await textStream(from: .init(prompt: input))
     }
 }
 
