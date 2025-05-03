@@ -1,6 +1,6 @@
 import Foundation
-import LlamaSwiftExperimental
 import Synchronization
+import LocalLLMClient
 
 public final class LlamaClient: LLMClient {
     private let context: Mutex<Context>
@@ -70,5 +70,15 @@ public final class LlamaClient: LLMClient {
 
             return Generator(context: context, decodeContext: decodeContext)
         }
+    }
+
+    public static func setVerbose(_ verbose: Bool) {
+        setLlamaVerbose(verbose)
+    }
+}
+
+public extension LocalLLMClient {
+    static func llama(url: URL, parameter: LLMParameter = .default) throws -> LlamaClient {
+        try LlamaClient(url: url, parameter: parameter)
     }
 }

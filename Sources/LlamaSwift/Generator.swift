@@ -1,5 +1,6 @@
 import Foundation
 @preconcurrency import llama
+import LocalLLMClient
 
 public struct Generator: AsyncSequence {
     public init(context: Context, decodeContext: DecodingContext) {

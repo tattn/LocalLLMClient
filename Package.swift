@@ -20,27 +20,25 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "LocalLLMClient",
-            dependencies: [
-                "LlamaSwiftExperimental"
-            ]
+            name: "LocalLLMClient"
         ),
         .executableTarget(
             name: "LocalLLMCLI",
             dependencies: [
-                "LocalLLMClient",
+                "LlamaSwift",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
         ),
         .testTarget(
             name: "LocalLLMClientTests",
-            dependencies: ["LocalLLMClient"]
+            dependencies: ["LlamaSwift"]
         ),
 
         .target(
             name: "LlamaSwift",
             dependencies: [
-                "LLMCommon",
+                "LocalLLMClient",
+                "LlamaSwiftExperimentalC",
                 "LlamaFramework",
             ],
         ),
@@ -51,10 +49,6 @@ let package = Package(
             checksum: "482aa58c47c8dba464d589c6f7986d4035c403dad18696597f918ecb95cb3e19"
         ),
 
-        .target(name: "LLMCommon"),
-
-        .target(
-            name: "LlamaSwiftExperimental", dependencies: ["LlamaSwiftExperimentalC", "LlamaSwift"]),
         .target(
             name: "LlamaSwiftExperimentalC",
             dependencies: ["LlamaFramework"],

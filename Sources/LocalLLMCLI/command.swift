@@ -1,7 +1,7 @@
 import ArgumentParser
 import Foundation
 import LocalLLMClient
-import LlamaSwiftExperimental
+import LlamaSwift
 
 @main
 struct LocalLLMCommand: AsyncParsableCommand {
@@ -55,7 +55,7 @@ struct LocalLLMCommand: AsyncParsableCommand {
             topP: topP,
         )
         let modelURL = URL(fileURLWithPath: model)
-        let client = try LocalLLMClient.makeClient(url: modelURL, parameter: parameter)
+        let client = try LocalLLMClient.llama(url: modelURL, parameter: parameter)
 
         var attachments: [String: LLMAttachment] = [:]
         if let clip, let imageURL {

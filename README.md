@@ -45,7 +45,7 @@ let remoteURL = URL(string: "https://huggingface.co/unsloth/gemma-3-1b-it-GGUF/r
 let (modelURL, _) = try await URLSession.shared.download(from: remoteURL)
 
 // Initialize a client with the path to your model file
-let client = try LocalLLMClient.makeClient(url: modelURL)
+let client = try LocalLLMClient.llama(url: modelURL)
 
 // Generate text
 let prompt = "1 + 2 = ?"
@@ -62,7 +62,7 @@ import LocalLLMClient
 
 // Initialize a client with the path to your model file
 let modelURL = URL(fileURLWithPath: "path/to/your/model.gguf")
-let client = try LocalLLMClient.makeClient(url: modelURL)
+let client = try LocalLLMClient.llama(url: modelURL)
 
 // Process tokens as they arrive in real-time
 let prompt = "Tell me a story about a cat"
@@ -88,7 +88,7 @@ let params = LLMParameter(
 )
 
 let modelURL = URL(fileURLWithPath: "path/to/your/model.gguf")
-let client = try LocalLLMClient.makeClient(url: modelURL, parameter: params)
+let client = try LocalLLMClient.llama(url: modelURL, parameter: params)
 
 // Generate text
 let prompt = "Write a poem about a cat"
@@ -122,7 +122,7 @@ let clipModel = try ClipModel(url: clipURL)
 // Generate image embedding
 let embed = try clipModel.embedded(imageData: Data(contentsOf: imageURL))
 
-let client = try LocalLLMClient.makeClient(url: modelURL
+let client = try LocalLLMClient.llama(url: modelURL)
 
 let input = LLMInput(
     prompt: "<start_of_image><$IMG$><end_of_image><start_of_turn>user\nWhat's in this image?<end_of_turn>\n<start_of_turn>assistant\n",

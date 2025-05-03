@@ -1,5 +1,5 @@
 @preconcurrency import llama
-import LLMCommon
+import LocalLLMClient
 
 public extension Context {
     func decode() throws(LLMError) {

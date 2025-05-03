@@ -1,10 +1,10 @@
 import Foundation
-import LlamaSwiftExperimental
-@_exported import LLMCommon
 
 public protocol LLMClient: Sendable {
+    associatedtype Generator
     func predict(_ input: LLMInput) async throws -> String
     func predict(_ input: LLMInput) throws -> Generator
+    static func setVerbose(_ verbose: Bool)
 }
 
 public extension LLMClient {
@@ -17,12 +17,4 @@ public extension LLMClient {
     }
 }
 
-public enum LocalLLMClient {
-    public static func makeClient(url: URL, parameter: LLMParameter = .default) throws -> LLMClient {
-        try LlamaClient(url: url, parameter: parameter)
-    }
-
-    public static func setVerbose(_ verbose: Bool) {
-        setLlamaVerbose(verbose)
-    }
-}
+public enum LocalLLMClient {}

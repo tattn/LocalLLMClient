@@ -1,6 +1,6 @@
 @preconcurrency import llama
 import Foundation
-import LLMCommon
+import LocalLLMClient
 
 public final class Context {
     let parameter: LLMParameter

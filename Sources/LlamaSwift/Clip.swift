@@ -1,6 +1,5 @@
 import Foundation
-import LLMCommon
-@_exported import LlamaSwift
+import LocalLLMClient
 @_exported import LlamaSwiftExperimentalC
 
 public class ClipModel {
