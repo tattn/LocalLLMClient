@@ -77,7 +77,7 @@ struct LocalLLMCommand: AsyncParsableCommand {
         )
 
         // Generate response
-        for try await token in client.predict(input) {
+        for try await token in try client.predict(input) {
             print(token, terminator: "")
             fflush(stdout)
         }
