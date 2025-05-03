@@ -19,7 +19,7 @@ private let url = URL(fileURLWithPath: ProcessInfo.processInfo.environment["LOCA
     let input = "What is the answer to one plus two?"
 
     var result = ""
-    for try await text in client.predict(input) {
+    for try await text in try client.predict(input) {
         print(text)
         result += text
     }
