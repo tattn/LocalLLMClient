@@ -31,13 +31,35 @@ public actor FileDownloader {
     }
 
     public func download(onProgress: @Sendable @escaping (Double) -> Void) async throws -> URL {
+        if let cachedURL = await cachedURL() {
+            return cachedURL
+        }
         switch source {
         case let .huggingFace(id, globs):
-            let hub = HubApi(downloadBase: destination.appending(component: "huggingface"), useOfflineMode: false)
             let repo = Hub.Repo(id: id)
-            return try await hub.snapshot(from: repo, matching: globs.rawValue) { progress in
+            return try await makeHub(offlineMode: false).snapshot(from: repo, matching: globs.rawValue) { progress in
                 onProgress(progress.fractionCompleted)
             }
         }
+    }
+
+    public func isDownloaded() async -> Bool {
+        await cachedURL() != nil
+    }
+
+    public func cachedURL() async -> URL? {
+        do {
+            switch source {
+            case let .huggingFace(id, globs):
+                let repo = Hub.Repo(id: id)
+                return try await makeHub(offlineMode: true).snapshot(from: repo, matching: globs.rawValue)
+            }
+        } catch {
+            return nil
+        }
+    }
+
+    private func makeHub(offlineMode: Bool) -> HubApi {
+        HubApi(downloadBase: destination.appending(component: "huggingface"), useOfflineMode: offlineMode)
     }
 }
