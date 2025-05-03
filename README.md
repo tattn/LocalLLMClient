@@ -37,7 +37,7 @@ dependencies: [
 
 ### Basic Example
 
-<details>
+<details open>
 <summary>Using with llama.cpp (LocalLLMClientLlama)</summary>
 
 ```swift
@@ -78,7 +78,7 @@ print(text)
 
 ### Streaming Example
 
-<details>
+<details open>
 <summary>Using with llama.cpp (LocalLLMClientLlama)</summary>
 
 ```swift
@@ -118,7 +118,7 @@ for try await token in try await client.textStream(from: prompt) {
 
 ### Custom Parameters
 
-<details>
+<details open>
 <summary>Using with llama.cpp (LocalLLMClientLlama)</summary>
 
 ```swift
@@ -168,7 +168,8 @@ print(text)
 You can use LocalLLMClient directly from the terminal using the command line tool:
 
 ```bash
-swift run localllm --model path/to/your/model.gguf "Your prompt here"
+swift run localllm --model /path/to/your/model.gguf "Your prompt here"
+swift run localllm --model "https://huggingface.co/mlx-community/Qwen3-1.7B-4bit" --backend mlx "Your prompt here"
 ```
 
 ## Multimodal for Image (Experimental)

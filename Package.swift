@@ -11,16 +11,22 @@ let package = Package(
         .library(
             name: "LocalLLMClient",
             targets: ["LocalLLMClient"]),
+        
         .library(
             name: "LocalLLMClientLlama",
             targets: ["LocalLLMClientLlama"]),
-        .executable(
-            name: "localllm",
-            targets: ["LocalLLMCLI"]),
 
         .library(
             name: "LocalLLMClientMLX",
             targets: ["LocalLLMClientMLX"]),
+
+        .library(
+            name: "LocalLLMClientUtility",
+            targets: ["LocalLLMClientUtility"]),
+
+        .executable(
+            name: "localllm",
+            targets: ["LocalLLMCLI"]),
     ],
     dependencies: [
         .package(url: "https://github.com/ml-explore/mlx-swift-examples", branch: "main"),
@@ -35,6 +41,7 @@ let package = Package(
             dependencies: [
                 "LocalLLMClientLlama",
                 "LocalLLMClientMLX",
+                "LocalLLMClientUtility",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
         ),
@@ -71,8 +78,14 @@ let package = Package(
             name: "LocalLLMClientMLX",
             dependencies: [
                 "LocalLLMClient",
-//                .product(name: "MLX", package: "mlx-swift-examples"),
                 .product(name: "MLXLLM", package: "mlx-swift-examples"),
+            ],
+        ),
+
+        .target(
+            name: "LocalLLMClientUtility",
+            dependencies: [
+                .product(name: "MLXLMCommon", package: "mlx-swift-examples"),
             ],
         ),
     ]

@@ -3,6 +3,7 @@ import Foundation
 import LocalLLMClient
 import LocalLLMClientLlama
 import LocalLLMClientMLX
+import LocalLLMClientUtility
 
 @main
 struct LocalLLMCommand: AsyncParsableCommand {
@@ -48,21 +49,22 @@ struct LocalLLMCommand: AsyncParsableCommand {
     }
 
     func run() async throws {
-        if verbose {
-            print("Loading model from: \(model)")
-        }
+        let backend = Backend(rawValue: backend) ?? .llama
+        log("Loading model from: \(model) with backend: \(backend.rawValue)")
+
+        let modelURL = try await getModel(for: model, backend: backend)
 
         // Initialize client
-        let modelURL = URL(fileURLWithPath: model)
-        let client: any LLMClient = switch Backend(rawValue: backend) {
-        case .llama, nil:
-            try LocalLLMClient.llama(url: modelURL, parameter: .init(
+        let client: any LLMClient
+        switch backend {
+        case .llama:
+            client = try LocalLLMClient.llama(url: modelURL, parameter: .init(
                 temperature: temperature,
                 topK: topK,
                 topP: topP,
             ), verbose: verbose)
         case .mlx:
-            try await LocalLLMClient.mlx(url: modelURL, parameter: .init(
+            client = try await LocalLLMClient.mlx(url: modelURL, parameter: .init(
                 temperature: temperature,
                 topP: topP,
             ))
@@ -71,15 +73,13 @@ struct LocalLLMCommand: AsyncParsableCommand {
         var attachments: [String: LLMAttachment] = [:]
         if let clip, let imageURL {
             let imageData = try Data(contentsOf: URL(fileURLWithPath: imageURL))
-            let clipModel = try ClipModel(url: URL(fileURLWithPath: clip), verbose: verbose)
+            let clipModel = try await ClipModel(url: getModel(for: clip, backend: backend), verbose: verbose)
             let embed = try clipModel.embedded(imageData: imageData)
             attachments[imageToken] = .image(embed)
         }
 
-        if verbose {
-            print("Generating response for prompt: \"\(prompt)\"")
-            print("---")
-        }
+        log("Generating response for prompt: \"\(prompt)\"")
+        log("---")
 
         let input = LLMInput(
             prompt: prompt,
@@ -93,11 +93,48 @@ struct LocalLLMCommand: AsyncParsableCommand {
             fflush(stdout)
         }
 
-        if verbose {
-            print("\n---")
-            print("Generation complete.")
+        log("\n---")
+        log("Generation complete.")
+    }
+
+    private func getModel(for model: String, backend: Backend) async throws -> URL {
+        return if model.hasPrefix("/") {
+            URL(filePath: model)
+        } else if model.hasPrefix("https://"), let url = URL(string: model) {
+            try await downloadModel(from: url, backend: backend)
         } else {
-            print("")
+            throw LocalLLMCommandError.invalidModel(model)
         }
     }
+
+    private func downloadModel(from url: URL, backend: Backend) async throws -> URL {
+        log("Downloading model from Hugging Face: \(model)")
+
+        let globs: FileDownloader.Source.HuggingFaceGlobs = switch backend {
+        case .llama: .init(["*\(url.lastPathComponent)"])
+        case .mlx: .mlx
+        }
+
+        let downloader = FileDownloader(source: .huggingFace(
+            id: url.pathComponents[1...2].joined(separator: "/"),
+            globs: globs
+        ))
+        let repoDestination = try await downloader.download { progress in
+            log("Downloading model: \(progress)")
+        }
+        return switch backend {
+        case .llama: repoDestination.appendingPathComponent(url.lastPathComponent)
+        case .mlx: repoDestination
+        }
+    }
+
+    private func log(_ message: String) {
+        if verbose {
+            print(message)
+        }
+    }
+}
+
+enum LocalLLMCommandError: Error {
+    case invalidModel(String)
 }
