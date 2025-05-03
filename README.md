@@ -66,7 +66,7 @@ let client = try LocalLLMClient.makeClient(url: modelURL)
 
 // Process tokens as they arrive in real-time
 let prompt = "Tell me a story about a cat"
-for try await token in client.predict(prompt) {
+for try await token in try client.predict(prompt) {
     print(token, terminator: "")
 }
 ```
@@ -109,15 +109,12 @@ swift run localllm --model path/to/your/model.gguf "Your prompt here"
 LocalLLMClient supports multimodal models like LLaVA for processing images along with text prompts. To use this feature:
 
 ```swift
+import LocalLLMClient
 import LlamaSwiftExperimental
 
-// Initialize with paths to your CLIP projection model and LLM model
 let clipURL = URL(filePath: "path/to/mmproj-model-f16.gguf")
 let modelURL = URL(filePath: "path/to/multimodal-model.gguf")
 let imageURL = URL(filePath: "path/to/your/image.jpeg")
-
-// Create context with the LLM model
-let context = try Context(url: modelURL)
 
 // Load the CLIP model for image embedding
 let clipModel = try ClipModel(url: clipURL)
@@ -125,18 +122,17 @@ let clipModel = try ClipModel(url: clipURL)
 // Generate image embedding
 let embed = try clipModel.embedded(imageData: Data(contentsOf: imageURL))
 
-// Process the image in the context
-var cursor = try context.decode(text: "<start_of_image>", cursor: 0, special: true)
-cursor = try context.decode(imageEmbed: embed, cursor: cursor)
-cursor = try context.decode(text: "<end_of_image>", cursor: cursor, special: true)
+let client = try LocalLLMClient.makeClient(url: modelURL
 
-// Create your prompt
-let prompt = "<start_of_turn>user\nWhat's in this image?<end_of_turn>\n<start_of_turn>assistant\n"
+let input = LLMInput(
+    prompt: "<start_of_image><$IMG$><end_of_image><start_of_turn>user\nWhat's in this image?<end_of_turn>\n<start_of_turn>assistant\n",
+    parsesSpecial: true,
+    attachments: [
+        "<$IMG$>": .image(embed),
+    ]
+)
 
-// Generate response based on the image and prompt
-let generator = Generator(text: prompt, context: context, cursor: cursor, special: true)
-
-for try await token in generator {
+for try await token in client.predict(input) {
     print(token, terminator: "")
 }
 ```

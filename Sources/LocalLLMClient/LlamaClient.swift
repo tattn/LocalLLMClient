@@ -11,7 +11,7 @@ public final class LlamaClient: LLMClient {
 
     public func predict(_ input: LLMInput) async throws -> String {
         var finalResult = ""
-        for try await token in predict(input) {
+        for try await token in try predict(input) {
             finalResult += token
 #if DEBUG
             print(token)
@@ -20,8 +20,8 @@ public final class LlamaClient: LLMClient {
         return finalResult
     }
 
-    public func predict(_ input: LLMInput) -> Generator {
-        context.withLock { context in
+    public func predict(_ input: LLMInput) throws -> Generator {
+        try context.withLock { context in
             var decodeContext = DecodingContext(cursor: 0, special: input.parsesSpecial ?? false)
             var promptCursor = input.prompt.startIndex
             var attachments = input.attachments
@@ -65,7 +65,7 @@ public final class LlamaClient: LLMClient {
                 let text = String(input.prompt[promptCursor...])
                 decodeContext = try context.decode(text: text, context: decodeContext)
             } catch {
-                // TODO: handle error
+                throw LLMError.decodingFailed
             }
 
             return Generator(context: context, decodeContext: decodeContext)
