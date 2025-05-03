@@ -16,17 +16,29 @@ public extension Context {
         batch.clear()
     }
 
-    func evaluate(with tokens: [llama_token], cursor: llama_pos) -> llama_pos {
+    func evaluate(with tokens: [llama_token], context: DecodingContext) -> DecodingContext {
         for (index, token) in tokens.enumerated() {
-            batch.add(id: token, pos: llama_pos(index) + batch.n_tokens + cursor, seq_ids: [0], logits: false)
+            batch.add(id: token, pos: llama_pos(index) + batch.n_tokens + context.cursor, seq_ids: [0], logits: false)
         }
-        return batch.n_tokens + cursor
+        var context = context
+        context.cursor += batch.n_tokens
+        return context
     }
 
-    func decode(text: String, cursor: llama_pos, special: Bool = false) throws(LLMError) -> llama_pos {
-        let tokens = [llama_token](text, add_bos: addBos, special: special, vocab: vocab)
-        let result = evaluate(with: tokens, cursor: cursor)
+    func decode(text: String, context: DecodingContext) throws(LLMError) -> DecodingContext {
+        let tokens = [llama_token](text, add_bos: addBos, special: context.special, vocab: vocab)
+        let context = evaluate(with: tokens, context: context)
         try decode()
-        return result
+        return context
     }
+}
+
+public struct DecodingContext: Sendable {
+    public init(cursor: llama_pos, special: Bool) {
+        self.cursor = cursor
+        self.special = special
+    }
+
+    public var cursor: llama_pos
+    public var special: Bool
 }

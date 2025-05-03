@@ -4,6 +4,7 @@ import OSLog
 // MARK: - Global State
 
 nonisolated(unsafe) private var isLlamaInitialized = false
+nonisolated(unsafe) private var isCustomLogEnabled = false
 nonisolated(unsafe) private var llamaLogCallback: ((LlamaLogLevel, String) -> Void)?
 
 // MARK: - Life Cycle
@@ -13,7 +14,7 @@ public func initializeLlama() {
     isLlamaInitialized = true
     llama_backend_init()
 
-    if llamaLogCallback == nil {
+    if !isCustomLogEnabled {
 #if DEBUG
         setLlamaVerbose(true)
 #else
@@ -35,6 +36,7 @@ package extension Logger {
 
 public func setLlamaLog(callback: ((LlamaLogLevel, String) -> Void)?) {
     llamaLogCallback = callback
+    isCustomLogEnabled = true
 
     llama_log_set({ level, text, _ in
         guard let llamaLogCallback else { return }

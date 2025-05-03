@@ -1,7 +1,7 @@
 import ArgumentParser
 import Foundation
 import LocalLLMClient
-import LlamaSwift
+import LlamaSwiftExperimental
 
 @main
 struct LocalLLMCommand: AsyncParsableCommand {
@@ -24,6 +24,13 @@ struct LocalLLMCommand: AsyncParsableCommand {
 
     @Option(name: [.customShort("k"), .long], help: "Top-k for sampling")
     var topK: Int = 40
+
+    @Option(name: [.long], help: "Path to the clip model")
+    var clip: String?
+    @Option(name: [.customLong("image")], help: "Path to the image file")
+    var imageURL: String?
+    @Option(name: [.long], help: "The special token for image attachment")
+    var imageToken: String = "<$IMG$>"
 
     @Flag(name: [.customShort("v"), .long], help: "Show verbose output")
     var verbose: Bool = false
@@ -50,12 +57,24 @@ struct LocalLLMCommand: AsyncParsableCommand {
         let modelURL = URL(fileURLWithPath: model)
         let client = try LocalLLMClient.makeClient(url: modelURL, parameter: parameter)
 
+        var attachments: [String: LLMAttachment] = [:]
+        if let clip, let imageURL {
+            let imageData = try Data(contentsOf: URL(fileURLWithPath: imageURL))
+            let clipModel = try ClipModel(url: URL(fileURLWithPath: clip), verbose: verbose)
+            let embed = try clipModel.embedded(imageData: imageData)
+            attachments[imageToken] = .image(embed)
+        }
+
         if verbose {
             print("Generating response for prompt: \"\(prompt)\"")
             print("---")
         }
 
-        let input = LLMInput(prompt: prompt)
+        let input = LLMInput(
+            prompt: prompt,
+            parsesSpecial: true,
+            attachments: attachments
+        )
 
         // Generate response
         for try await token in client.predict(input) {

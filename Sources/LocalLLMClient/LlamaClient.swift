@@ -22,8 +22,7 @@ public final class LlamaClient: LLMClient {
 
     public func predict(_ input: LLMInput) -> Generator {
         context.withLock { context in
-            let special = input.parsesSpecial ?? false
-            var cursor: Int32 = 0
+            var decodeContext = DecodingContext(cursor: 0, special: input.parsesSpecial ?? false)
             var promptCursor = input.prompt.startIndex
             var attachments = input.attachments
 
@@ -45,15 +44,15 @@ public final class LlamaClient: LLMClient {
 
                     if promptCursor < value.range.lowerBound {
                         let text = String(input.prompt[promptCursor..<value.range.lowerBound])
-                        cursor = try context.decode(text: text, cursor: cursor, special: special)
+                        decodeContext = try context.decode(text: text, context: decodeContext)
                     }
 
                     switch value.attachment.value {
                     case let .text(text):
-                        cursor = try context.decode(text: text, cursor: cursor, special: special)
+                        decodeContext = try context.decode(text: text, context: decodeContext)
                     case let .image(embedding):
                         if let embed = embedding as? ImageEmbed {
-                            cursor = try context.decode(imageEmbed: embed, cursor: cursor)
+                            decodeContext = try context.decode(imageEmbed: embed, context: decodeContext)
                         } else {
                             assertionFailure("Implementation error: image's embedding is not ImageEmbed")
                         }
@@ -64,12 +63,12 @@ public final class LlamaClient: LLMClient {
                 }
 
                 let text = String(input.prompt[promptCursor...])
-                cursor = try context.decode(text: text, cursor: cursor, special: special)
+                decodeContext = try context.decode(text: text, context: decodeContext)
             } catch {
                 // TODO: handle error
             }
 
-            return Generator(context: context, cursor: cursor, special: special)
+            return Generator(context: context, decodeContext: decodeContext)
         }
     }
 }

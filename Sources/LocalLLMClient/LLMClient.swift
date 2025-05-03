@@ -1,5 +1,5 @@
 import Foundation
-import LlamaSwift
+import LlamaSwiftExperimental
 @_exported import LLMCommon
 
 public protocol LLMClient: Sendable {

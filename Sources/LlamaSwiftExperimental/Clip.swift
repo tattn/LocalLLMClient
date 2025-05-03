@@ -6,8 +6,8 @@ import LLMCommon
 public class ClipModel {
     package let clip: OpaquePointer
 
-    public init(url: URL) throws(LLMError) {
-        guard let clipContext = clip_model_load(url.path(), 1) else {
+    public init(url: URL, verbose: Bool = false) throws(LLMError) {
+        guard let clipContext = clip_model_load(url.path(), verbose ? 1 : 999) else {
             throw .failedToLoad
         }
         self.clip = clipContext
@@ -41,11 +41,11 @@ public final class ImageEmbed: LLMEmbedding, @unchecked Sendable {
 }
 
 public extension Context {
-    func decode(imageEmbed embed: ImageEmbed, cursor: Int32) throws(LLMError) -> Int32 {
-        var cursor = cursor
-        guard llava_eval_image_embed(context, embed.embed, numberOfBatch, &cursor) else {
+    func decode(imageEmbed embed: ImageEmbed, context decodeContext: DecodingContext) throws(LLMError) -> DecodingContext {
+        var decodeContext = decodeContext
+        guard llava_eval_image_embed(context, embed.embed, numberOfBatch, &decodeContext.cursor) else {
             throw .decodingFailed
         }
-        return cursor
+        return decodeContext
     }
 }
