@@ -2,7 +2,7 @@
 
 import PackageDescription
 
-let llamaVersion = "b5242"
+let llamaVersion = "b5278"
 
 let package = Package(
     name: "LocalLLMClient",
@@ -45,10 +45,6 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
         ),
-        .testTarget(
-            name: "LocalLLMClientTests",
-            dependencies: ["LocalLLMClientLlama"]
-        ),
 
         .target(
             name: "LocalLLMClientLlama",
@@ -62,9 +58,8 @@ let package = Package(
             name: "LocalLLMClientLlamaFramework",
             url:
                 "https://github.com/ggml-org/llama.cpp/releases/download/\(llamaVersion)/llama-\(llamaVersion)-xcframework.zip",
-            checksum: "482aa58c47c8dba464d589c6f7986d4035c403dad18696597f918ecb95cb3e19"
+            checksum: "9d81d4f5340152bdb4888d74d3b0a1202650e29f13ce40bb598d0a5cb7ec1f68"
         ),
-
         .target(
             name: "LocalLLMClientLlamaC",
             dependencies: ["LocalLLMClientLlamaFramework"],
@@ -72,6 +67,10 @@ let package = Package(
             cSettings: [
                 .unsafeFlags(["-w"])
             ],
+        ),
+        .testTarget(
+            name: "LocalLLMClientLlamaTests",
+            dependencies: ["LocalLLMClientLlama", "LocalLLMClientUtility"]
         ),
 
         .target(
@@ -81,6 +80,10 @@ let package = Package(
                 .product(name: "MLXLLM", package: "mlx-swift-examples"),
                 .product(name: "MLXVLM", package: "mlx-swift-examples"),
             ],
+        ),
+        .testTarget(
+            name: "LocalLLMClientMLXTests",
+            dependencies: ["LocalLLMClientMLX", "LocalLLMClientUtility"]
         ),
 
         .target(

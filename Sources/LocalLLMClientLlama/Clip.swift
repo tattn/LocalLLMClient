@@ -6,10 +6,10 @@ public class ClipModel {
     package let clip: OpaquePointer
 
     public init(url: URL, verbose: Bool = false) throws(LLMError) {
-        guard let clipContext = clip_model_load(url.path(), verbose ? 1 : 999) else {
+        guard let clip = clip_init(url.path(), .init(use_gpu: true, verbosity: .init(verbose ? 1 : 999))) else {
             throw .failedToLoad(reason: "Failed to load clip model")
         }
-        self.clip = clipContext
+        self.clip = clip
     }
 
     deinit {
