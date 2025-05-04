@@ -14,18 +14,30 @@ public final class MLXClient: LLMClient {
     }
 
     public func textStream(from input: LLMInput) async throws -> AsyncStream<String> {
-        let chat: [Chat.Message] = [
-//            .system("You are a helpful assistant"),
-            .user(input.prompt),
-        ]
-        let userInput = UserInput(
-            chat: chat, additionalContext: ["enable_thinking": false])
-
-        let modelContainer = context.withLock { context in
-            context.modelContainer
+        let images = try input.attachments.compactMap {
+            switch $0 {
+            case let .image(image):
+                return try UserInput.Image.ciImage(llmInputImageToCIImage(image))
+            }
         }
 
-        return try await modelContainer.perform { context in
+        let chat: [Chat.Message] = [
+//            .system("You are a helpful assistant"),
+            .user(input.prompt, images: images),
+        ]
+
+        var userInput = UserInput(
+            chat: chat, additionalContext: ["enable_thinking": false])
+        userInput.processing.resize = .init(width: 448, height: 448)
+
+        let modelContainer = try context.withLock { context in
+            if !images.isEmpty, !context.supportsVision {
+                throw LLMError.visionUnsupported
+            }
+            return context.modelContainer
+        }
+
+        return try await modelContainer.perform { [userInput] context in
             let lmInput = try await context.processor.prepare(input: userInput)
             let stream = try MLXLMCommon.generate(
                 input: lmInput,
@@ -42,9 +54,6 @@ public final class MLXClient: LLMClient {
                 }
             }
         }
-    }
-
-    public static func setVerbose(_ verbose: Bool) {
     }
 }
 

@@ -176,34 +176,52 @@ swift run localllm --model "https://huggingface.co/mlx-community/Qwen3-1.7B-4bit
 
 LocalLLMClient supports multimodal models like LLaVA for processing images along with text prompts. To use this feature:
 
+<details open>
+<summary>Using with llama.cpp (LocalLLMClientLlama)</summary>
+
 ```swift
 import LocalLLMClient
 import LocalLLMClientLlama
 
 let clipURL = URL(filePath: "path/to/mmproj-model-f16.gguf")
 let modelURL = URL(filePath: "path/to/multimodal-model.gguf")
-let imageURL = URL(filePath: "path/to/your/image.jpeg")
 
-// Load the CLIP model for image embedding
-let clipModel = try ClipModel(url: clipURL)
-
-// Generate image embedding
-let embed = try clipModel.embedded(imageData: Data(contentsOf: imageURL))
-
-let client = try LocalLLMClient.llama(url: modelURL)
+let client = try LocalLLMClient.llama(url: modelURL, clipURL: clipURL)
 
 let input = LLMInput(
-    prompt: "<start_of_image><$IMG$><end_of_image><start_of_turn>user\nWhat's in this image?<end_of_turn>\n<start_of_turn>assistant\n",
+    prompt: "<start_of_turn>user\nWhat's in this image?<end_of_turn>\n<start_of_turn>assistant\n",
     parsesSpecial: true,
-    attachments: [
-        "<$IMG$>": .image(embed),
-    ]
+    attachments: [.image(.init(resource: .yourImage))],
+    parameters: .init(specialTokenImageStart: "<start_of_image>", specialTokenImageEnd: "<end_of_image>")
 )
 
 for try await token in client.textStream(from: input) {
     print(token, terminator: "")
 }
 ```
+</details>
+
+<details>
+<summary>Using with Apple MLX (LocalLLMClientMLX)</summary>
+
+```swift
+import LocalLLMClient
+import LocalLLMClientMLX
+
+let modelURL = URL(filePath: "path/to/mlx-multimodal-model")
+
+let client = try await LocalLLMClient.mlx(url: modelURL)
+
+let input = LLMInput(
+    prompt: "What can you see in this image?",
+    attachments: [.image(.init(resource: .yourImage))]
+)
+
+for try await token in try await client.textStream(from: input) {
+    print(token, terminator: "")
+}
+```
+</details>
 
 When using multimodal models, you'll need:
 1. A GGUF format LLM that supports multimodal inputs (like LLaVA, Gemma 3, etc.)

@@ -1,5 +1,5 @@
 import ArgumentParser
-import Foundation
+import AppKit
 import LocalLLMClient
 import LocalLLMClientLlama
 import LocalLLMClientMLX
@@ -35,7 +35,9 @@ struct LocalLLMCommand: AsyncParsableCommand {
     @Option(name: [.customLong("image")], help: "Path to the image file")
     var imageURL: String?
     @Option(name: [.long], help: "The special token for image attachment")
-    var imageToken: String = "<$IMG$>"
+    var imageStart: String = "<|image_start|>"
+    @Option(name: [.long], help: "The special token for image attachment")
+    var imageEnd: String = "<|image_end|>"
 
     @Flag(name: [.customShort("v"), .long], help: "Show verbose output")
     var verbose: Bool = false
@@ -58,24 +60,31 @@ struct LocalLLMCommand: AsyncParsableCommand {
         let client: any LLMClient
         switch backend {
         case .llama:
-            client = try LocalLLMClient.llama(url: modelURL, parameter: .init(
-                temperature: temperature,
-                topK: topK,
-                topP: topP,
-            ), verbose: verbose)
+            client = try await LocalLLMClient.llama(
+                url: modelURL,
+                clipURL: clip.asyncMap { try await getModel(for: $0, backend: backend) },
+                parameter: .init(
+                    temperature: temperature,
+                    topK: topK,
+                    topP: topP,
+                    specialTokenImageStart: imageStart,
+                    specialTokenImageEnd: imageEnd,
+                ),
+                verbose: verbose
+            )
         case .mlx:
-            client = try await LocalLLMClient.mlx(url: modelURL, parameter: .init(
-                temperature: temperature,
-                topP: topP,
-            ))
+            client = try await LocalLLMClient.mlx(
+                url: modelURL,
+                parameter: .init(
+                    temperature: temperature,
+                    topP: topP,
+                )
+            )
         }
 
-        var attachments: [String: LLMAttachment] = [:]
-        if let clip, let imageURL {
-            let imageData = try Data(contentsOf: URL(fileURLWithPath: imageURL))
-            let clipModel = try await ClipModel(url: getModel(for: clip, backend: backend), verbose: verbose)
-            let embed = try clipModel.embedded(imageData: imageData)
-            attachments[imageToken] = .image(embed)
+        var attachments: [LLMAttachment] = []
+        if let imageURL {
+            attachments.append(.image(NSImage(contentsOf: URL(filePath: imageURL))!))
         }
 
         log("Generating response for prompt: \"\(prompt)\"")

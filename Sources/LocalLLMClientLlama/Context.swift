@@ -32,7 +32,7 @@ public final class Context {
         model_params.use_mmap = true
 
         guard let model = llama_model_load_from_file(url.path(), model_params) else {
-            throw .failedToLoad
+            throw .failedToLoad(reason: "Failed to load model from file")
         }
 
         var ctx_params = llama_context_default_params()

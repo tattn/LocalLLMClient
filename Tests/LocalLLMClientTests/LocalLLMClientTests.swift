@@ -6,7 +6,7 @@ import LocalLLMClientLlama
 private let url = URL(fileURLWithPath: ProcessInfo.processInfo.environment["LOCAL_LLM_PATH"]!)
 
 @Test func simple() async throws {
-    let client = try LocalLLMClient.llama(url: url)
+    let client = try await LocalLLMClient.llama(url: url)
     let input = "What is the answer to one plus two?"
 
     let result = try await client.generateText(from: input)
@@ -16,7 +16,7 @@ private let url = URL(fileURLWithPath: ProcessInfo.processInfo.environment["LOCA
 }
 
 @Test func simpleStream() async throws {
-    let client = try LocalLLMClient.llama(url: url)
+    let client = try await LocalLLMClient.llama(url: url)
     let input = "What is the answer to one plus two?"
 
     var result = ""

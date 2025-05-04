@@ -7,7 +7,7 @@ public class ClipModel {
 
     public init(url: URL, verbose: Bool = false) throws(LLMError) {
         guard let clipContext = clip_model_load(url.path(), verbose ? 1 : 999) else {
-            throw .failedToLoad
+            throw .failedToLoad(reason: "Failed to load clip model")
         }
         self.clip = clipContext
     }
@@ -16,18 +16,18 @@ public class ClipModel {
         clip_free(clip)
     }
 
-    public func embedded(imageData: Data, threads: Int = 4) throws(LLMError) -> ImageEmbed {
-        guard let embed = imageData.withUnsafeBytes({ buffer in
+    public func embedded(image: LLMInputImage, threads: Int = 4) throws(LLMError) -> ImageEmbed {
+        guard let embed = try llmInputImageToData(image).withUnsafeBytes({ buffer in
             let bytes = buffer.bindMemory(to: UInt8.self).baseAddress
             return llava_image_embed_make_with_bytes(clip, Int32(threads), bytes, Int32(buffer.count))
         }) else {
-            throw .failedToLoad
+            throw .failedToLoad(reason: "Failed to create image embed")
         }
         return ImageEmbed(embed: embed)
     }
 }
 
-public final class ImageEmbed: LLMEmbedding, @unchecked Sendable {
+public final class ImageEmbed: @unchecked Sendable {
     package let embed: UnsafeMutablePointer<llava_image_embed>
 
     public init(embed: UnsafeMutablePointer<llava_image_embed>) {

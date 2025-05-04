@@ -11,7 +11,7 @@ let package = Package(
         .library(
             name: "LocalLLMClient",
             targets: ["LocalLLMClient"]),
-        
+
         .library(
             name: "LocalLLMClientLlama",
             targets: ["LocalLLMClientLlama"]),
@@ -79,6 +79,7 @@ let package = Package(
             dependencies: [
                 "LocalLLMClient",
                 .product(name: "MLXLLM", package: "mlx-swift-examples"),
+                .product(name: "MLXVLM", package: "mlx-swift-examples"),
             ],
         ),
 
