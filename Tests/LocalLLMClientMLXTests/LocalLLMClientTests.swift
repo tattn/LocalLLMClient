@@ -12,7 +12,7 @@ extension LocalLLMClient {
     static func downloadModel() async throws -> URL {
         let downloader = FileDownloader(
             source: .huggingFace(id: "mlx-community/Qwen2-VL-2B-Instruct-4bit", globs: .mlx),
-            destination: ProcessInfo.processInfo.environment["GITHUB_MODEL_CACHE"].flatMap(URL.init(string:)) ?? FileDownloader.defaultRootDestination
+            destination: ProcessInfo.processInfo.environment["GITHUB_MODEL_CACHE"].map { URL(filePath: $0) } ?? FileDownloader.defaultRootDestination
         )
         return try await downloader.download { print("Download: \($0)") }
     }

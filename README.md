@@ -237,6 +237,7 @@ Supported image formats include JPEG, PNG, and other common formats.
 - Gemma 3 / 2
 - Qwen 3
 
+
 - [Models compatible with llama.cpp backend](https://github.com/ggml-org/llama.cpp?tab=readme-ov-file#text-only)  
 - [Models compatible with MLX backend](https://github.com/ml-explore/mlx-swift-examples/blob/main/Libraries/MLXLLM/Documentation.docc/Documentation.md)  
 

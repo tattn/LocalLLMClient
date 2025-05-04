@@ -19,7 +19,7 @@ extension LocalLLMClient {
     static func downloadModel() async throws -> URL {
         let downloader = FileDownloader(
             source: .huggingFace(id: "lmstudio-community/gemma-3-4b-it-GGUF", globs: [model, clip]),
-            destination: ProcessInfo.processInfo.environment["GITHUB_MODEL_CACHE"].flatMap(URL.init(string:)) ?? FileDownloader.defaultRootDestination
+            destination: ProcessInfo.processInfo.environment["GITHUB_MODEL_CACHE"].map { URL(filePath: $0) } ?? FileDownloader.defaultRootDestination
         )
         return try await downloader.download { print("Download: \($0)") }
     }
