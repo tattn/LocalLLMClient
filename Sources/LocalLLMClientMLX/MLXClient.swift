@@ -45,12 +45,15 @@ public final actor MLXClient: LLMClient {
                 context: context
             )
 
-            return AsyncStream<String> { continuation in
-                Task {
+            return .init { continuation in
+                let task = Task {
                     for await generated in stream {
                         continuation.yield(generated.chunk ?? "")
                     }
                     continuation.finish()
+                }
+                continuation.onTermination = { _ in
+                    task.cancel()
                 }
             }
         }

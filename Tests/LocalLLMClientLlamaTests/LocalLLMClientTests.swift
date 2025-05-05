@@ -30,31 +30,65 @@ extension LocalLLMClient {
     }
 }
 
-@Test func simpleStream() async throws {
-    let client = try await LocalLLMClient.llama()
-    let input = "<|im_start|>user\nWhat is the answer to one plus two?<|im_end|>\n<|im_start|>assistant\n"
+private let prompt = "<|im_start|>user\nWhat is the answer to one plus two?<|im_end|>\n<|im_start|>assistant\n"
 
-    var result = ""
-    for try await text in try await client.textStream(from: input) {
-        print(text, terminator: "")
-        result += text
+@Suite(.serialized) actor LocalLLMClientTests {
+    private static var initialized = false
+
+    init() async throws {
+        if !Self.initialized {
+            _ = try await LocalLLMClient.downloadModel()
+            Self.initialized = true
+        }
     }
 
-    #expect(!result.isEmpty)
-}
+    @Test(.timeLimit(.minutes(5)))
+    func simpleStream() async throws {
+        var result = ""
 
-@Test func image() async throws {
-    let client = try await LocalLLMClient.llama()
+        for try await text in try await LocalLLMClient.llama().textStream(from: prompt) {
+            print(text, terminator: "")
+            result += text
+        }
 
-    let stream = try client.textStream(from: LLMInput(
-        prompt: "<|im_start|>user\nWhat is in this image?<|im_end|>\n<|im_start|>assistant\n",
-        attachments: [.image(.init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.jpeg")!)!)]
-    ))
-    var result = ""
-    for try await text in stream {
-        print(text, terminator: "")
-        result += text
+        #expect(!result.isEmpty)
     }
 
-    #expect(!result.isEmpty)
+    @Test(.timeLimit(.minutes(5)))
+    func image() async throws {
+        let stream = try await LocalLLMClient.llama().textStream(from: LLMInput(
+            prompt: "<|im_start|>user\nWhat is in this image?<|im_end|>\n<|im_start|>assistant\n",
+            attachments: [.image(.init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.jpeg")!)!)]
+        ))
+
+        var result = ""
+        for try await text in stream {
+            print(text, terminator: "")
+            result += text
+        }
+
+        #expect(!result.isEmpty)
+    }
+
+    @Test(.timeLimit(.minutes(5)))
+    func cancel() async throws {
+        var counter = 0
+        var breaked = false
+
+        var task: Task<Void, Error>?
+        task = Task {
+            for try await _ in try await LocalLLMClient.llama().textStream(from: prompt) {
+                counter += 1
+                task?.cancel()
+            }
+            breaked = true
+        }
+
+        try await Task.sleep(for: .seconds(2))
+        task!.cancel()
+        try? await task!.value
+
+        #expect(counter == 1)
+        #expect(breaked)
+    }
 }

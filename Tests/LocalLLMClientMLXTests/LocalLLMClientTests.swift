@@ -18,11 +18,22 @@ extension LocalLLMClient {
     }
 }
 
-@Suite(.serialized) struct LocalLLMClientTests {
-    @Test func simpleStream() async throws {
-        let input = "What is the answer to one plus two?"
+let prompt = "What is the answer to one plus two?"
+
+@Suite(.serialized) actor LocalLLMClientTests {
+    private static var initialized = false
+
+    init() async throws {
+        if !Self.initialized {
+            _ = try await LocalLLMClient.downloadModel()
+            Self.initialized = true
+        }
+    }
+
+    @Test(.timeLimit(.minutes(5)))
+    func simpleStream() async throws {
         var result = ""
-        for try await text in try await LocalLLMClient.mlx().textStream(from: input) {
+        for try await text in try await LocalLLMClient.mlx().textStream(from: prompt) {
             print(text, terminator: "")
             result += text
         }
@@ -30,10 +41,9 @@ extension LocalLLMClient {
         #expect(!result.isEmpty)
     }
 
-    @Test func image() async throws {
-        let client = try await LocalLLMClient.mlx()
-
-        let stream = try await client.textStream(from: LLMInput(
+    @Test(.timeLimit(.minutes(5)))
+    func image() async throws {
+        let stream = try await LocalLLMClient.mlx().textStream(from: LLMInput(
             prompt: "What is in this image?",
             attachments: [.image(.init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.jpeg")!)!)]
         ))
@@ -44,5 +54,27 @@ extension LocalLLMClient {
         }
 
         #expect(!result.isEmpty)
+    }
+
+    @Test(.timeLimit(.minutes(5)))
+    func cancel() async throws {
+        var counter = 0
+        var breaked = false
+
+        var task: Task<Void, Error>?
+        task = Task {
+            for try await _ in try await LocalLLMClient.mlx().textStream(from: prompt) {
+                counter += 1
+                task?.cancel()
+            }
+            breaked = true
+        }
+
+        try await Task.sleep(for: .seconds(2))
+        task!.cancel()
+        try? await task!.value
+
+        #expect(counter == 1)
+        #expect(breaked)
     }
 }

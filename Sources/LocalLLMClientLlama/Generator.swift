@@ -2,7 +2,7 @@ import Foundation
 @preconcurrency import llama
 import LocalLLMClient
 
-public struct Generator: AsyncSequence {
+public struct Generator: AsyncSequence, @unchecked Sendable {
     public init(context: Context, decodeContext: DecodingContext) {
         self.context = context
         self.decodeContext = decodeContext
@@ -28,7 +28,9 @@ public struct TokenGenerator: AsyncIteratorProtocol {
     private var temporaryInvalidCharacters: [CChar] = []
 
     mutating public func next() async throws -> String? {
-        try Task.checkCancellation()
+        if Task.isCancelled {
+            return nil
+        }
         try context.decode()
 
         let newTokenId = context.sampling.sample(context: context, index: -1)
