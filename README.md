@@ -7,9 +7,12 @@
 
 A Swift package to interact with local Large Language Models (LLMs) on Apple platforms.
 
-https://github.com/user-attachments/assets/478d5c58-19e4-4c33-8ad2-53ec511a86e8
+| MobileVLM-3B (llama.cpp) | Qwen2.5 VL 3B (MLX) |
+|:-:|:-:|
+|<video src="https://github.com/user-attachments/assets/7704b05c-2a8c-40ef-838c-f9485ad0cfe0">|<video src="https://github.com/user-attachments/assets/475609a4-aaef-4043-aadc-db44c28296ee">|
 
-*This video shows a multimodal LLM running on iPhone 16 Pro at natural, real-time speed (MobileVLM-3B)*
+*iPhone 16 Pro*
+
 
 > [!IMPORTANT]
 > This project is still experimental. The API is subject to change.
