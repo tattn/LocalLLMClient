@@ -152,7 +152,6 @@ You can use LocalLLMClient directly from the terminal using the command line too
 
 ```bash
 swift run localllm --model /path/to/your/model.gguf "Your prompt here"
-swift run localllm --model "https://huggingface.co/mlx-community/Qwen3-1.7B-4bit" --backend mlx "Your prompt here"
 ```
 
 ## Multimodal for Image (Experimental)
