@@ -14,7 +14,8 @@ extension LocalLLMClient {
             url: url.appending(component: model),
             clipURL: url.appending(component: clip),
             parameter: .init(
-                specialTokenImageStart: "<|im_start|>", specialTokenImageEnd: "<|im_end|>"
+                context: 512,
+                tokenImageStart: "<|im_start|>user\n", tokenImageEnd: "<|im_end|>\n"
             ),
             verbose: true
         )
@@ -29,23 +30,13 @@ extension LocalLLMClient {
     }
 }
 
-@Test func simple() async throws {
-    let client = try await LocalLLMClient.llama()
-    let input = "What is the answer to one plus two?"
-
-    let result = try await client.generateText(from: input)
-    print(result)
-
-    #expect(!result.isEmpty)
-}
-
 @Test func simpleStream() async throws {
     let client = try await LocalLLMClient.llama()
-    let input = "What is the answer to one plus two?"
+    let input = "<|im_start|>user\nWhat is the answer to one plus two?<|im_end|>\n<|im_start|>assistant\n"
 
     var result = ""
     for try await text in try await client.textStream(from: input) {
-        print(text)
+        print(text, terminator: "")
         result += text
     }
 
@@ -55,11 +46,15 @@ extension LocalLLMClient {
 @Test func image() async throws {
     let client = try await LocalLLMClient.llama()
 
-    let result = try await client.generateText(from: LLMInput(
-        prompt: "What is in this image?",
+    let stream = try client.textStream(from: LLMInput(
+        prompt: "<|im_start|>user\nWhat is in this image?<|im_end|>\n<|im_start|>assistant\n",
         attachments: [.image(.init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.jpeg")!)!)]
     ))
-    print(result)
+    var result = ""
+    for try await text in stream {
+        print(text, terminator: "")
+        result += text
+    }
 
     #expect(!result.isEmpty)
 }

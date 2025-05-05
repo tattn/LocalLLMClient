@@ -19,19 +19,11 @@ extension LocalLLMClient {
 }
 
 @Suite(.serialized) struct LocalLLMClientTests {
-    @Test func simple() async throws {
-        let input = "What is the answer to one plus two?"
-        let result = try await LocalLLMClient.mlx().generateText(from: input)
-        print(result)
-
-        #expect(!result.isEmpty)
-    }
-
     @Test func simpleStream() async throws {
         let input = "What is the answer to one plus two?"
         var result = ""
         for try await text in try await LocalLLMClient.mlx().textStream(from: input) {
-            print(text)
+            print(text, terminator: "")
             result += text
         }
 
@@ -41,11 +33,15 @@ extension LocalLLMClient {
     @Test func image() async throws {
         let client = try await LocalLLMClient.mlx()
 
-        let result = try await client.generateText(from: LLMInput(
+        let stream = try await client.textStream(from: LLMInput(
             prompt: "What is in this image?",
             attachments: [.image(.init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.jpeg")!)!)]
         ))
-        print(result)
+        var result = ""
+        for try await text in stream {
+            print(text, terminator: "")
+            result += text
+        }
 
         #expect(!result.isEmpty)
     }

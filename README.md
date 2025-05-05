@@ -18,8 +18,8 @@ https://github.com/user-attachments/assets/478d5c58-19e4-4c33-8ad2-53ec511a86e8
 
 - Support for GGUF / MLX models
 - Support for iOS and macOS
-- Configurable parameters for inference (temperature, top-k, top-p, etc.)
-- Streaming token generation
+- Configurable parameters: temperature, top-k, top-p, etc.
+- Streaming API
 - Command-line interface
 - Multimodal (experimental)
 
@@ -38,7 +38,7 @@ dependencies: [
 ### Basic Example
 
 <details open>
-<summary>Using with llama.cpp (LocalLLMClientLlama)</summary>
+<summary>Using with llama.cpp</summary>
 
 ```swift
 import LocalLLMClient
@@ -66,7 +66,7 @@ for try await text in try client.textStream(from: prompt) {
 </details>
 
 <details>
-<summary>Using with Apple MLX (LocalLLMClientMLX)</summary>
+<summary>Using with Apple MLX</summary>
 
 ```swift
 import LocalLLMClient
@@ -99,7 +99,7 @@ for try await text in try await client.textStream(from: prompt) {
 ### Custom Parameters
 
 <details open>
-<summary>Using with llama.cpp (LocalLLMClientLlama)</summary>
+<summary>Using with llama.cpp</summary>
 
 ```swift
 import LocalLLMClient
@@ -123,7 +123,7 @@ print(text)
 </details>
 
 <details>
-<summary>Using with Apple MLX (LocalLLMClientMLX)</summary>
+<summary>Using with Apple MLX</summary>
 
 ```swift
 import LocalLLMClient
@@ -157,7 +157,7 @@ swift run localllm --model "https://huggingface.co/mlx-community/Qwen3-1.7B-4bit
 LocalLLMClient supports multimodal models like LLaVA for processing images along with text prompts. To use this feature:
 
 <details open>
-<summary>Using with llama.cpp (LocalLLMClientLlama)</summary>
+<summary>Using with llama.cpp</summary>
 
 ```swift
 import LocalLLMClient
@@ -179,9 +179,8 @@ let client = try LocalLLMClient.llama(
 
 let input = LLMInput(
     prompt: "<start_of_turn>user\nWhat's in this image?<end_of_turn>\n<start_of_turn>assistant\n",
-    parsesSpecial: true,
     attachments: [.image(.init(resource: .yourImage))],
-    parameters: .init(specialTokenImageStart: "<start_of_image>", specialTokenImageEnd: "<end_of_image>")
+    parameters: .init(tokenImageStart: "<start_of_image>", tokenImageEnd: "<end_of_image>")
 )
 
 for try await text in client.textStream(from: input) {
@@ -191,7 +190,7 @@ for try await text in client.textStream(from: input) {
 </details>
 
 <details>
-<summary>Using with Apple MLX (LocalLLMClientMLX)</summary>
+<summary>Using with Apple MLX</summary>
 
 ```swift
 import LocalLLMClient

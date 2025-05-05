@@ -67,8 +67,8 @@ struct LocalLLMCommand: AsyncParsableCommand {
                     temperature: temperature,
                     topK: topK,
                     topP: topP,
-                    specialTokenImageStart: imageStart,
-                    specialTokenImageEnd: imageEnd,
+                    tokenImageStart: imageStart,
+                    tokenImageEnd: imageEnd,
                 ),
                 verbose: verbose
             )
@@ -92,7 +92,6 @@ struct LocalLLMCommand: AsyncParsableCommand {
 
         let input = LLMInput(
             prompt: prompt,
-            parsesSpecial: true,
             attachments: attachments
         )
 

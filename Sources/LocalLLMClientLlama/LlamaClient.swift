@@ -17,7 +17,7 @@ public final class LlamaClient: LLMClient {
 
     public func textStream(from input: LLMInput) throws -> Generator {
         try context.withLock { context in
-            var decodeContext = DecodingContext(cursor: 0, special: input.parsesSpecial ?? false)
+            var decodeContext = DecodingContext(cursor: 0, special: input.parsesSpecial ?? true)
             let clipModel = clipModel?.withLock { $0 }
 
             do {
