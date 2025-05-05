@@ -34,4 +34,4 @@ jobs:
         key: model
         
     - name: Run tests
-      run: swift test
+      run: xcodebuild test -scheme LocalLLMClient-Package -destination 'platform=macOS'
