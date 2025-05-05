@@ -21,7 +21,7 @@ https://github.com/user-attachments/assets/478d5c58-19e4-4c33-8ad2-53ec511a86e8
 - Configurable parameters for inference (temperature, top-k, top-p, etc.)
 - Streaming token generation
 - Command-line interface
-- Multimodal models (experimental)
+- Multimodal (experimental)
 
 ## Installation
 
@@ -52,47 +52,15 @@ let (modelURL, _) = try await URLSession.shared.download(from: remoteURL)
 let client = try LocalLLMClient.llama(url: modelURL)
 
 // Generate text
-let prompt = "1 + 2 = ?"
-let text = try await client.generateText(from: prompt)
-print(text)
-```
-</details>
-
-<details>
-<summary>Using with Apple MLX (LocalLLMClientMLX)</summary>
-
-```swift
-import LocalLLMClient
-import LocalLLMClientMLX
-
-// Initialize a client with the path to your model
-let modelURL = URL(fileURLWithPath: "path/to/your/mlx-model")
-let client = try await LocalLLMClient.mlx(url: modelURL)
-
-// Generate text
-let prompt = "1 + 2 = ?"
-let text = try await client.generateText(from: prompt)
-print(text)
-```
-</details>
-
-### Streaming Example
-
-<details open>
-<summary>Using with llama.cpp (LocalLLMClientLlama)</summary>
-
-```swift
-import LocalLLMClient
-import LocalLLMClientLlama
-
-// Initialize a client with the path to your model file
-let modelURL = URL(fileURLWithPath: "path/to/your/model.gguf")
-let client = try LocalLLMClient.llama(url: modelURL)
-
-// Process tokens as they arrive in real-time
 let prompt = "Tell me a story about a cat"
-for try await token in try client.textStream(from: prompt) {
-    print(token, terminator: "")
+let text = try await client.generateText(from: prompt)
+print(text)
+```
+
+```swift
+// Streaming text
+for try await text in try client.textStream(from: prompt) {
+    print(text, terminator: "")
 }
 ```
 </details>
@@ -103,15 +71,27 @@ for try await token in try client.textStream(from: prompt) {
 ```swift
 import LocalLLMClient
 import LocalLLMClientMLX
+import LocalLLMClientUtility
 
-// Initialize a client with the path to your model
-let modelURL = URL(fileURLWithPath: "path/to/your/mlx-model")
+// Download model from Hugging Face
+let downloader = FileDownloader(
+    source: .huggingFace(id: "mlx-community/Qwen3-1.7B-4bit", globs: .mlx)
+)
+let modelURL = try await downloader.download { print("Progress: \($0)") }
+
+// Initialize a client with the downloaded model
 let client = try await LocalLLMClient.mlx(url: modelURL)
 
-// Process tokens as they arrive in real-time
+// Generate text
 let prompt = "Tell me a story about a cat"
-for try await token in try await client.textStream(from: prompt) {
-    print(token, terminator: "")
+let text = try await client.generateText(from: prompt)
+print(text)
+```
+
+```swift
+// Streaming text
+for try await text in try await client.textStream(from: prompt) {
+    print(text, terminator: "")
 }
 ```
 </details>
@@ -128,11 +108,11 @@ import LocalLLMClientLlama
 // Configure custom parameters
 let modelURL = URL(fileURLWithPath: "path/to/your/model.gguf")
 let client = try LocalLLMClient.llama(url: modelURL, parameter: .init(
-    context: 4096,             // Text context size (0 = size the model was trained on)
-    numberOfThreads: 4,        // CPU threads to use (nil = auto)
-    temperature: 0.7,          // Randomness (0.0 to 1.0)
-    topK: 40,                  // Top-K sampling
-    topP: 0.9,                 // Top-P (nucleus) sampling
+    context: 4096,       // Text context size (0 = size the model was trained on)
+    numberOfThreads: 4,  // CPU threads to use (nil = auto)
+    temperature: 0.7,    // Randomness (0.0 to 1.0)
+    topK: 40,            // Top-K sampling
+    topP: 0.9,           // Top-P (nucleus) sampling
 ))
 
 // Generate text
@@ -183,10 +163,19 @@ LocalLLMClient supports multimodal models like LLaVA for processing images along
 import LocalLLMClient
 import LocalLLMClientLlama
 
-let clipURL = URL(filePath: "path/to/mmproj-model-f16.gguf")
-let modelURL = URL(filePath: "path/to/multimodal-model.gguf")
+// Download model from Hugging Face
+let model = "gemma-3-4b-it-Q8_0.gguf"
+let clip = "mmproj-model-f16.gguf"
 
-let client = try LocalLLMClient.llama(url: modelURL, clipURL: clipURL)
+let downloader = FileDownloader(
+    source: .huggingFace(id: "ggml-org/gemma-3-4b-it-GGUF", globs: [model, clip]),
+)
+let url = try await downloader.download { print("Download: \($0)") }
+
+let client = try LocalLLMClient.llama(
+    url: url.appending(component: model),
+    clipURL: url.appending(component: clip)
+)
 
 let input = LLMInput(
     prompt: "<start_of_turn>user\nWhat's in this image?<end_of_turn>\n<start_of_turn>assistant\n",
@@ -195,8 +184,8 @@ let input = LLMInput(
     parameters: .init(specialTokenImageStart: "<start_of_image>", specialTokenImageEnd: "<end_of_image>")
 )
 
-for try await token in client.textStream(from: input) {
-    print(token, terminator: "")
+for try await text in client.textStream(from: input) {
+    print(text, terminator: "")
 }
 ```
 </details>
@@ -208,7 +197,11 @@ for try await token in client.textStream(from: input) {
 import LocalLLMClient
 import LocalLLMClientMLX
 
-let modelURL = URL(filePath: "path/to/mlx-multimodal-model")
+// Download model from Hugging Face
+let downloader = FileDownloader(
+    source: .huggingFace(id: "mlx-community/Qwen2-VL-2B-Instruct-4bit", globs: .mlx)
+)
+let modelURL = try await downloader.download { print("Progress: \($0)") }
 
 let client = try await LocalLLMClient.mlx(url: modelURL)
 
@@ -217,15 +210,15 @@ let input = LLMInput(
     attachments: [.image(.init(resource: .yourImage))]
 )
 
-for try await token in try await client.textStream(from: input) {
-    print(token, terminator: "")
+for try await text in try await client.textStream(from: input) {
+    print(text, terminator: "")
 }
 ```
 </details>
 
 When using multimodal models, you'll need:
 1. A GGUF format LLM that supports multimodal inputs (like LLaVA, Gemma 3, etc.)
-    1. Try [gemma-3-4b-it-GGUF](https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF/tree/main) (Q8_0)
+    1. Try [gemma-3-4b-it-GGUF](https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF/tree/main) (Q8_0) or [Qwen2-VL-2B-Instruct](https://huggingface.co/mlx-community/Qwen2-VL-2B-Instruct-4bit/tree/main)
 2. A matching CLIP projection model (.gguf format)
 3. The image you want to analyze
 
@@ -235,17 +228,17 @@ Supported image formats include JPEG, PNG, and other common formats.
 
 - LLaMA 3
 - Gemma 3 / 2
-- Qwen 3
+- Qwen 3 / 2
 
 
-- [Models compatible with llama.cpp backend](https://github.com/ggml-org/llama.cpp?tab=readme-ov-file#text-only)  
-- [Models compatible with MLX backend](https://github.com/ml-explore/mlx-swift-examples/blob/main/Libraries/MLXLLM/Documentation.docc/Documentation.md)  
+> [Models compatible with llama.cpp backend](https://github.com/ggml-org/llama.cpp?tab=readme-ov-file#text-only)  
+> [Models compatible with MLX backend](https://github.com/ml-explore/mlx-swift-examples/blob/main/Libraries/MLXLLM/Documentation.docc/Documentation.md)  
 
 *If you have a model that works, please open an issue or PR to add it to the list.*
 
 ## Requirements
 
-- iOS 16.0+ / macOS 13.0+
+- iOS 18.0+ / macOS 15.0+
 - Xcode 16.3+
 
 ## Acknowledgements

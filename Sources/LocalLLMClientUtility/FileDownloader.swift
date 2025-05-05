@@ -1,14 +1,15 @@
 @preconcurrency import Hub
 import Foundation
 
-public actor FileDownloader {
+public struct FileDownloader {
     private let source: Source
     private let destination: URL
+    private let isBackground: Bool
 
 #if os(macOS)
-    public static let defaultRootDestination = URL.downloadsDirectory.appending(path: "localllmclient")
+    public static let defaultRootDestination = URL.downloadsDirectory.appending(path: "localllmclient").excludedFromBackup
 #else
-    public static let defaultRootDestination = URL.cachesDirectory.appending(path: "localllmclient")
+    public static let defaultRootDestination = URL.documentsDirectory.appending(path: "localllmclient").excludedFromBackup
 #endif
 
     public enum Source: Sendable {
@@ -25,9 +26,10 @@ public actor FileDownloader {
         }
     }
 
-    public init(source: Source, destination: URL = defaultRootDestination) {
+    public init(source: Source, destination: URL = defaultRootDestination, isBackground: Bool = false) {
         self.source = source
         self.destination = destination
+        self.isBackground = isBackground
     }
 
     public func download(onProgress: @Sendable @escaping (Double) -> Void = { _ in }) async throws -> URL {
@@ -71,12 +73,26 @@ public actor FileDownloader {
     }
 
     private func makeHub(offlineMode: Bool) -> HubApi {
-        HubApi(downloadBase: destination.appending(component: "huggingface"), useOfflineMode: offlineMode)
+        HubApi(
+            downloadBase: destination.appending(component: "huggingface"),
+            useBackgroundSession: isBackground,
+            useOfflineMode: offlineMode
+        )
     }
 }
 
 extension FileDownloader.Source.HuggingFaceGlobs: ExpressibleByArrayLiteral {
     public init(arrayLiteral elements: String...) {
         self.init(elements)
+    }
+}
+
+private extension URL {
+    var excludedFromBackup: URL {
+        var url = self
+        var resourceValues = URLResourceValues()
+        resourceValues.isExcludedFromBackup = true
+        try? url.setResourceValues(resourceValues)
+        return url
     }
 }

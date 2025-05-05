@@ -4,11 +4,11 @@ import MLXLMCommon
 import Foundation
 import Synchronization
 
-public final class MLXClient: LLMClient {
+public final actor MLXClient: LLMClient {
     private let context: Mutex<Context>
     private let parameter: MLXClient.Parameter
 
-    public init(url: URL, parameter: Parameter = .default) async throws {
+    nonisolated public init(url: URL, parameter: Parameter = .default) async throws {
         context = try await .init(Context(url: url))
         self.parameter = parameter
     }
