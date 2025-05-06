@@ -9,6 +9,7 @@ on:
       - 'Tests/**'
       - 'Package.swift'
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
     branches: [ "main" ]
     paths:
       - 'Sources/**'
@@ -30,7 +31,7 @@ jobs:
       id: cache-model
       uses: actions/cache@v4
       with:
-        path: ~/model_cache
+        path: ${{ github.workspace }}/model_cache
         key: model_cache
         
     - name: Run tests
