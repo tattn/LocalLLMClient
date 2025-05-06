@@ -9,7 +9,7 @@ public final actor MLXClient: LLMClient {
     private let parameter: MLXClient.Parameter
 
     nonisolated public init(url: URL, parameter: Parameter = .default) async throws {
-        context = try await .init(Context(url: url))
+        context = try await .init(Context(url: url, parameter: parameter))
         self.parameter = parameter
     }
 

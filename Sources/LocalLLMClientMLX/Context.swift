@@ -11,12 +11,12 @@ public final class Context {
     let modelContainer: ModelContainer
     let supportsVision: Bool
 
-    public init(url: URL) async throws(LLMError) {
+    public init(url: URL, parameter: MLXClient.Parameter) async throws(LLMError) {
         initializeMLX()
 
         MLXRandom.seed(UInt64(Date.timeIntervalSinceReferenceDate * 1000))
 
-        let configuration = ModelConfiguration(directory: url)
+        let configuration = ModelConfiguration(directory: url, extraEOSTokens: parameter.options.extraEOSTokens)
 
         let (model, tokenizer) = try await Self.loadModel(
             url: url, configuration: configuration
@@ -24,6 +24,7 @@ public final class Context {
         let (processor, supportsVision) = Self.makeProcessor(
             url: url, configuration: configuration, tokenizer: tokenizer
         )
+
         let context = ModelContext(
             configuration: configuration,
             model: model,
@@ -39,23 +40,23 @@ public final class Context {
     ) async throws(LLMError) -> (any LanguageModel, any Tokenizer) {
         do {
             let configurationURL = url.appending(component: "config.json")
-            let baseConfig = try JSONDecoder().decode(
+            let baseConfiguration = try JSONDecoder().decode(
                 BaseConfiguration.self, from: Data(contentsOf: configurationURL)
             )
             let model: any LanguageModel
             do {
                 model = try VLMTypeRegistry.shared.createModel(
                     configuration: configurationURL,
-                    modelType: baseConfig.modelType
+                    modelType: baseConfiguration.modelType
                 )
             } catch {
                 model = try LLMTypeRegistry.shared.createModel(
                     configuration: configurationURL,
-                    modelType: baseConfig.modelType
+                    modelType: baseConfiguration.modelType
                 )
             }
 
-            try loadWeights(modelDirectory: url, model: model, quantization: baseConfig.quantization)
+            try loadWeights(modelDirectory: url, model: model, quantization: baseConfiguration.quantization)
 
             let tokenizer = try await loadTokenizer(configuration: configuration, hub: .shared)
             return (model, tokenizer)
