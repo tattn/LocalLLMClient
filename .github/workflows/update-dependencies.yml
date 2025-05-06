@@ -22,6 +22,8 @@ jobs:
 
       - name: Run update_dependencies
         run: ./scripts/update_dependencies.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check for changes
         id: git-check

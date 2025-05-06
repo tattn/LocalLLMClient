@@ -20,7 +20,7 @@ jobs:
     runs-on: macos-15
     env:
       DEVELOPER_DIR: "/Applications/Xcode_16.3.app/Contents/Developer"
-      GITHUB_MODEL_CACHE: "${{ github.workspace }}/model"
+      GITHUB_MODEL_CACHE: "${{ github.workspace }}/model_cache"
     steps:
     - uses: actions/checkout@v4
       with:
@@ -30,8 +30,8 @@ jobs:
       id: cache-model
       uses: actions/cache@v4
       with:
-        path: ./model
-        key: model
+        path: ~/model_cache
+        key: model_cache
         
     - name: Run tests
       run: xcodebuild test -scheme LocalLLMClient-Package -destination 'platform=macOS'

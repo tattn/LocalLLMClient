@@ -4,13 +4,8 @@ import Foundation
 public struct FileDownloader {
     private let source: Source
     private let destination: URL
-    private let isBackground: Bool
 
-#if os(macOS)
-    public static let defaultRootDestination = URL.downloadsDirectory.appending(path: "localllmclient").excludedFromBackup
-#else
-    public static let defaultRootDestination = URL.documentsDirectory.appending(path: "localllmclient").excludedFromBackup
-#endif
+    public static let defaultRootDestination = URL.defaultRootDirectory
 
     public enum Source: Sendable {
         case huggingFace(id: String, globs: HuggingFaceGlobs)
@@ -26,10 +21,9 @@ public struct FileDownloader {
         }
     }
 
-    public init(source: Source, destination: URL = defaultRootDestination, isBackground: Bool = false) {
+    public init(source: Source, destination: URL = defaultRootDestination) {
         self.source = source
         self.destination = destination
-        self.isBackground = isBackground
     }
 
     public func download(onProgress: @Sendable @escaping (Double) -> Void = { _ in }) async throws -> URL {
@@ -39,8 +33,8 @@ public struct FileDownloader {
         switch source {
         case let .huggingFace(id, globs):
             let repo = Hub.Repo(id: id)
-            return try await makeHub(offlineMode: false).snapshot(from: repo, matching: globs.rawValue) { progress in
-                onProgress(progress.fractionCompleted)
+            return try await HubApi.make(destination: destination, offlineMode: false).snapshot(from: repo, matching: globs.rawValue) {
+                onProgress($0.fractionCompleted)
             }
         }
     }
@@ -53,7 +47,8 @@ public struct FileDownloader {
         do {
             switch source {
             case let .huggingFace(id, globs):
-                let hub = makeHub(offlineMode: true)
+                // TODO: Currently, not a perfect solution.
+                let hub = HubApi.make(destination: destination, offlineMode: true)
                 let repo = Hub.Repo(id: id)
                 let filenames = try FileManager.default
                     .getFileUrls(at: hub.localRepoLocation(repo))
@@ -71,14 +66,6 @@ public struct FileDownloader {
             return nil
         }
     }
-
-    private func makeHub(offlineMode: Bool) -> HubApi {
-        HubApi(
-            downloadBase: destination.appending(component: "huggingface"),
-            useBackgroundSession: isBackground,
-            useOfflineMode: offlineMode
-        )
-    }
 }
 
 extension FileDownloader.Source.HuggingFaceGlobs: ExpressibleByArrayLiteral {
@@ -87,12 +74,11 @@ extension FileDownloader.Source.HuggingFaceGlobs: ExpressibleByArrayLiteral {
     }
 }
 
-private extension URL {
-    var excludedFromBackup: URL {
-        var url = self
-        var resourceValues = URLResourceValues()
-        resourceValues.isExcludedFromBackup = true
-        try? url.setResourceValues(resourceValues)
-        return url
+extension HubApi {
+    static func make(destination: URL, offlineMode: Bool) -> HubApi {
+        HubApi(
+            downloadBase: destination.appending(component: "huggingface"),
+            useOfflineMode: offlineMode
+        )
     }
 }

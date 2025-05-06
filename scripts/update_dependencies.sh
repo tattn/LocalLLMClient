@@ -9,7 +9,11 @@ cd "$PROJECT_ROOT/scripts"
 
 echo "Fetching latest release from ggml-org/llama.cpp..."
 
-LATEST_TAG=$(curl -s "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+if [ -n "$GITHUB_TOKEN" ]; then
+    LATEST_TAG=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+else
+    LATEST_TAG=$(curl -s "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+fi
 
 if [ -z "$LATEST_TAG" ]; then
     echo "Error: Could not fetch the latest release tag"
