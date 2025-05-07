@@ -187,8 +187,10 @@ extension BackgroundDownloader {
 
 extension BackgroundDownloader.Downloader {
     final class Delegate: NSObject, URLSessionDownloadDelegate {
-        let progress = Progress(totalUnitCount: 100)
+        let progress = Progress(totalUnitCount: 1)
         let isDownloading: Mutex<Bool> = .init(false)
+
+
 
         func urlSession(
             _ session: URLSession, downloadTask: URLSessionDownloadTask,
@@ -207,7 +209,7 @@ extension BackgroundDownloader.Downloader {
             do {
                 try FileManager.default.moveItem(at: location, to: destinationURL)
             } catch {
-                assertionFailure("The URLSessionTask may be old. The app container was already invalid: \(error.localizedDescription)")
+                print("The URLSessionTask may be old. The app container was already invalid: \(error.localizedDescription)")
             }
         }
 
@@ -227,7 +229,10 @@ extension BackgroundDownloader.Downloader {
             didWriteData bytesWritten: Int64,
             totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64
         ) {
-            progress.completedUnitCount = Int64(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite) * 100)
+            if bytesWritten == totalBytesWritten {
+                progress.totalUnitCount = totalBytesExpectedToWrite
+            }
+            progress.completedUnitCount = totalBytesWritten
         }
     }
 }

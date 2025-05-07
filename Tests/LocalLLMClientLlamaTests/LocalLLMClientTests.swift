@@ -8,12 +8,12 @@ extension LocalLLMClient {
     static let model = "SmolVLM-256M-Instruct-Q8_0.gguf"
     static let clip = "mmproj-SmolVLM-256M-Instruct-Q8_0.gguf"
 
-    static func llama() async throws -> LlamaClient {
+    static func llama(parameter: LlamaClient.Parameter? = nil) async throws -> LlamaClient {
         let url = try await downloadModel()
         return try await LocalLLMClient.llama(
             url: url.appending(component: model),
             clipURL: url.appending(component: clip),
-            parameter: .init(
+            parameter: parameter ?? .init(
                 context: 512,
                 tokenImageStart: "<|im_start|>user\n", tokenImageEnd: "<|im_end|>\n"
             ),
@@ -90,5 +90,18 @@ private let prompt = "<|im_start|>user\nWhat is the answer to one plus two?<|im_
 
         #expect(counter == 1)
         #expect(breaked)
+    }
+
+    @Test(.timeLimit(.minutes(5)))
+    func json() async throws {
+        var result = ""
+
+        for try await text in try await LocalLLMClient.llama(parameter: .init(options: .init(responseFormat: .json))).textStream(from: prompt) {
+            print(text, terminator: "")
+            result += text
+        }
+
+        #expect(!result.isEmpty)
+        try JSONSerialization.jsonObject(with: Data(result.utf8), options: [])
     }
 }

@@ -7,8 +7,10 @@ public final class Context {
     package let context: OpaquePointer
     package var batch: llama_batch
     var sampling: Sampler
+    let grammer: Sampler?
     var cursor: [llama_token_data]
     private let model: OpaquePointer
+    let extraEOSTokens: Set<String>
 
     package var vocab: OpaquePointer {
         llama_model_get_vocab(model)
@@ -48,6 +50,7 @@ public final class Context {
         self.model = model
         self.context = context
         batch = llama_batch_init(Int32(parameter.batch), 0, 1)
+        extraEOSTokens = parameter.options.extraEOSTokens
 
         // https://github.com/ggml-org/llama.cpp/blob/master/common/sampling.cpp
         sampling = llama_sampler_chain_init(llama_sampler_chain_default_params())
@@ -62,6 +65,23 @@ public final class Context {
         let cursorCount = Int(llama_vocab_n_tokens(llama_model_get_vocab(model)))
         cursor = Array(unsafeUninitializedCapacity: cursorCount) { _, initializedCount in
             initializedCount = cursorCount
+        }
+
+        if let format = parameter.options.responseFormat {
+            switch format {
+            case .json:
+                do {
+                    let template = try String(contentsOf: Bundle.module.url(forResource: "json", withExtension: "gbnf")!, encoding: .utf8)
+                    grammer = llama_sampler_init_grammar(llama_model_get_vocab(model), template, "root")
+                } catch {
+                    throw .failedToLoad(reason: "Failed to load grammar template")
+                }
+            case let .grammar(grammar, root):
+                grammer = llama_sampler_init_grammar(llama_model_get_vocab(model), grammar, root)
+            }
+            llama_sampler_chain_add(sampling, grammer)
+        } else {
+            grammer = nil
         }
     }
 

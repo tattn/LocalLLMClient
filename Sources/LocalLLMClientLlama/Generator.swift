@@ -59,6 +59,13 @@ public struct TokenGenerator: AsyncIteratorProtocol {
             newToken = ""
         }
 
+        if context.extraEOSTokens.contains(newToken) {
+            if iteration > 0 {
+                temporaryInvalidCharacters.removeAll()
+                return nil
+            }
+        }
+
         context.batch.add(id: newTokenId, pos: decodeContext.cursor, seq_ids: [0], logits: true)
 
         decodeContext.cursor += 1

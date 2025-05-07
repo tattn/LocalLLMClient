@@ -11,7 +11,8 @@ public extension LlamaClient {
             penaltyLastN: Int = 64,
             penaltyRepeat: Float = 1,
             tokenImageStart: String = "",
-            tokenImageEnd: String = ""
+            tokenImageEnd: String = "",
+            options: Options = .init()
         ) {
             self.context = context
             self.numberOfThreads = numberOfThreads
@@ -24,6 +25,7 @@ public extension LlamaClient {
             self.penaltyRepeat = penaltyRepeat
             self.specialTokenImageStart = tokenImageStart
             self.specialTokenImageEnd = tokenImageEnd
+            self.options = options
         }
         
         public var context: Int
@@ -34,10 +36,30 @@ public extension LlamaClient {
         public var topP: Float
         public var typicalP: Float
         public var penaltyLastN: Int
-        public var penaltyRepeat: Float = 1
-        public var specialTokenImageStart: String = ""
-        public var specialTokenImageEnd: String = ""
+        public var penaltyRepeat: Float
+        public var specialTokenImageStart: String
+        public var specialTokenImageEnd: String
+
+        public var options: Options
 
         public static let `default` = Parameter()
+    }
+
+    struct Options: Sendable {
+        public init(
+            responseFormat: ResponseFormat? = nil,
+            extraEOSTokens: Set<String> = []
+        ) {
+            self.responseFormat = responseFormat
+            self.extraEOSTokens = extraEOSTokens
+        }
+
+        public var responseFormat: ResponseFormat?
+        public var extraEOSTokens: Set<String>
+    }
+
+    enum ResponseFormat: Sendable {
+        case grammar(gbnf: String, root: String = "root")
+        case json
     }
 }

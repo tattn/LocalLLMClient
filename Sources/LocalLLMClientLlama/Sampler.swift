@@ -20,6 +20,10 @@ package extension Sampler {
             )
         }
 
+        if let grammer = context.grammer {
+            llama_sampler_apply(grammer, &tokenDataArray)
+        }
+
         llama_sampler_apply(self, &tokenDataArray)
         assert(tokenDataArray.selected != -1)
 

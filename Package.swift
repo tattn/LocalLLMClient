@@ -53,6 +53,7 @@ let package = Package(
                 "LocalLLMClientLlamaC",
                 "LocalLLMClientLlamaFramework",
             ],
+            resources: [.process("Resources")]
         ),
         .binaryTarget(
             name: "LocalLLMClientLlamaFramework",
