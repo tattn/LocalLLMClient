@@ -9,11 +9,11 @@ public final class Context {
     var sampling: Sampler
     let grammer: Sampler?
     var cursor: [llama_token_data]
-    private let model: OpaquePointer
+    let model: Model
     let extraEOSTokens: Set<String>
 
     package var vocab: OpaquePointer {
-        llama_model_get_vocab(model)
+        model.vocab
     }
 
     package var addBos: Bool {
@@ -27,28 +27,14 @@ public final class Context {
     public init(url: URL, parameter: LlamaClient.Parameter = .default) throws(LLMError) {
         initializeLlama()
 
-        var model_params = llama_model_default_params()
-#if targetEnvironment(simulator)
-        model_params.n_gpu_layers = 0
-#endif
-        model_params.use_mmap = true
-
-        guard let model = llama_model_load_from_file(url.path(), model_params) else {
-            throw .failedToLoad(reason: "Failed to load model from file")
-        }
-
         var ctx_params = llama_context_default_params()
         ctx_params.n_ctx = UInt32(parameter.context)
         ctx_params.n_threads = Int32(parameter.numberOfThreads ?? max(1, min(8, ProcessInfo.processInfo.processorCount - 2)))
         ctx_params.n_threads_batch = ctx_params.n_threads
 
-        guard let context = llama_init_from_model(model, ctx_params) else {
-            throw .invalidParameter
-        }
-
         self.parameter = parameter
-        self.model = model
-        self.context = context
+        self.model = try Model(url: url)
+        self.context = try model.makeAndAllocateContext(with: ctx_params)
         batch = llama_batch_init(Int32(parameter.batch), 0, 1)
         extraEOSTokens = parameter.options.extraEOSTokens
 
@@ -62,7 +48,7 @@ public final class Context {
         llama_sampler_chain_add(sampling, llama_sampler_init_typical(parameter.typicalP, minKeep))
         llama_sampler_chain_add(sampling, llama_sampler_init_penalties(Int32(parameter.penaltyLastN), parameter.penaltyRepeat, 0, 0))
 
-        let cursorCount = Int(llama_vocab_n_tokens(llama_model_get_vocab(model)))
+        let cursorCount = Int(llama_vocab_n_tokens(model.vocab))
         cursor = Array(unsafeUninitializedCapacity: cursorCount) { _, initializedCount in
             initializedCount = cursorCount
         }
@@ -72,12 +58,12 @@ public final class Context {
             case .json:
                 do {
                     let template = try String(contentsOf: Bundle.module.url(forResource: "json", withExtension: "gbnf")!, encoding: .utf8)
-                    grammer = llama_sampler_init_grammar(llama_model_get_vocab(model), template, "root")
+                    grammer = llama_sampler_init_grammar(model.vocab, template, "root")
                 } catch {
                     throw .failedToLoad(reason: "Failed to load grammar template")
                 }
             case let .grammar(grammar, root):
-                grammer = llama_sampler_init_grammar(llama_model_get_vocab(model), grammar, root)
+                grammer = llama_sampler_init_grammar(model.vocab, grammar, root)
             }
             llama_sampler_chain_add(sampling, grammer)
         } else {
@@ -88,7 +74,6 @@ public final class Context {
     deinit {
         llama_sampler_free(sampling)
         llama_batch_free(batch)
-        llama_model_free(model)
         llama_free(context)
     }
 }
