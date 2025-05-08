@@ -30,7 +30,8 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/ml-explore/mlx-swift-examples", branch: "main"),
-        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.4.0"))
+        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.4.0")),
+        .package(url: "https://github.com/huggingface/swift-transformers", .upToNextMinor(from: "0.1.20"))
     ],
     targets: [
         .target(
@@ -52,6 +53,7 @@ let package = Package(
                 "LocalLLMClient",
                 "LocalLLMClientLlamaC",
                 "LocalLLMClientLlamaFramework",
+                .product(name: "Transformers", package: "swift-transformers"),
             ],
             resources: [.process("Resources")]
         ),
