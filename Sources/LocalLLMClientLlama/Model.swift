@@ -23,7 +23,7 @@ final class Model {
 
         self.model = model
 
-        let chatTemplate = getString(capacity: 1024) { buffer, length in
+        let chatTemplate = getString(capacity: 2048) { buffer, length in
             // LLM_KV_TOKENIZER_CHAT_TEMPLATE
             llama_model_meta_val_str(model, "tokenizer.chat_template", buffer, length)
         }
@@ -47,7 +47,7 @@ final class Model {
             let key = getString(capacity: 64) { buffer, length in
                 llama_model_meta_key_by_index(model, i, buffer, length)
             }
-            let value = getString(capacity: 1024) { buffer, length in
+            let value = getString(capacity: 2048) { buffer, length in
                 llama_model_meta_val_str_by_index(model, i, buffer, length)
             }
             partialResult[key] = value

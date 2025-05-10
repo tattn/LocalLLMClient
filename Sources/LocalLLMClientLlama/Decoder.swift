@@ -2,9 +2,11 @@
 import LocalLLMClient
 
 public extension Context {
-    func decode() throws(LLMError) {
+    @discardableResult
+    func decode() throws(LLMError) -> Int32 {
+        let numberOfTokens = batch.n_tokens
         guard batch.n_tokens > 0 else {
-            return // no data to decode
+            return 0 // no data to decode
         }
 
         batch.logits[Int(batch.n_tokens) - 1] = 1
@@ -14,14 +16,16 @@ public extension Context {
         }
 
         batch.clear()
+
+        return numberOfTokens
     }
 
     func evaluate(with tokens: [llama_token], context: DecodingContext) -> DecodingContext {
         for (index, token) in tokens.enumerated() {
-            batch.add(id: token, pos: llama_pos(index) + batch.n_tokens + context.cursor, seq_ids: [0], logits: false)
+            batch.add(id: token, pos: llama_pos(index) + context.cursor, seq_ids: [0], logits: false)
         }
         var context = context
-        context.cursor += batch.n_tokens
+        context.cursor += Int32(tokens.count)
         return context
     }
 

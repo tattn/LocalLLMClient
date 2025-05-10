@@ -44,7 +44,7 @@ let prompt = "What is the answer to one plus two?"
     @Test(.timeLimit(.minutes(5)))
     func image() async throws {
         let stream = try await LocalLLMClient.mlx().textStream(from: LLMInput(
-            prompt: "What is in this image?",
+            .text("What is in this image?"),
             attachments: [.image(.init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.jpeg")!)!)]
         ))
         var result = ""

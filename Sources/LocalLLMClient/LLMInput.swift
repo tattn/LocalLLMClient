@@ -2,23 +2,31 @@ import Foundation
 
 public struct LLMInput: Sendable {
     public init(
-        prompt: String,
+        _ value: Input,
         parsesSpecial: Bool? = nil,
         attachments: [LLMAttachment] = []
     ) {
-        self.prompt = prompt
+        self.value = value
         self.parsesSpecial = parsesSpecial
         self.attachments = attachments
     }
 
-    public var prompt: String
+    public var value: Input
     public var parsesSpecial: Bool?
     public var attachments: [LLMAttachment] = []
+
+    public enum Input: Sendable {
+        /// e.g.) "hello"
+        case text(String)
+
+        /// e.g.) [["role": "user", "content": "hello", "type": "text"]]
+        case chatTemplate(messages: [[String: any Sendable]])
+    }
 }
 
 extension LLMInput: ExpressibleByStringLiteral {
     public init(stringLiteral value: String) {
-        self.prompt = value
+        self.value = .text(value)
     }
 }
 

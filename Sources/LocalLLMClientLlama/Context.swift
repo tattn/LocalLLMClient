@@ -41,12 +41,15 @@ public final class Context {
         // https://github.com/ggml-org/llama.cpp/blob/master/common/sampling.cpp
         sampling = llama_sampler_chain_init(llama_sampler_chain_default_params())
         let minKeep = 0
+        let penaltyFreq: Float = 0
+        let penaltyPresent: Float = 0
         llama_sampler_chain_add(sampling, llama_sampler_init_temp(parameter.temperature))
         llama_sampler_chain_add(sampling, llama_sampler_init_dist(LLAMA_DEFAULT_SEED))
         llama_sampler_chain_add(sampling, llama_sampler_init_top_k(Int32(parameter.topK)))
         llama_sampler_chain_add(sampling, llama_sampler_init_top_p(parameter.topP, minKeep))
+        llama_sampler_chain_add(sampling, llama_sampler_init_min_p(1 - parameter.topP, 1))
         llama_sampler_chain_add(sampling, llama_sampler_init_typical(parameter.typicalP, minKeep))
-        llama_sampler_chain_add(sampling, llama_sampler_init_penalties(Int32(parameter.penaltyLastN), parameter.penaltyRepeat, 0, 0))
+        llama_sampler_chain_add(sampling, llama_sampler_init_penalties(Int32(parameter.penaltyLastN), parameter.penaltyRepeat, penaltyFreq, penaltyPresent))
 
         let cursorCount = Int(llama_vocab_n_tokens(model.vocab))
         cursor = Array(unsafeUninitializedCapacity: cursorCount) { _, initializedCount in

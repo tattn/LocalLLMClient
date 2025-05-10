@@ -57,7 +57,7 @@ private let prompt = "<|im_start|>user\nWhat is the answer to one plus two?<|im_
     @Test(.timeLimit(.minutes(5)))
     func image() async throws {
         let stream = try await LocalLLMClient.llama().textStream(from: LLMInput(
-            prompt: "<|im_start|>user\nWhat is in this image?<|im_end|>\n<|im_start|>assistant\n",
+            .text("<|im_start|>user\nWhat is in this image?<|im_end|>\n<|im_start|>assistant\n"),
             attachments: [.image(.init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.jpeg")!)!)]
         ))
 

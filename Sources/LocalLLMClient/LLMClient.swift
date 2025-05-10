@@ -17,11 +17,11 @@ public extension LLMClient {
     }
 
     func generateText(from input: String) async throws -> String {
-        try await generateText(from: .init(prompt: input))
+        try await generateText(from: .init(.text(input)))
     }
 
     func textStream(from input: String) async throws -> TextGenerator {
-        try await textStream(from: .init(prompt: input))
+        try await textStream(from: .init(.text(input)))
     }
 }
 

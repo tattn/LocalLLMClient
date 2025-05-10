@@ -21,10 +21,18 @@ public final actor MLXClient: LLMClient {
             }
         }
 
-        let chat: [Chat.Message] = [
-//            .system("You are a helpful assistant"),
-            .user(input.prompt, images: images),
-        ]
+        let chat: [Chat.Message] = switch input.value {
+        case .text(let text):
+            [.user(text, images: images)]
+        case .chatTemplate(let messages):
+            messages.map {
+                Chat.Message(
+                    role: .init(rawValue: $0["role"] as? String ?? "") ?? .user,
+                    content: $0["content"] as? String ?? "",
+                    images: images
+                )
+            }
+        }
 
         var userInput = UserInput(
             chat: chat, additionalContext: ["enable_thinking": false])
