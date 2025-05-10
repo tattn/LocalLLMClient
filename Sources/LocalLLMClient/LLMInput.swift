@@ -17,21 +17,68 @@ public struct LLMInput: Sendable {
 
     public enum Input: Sendable {
         /// e.g.) "hello"
-        case text(String)
+        case plain(String)
 
         /// e.g.) [["role": "user", "content": "hello", "type": "text"]]
-        case chatTemplate(messages: [[String: any Sendable]])
+        case chatTemplate(_ messages: [[String: any Sendable]])
+
+        /// e.g.) [Message(role: .user, content: "hello")]
+        case chat([Message])
     }
 }
 
 extension LLMInput: ExpressibleByStringLiteral {
     public init(stringLiteral value: String) {
-        self.value = .text(value)
+        self.value = .plain(value)
     }
 }
 
 public enum LLMAttachment: @unchecked Sendable {
     case image(LLMInputImage)
+}
+
+public extension LLMInput.Input {
+    struct Message: Sendable {
+        public init(
+            role: Role,
+            content: String
+        ) {
+            self.role = role
+            self.content = content
+        }
+
+        public static func system(_ content: String) -> Message {
+            .init(role: .system, content: content)
+        }
+
+        public static func user(_ content: String) -> Message {
+            .init(role: .user, content: content)
+        }
+
+        public static func assistant(_ content: String) -> Message {
+            .init(role: .assistant, content: content)
+        }
+
+        public var role: Role
+        public var content: String
+        // TODO: Attachments
+
+        public enum Role: Sendable {
+            case system
+            case user
+            case assistant
+            case custom(String)
+
+            public var rawValue: String {
+                switch self {
+                case .system: "system"
+                case .user: "user"
+                case .assistant: "assistant"
+                case .custom(let value): value
+                }
+            }
+        }
+    }
 }
 
 import class CoreImage.CIImage

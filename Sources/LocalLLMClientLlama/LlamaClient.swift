@@ -39,10 +39,13 @@ public final class LlamaClient: LLMClient {
                 }
 
                 switch input.value {
-                case .text(let text):
+                case .plain(let text):
                     decodeContext = try context.decode(text: text, context: decodeContext)
                 case .chatTemplate(let messages):
                     let prompt = try context.model.applyTemplate(messages)
+                    decodeContext = try context.decode(text: prompt, context: decodeContext)
+                case .chat(let messages):
+                    let prompt = try context.model.applyTemplate(messages.makeTemplate())
                     decodeContext = try context.decode(text: prompt, context: decodeContext)
                 }
             } catch {

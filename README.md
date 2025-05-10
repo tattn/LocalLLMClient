@@ -52,7 +52,7 @@ let remoteURL = URL(string: "https://huggingface.co/unsloth/gemma-3-1b-it-GGUF/r
 let (modelURL, _) = try await URLSession.shared.download(from: remoteURL)
 
 // Initialize a client with the path to your model file
-let client = try LocalLLMClient.llama(url: modelURL)
+let client = try await LocalLLMClient.llama(url: modelURL)
 
 // Generate text
 let prompt = "Tell me a story about a cat"
@@ -62,7 +62,7 @@ print(text)
 
 ```swift
 // Streaming text
-for try await text in try client.textStream(from: prompt) {
+for try await text in try await client.textStream(from: prompt) {
     print(text, terminator: "")
 }
 ```
@@ -110,12 +110,12 @@ import LocalLLMClientLlama
 
 // Configure custom parameters
 let modelURL = URL(fileURLWithPath: "path/to/your/model.gguf")
-let client = try LocalLLMClient.llama(url: modelURL, parameter: .init(
+let client = try await LocalLLMClient.llama(url: modelURL, parameter: .init(
     context: 4096,       // Text context size (0 = size the model was trained on)
     numberOfThreads: 4,  // CPU threads to use (nil = auto)
     temperature: 0.7,    // Randomness (0.0 to 1.0)
     topK: 40,            // Top-K sampling
-    topP: 0.9,           // Top-P (nucleus) sampling
+    topP: 0.9            // Top-P (nucleus) sampling
 ))
 
 // Generate text
@@ -164,6 +164,7 @@ LocalLLMClient supports multimodal models like LLaVA for processing images along
 ```swift
 import LocalLLMClient
 import LocalLLMClientLlama
+import LocalLLMClientUtility
 
 // Download model from Hugging Face
 let model = "gemma-3-4b-it-Q8_0.gguf"
@@ -174,7 +175,7 @@ let downloader = FileDownloader(
 )
 let url = try await downloader.download { print("Download: \($0)") }
 
-let client = try LocalLLMClient.llama(
+let client = try await LocalLLMClient.llama(
     url: url.appending(component: model),
     clipURL: url.appending(component: clip)
 )
@@ -185,7 +186,7 @@ let input = LLMInput(
     parameters: .init(tokenImageStart: "<start_of_image>", tokenImageEnd: "<end_of_image>")
 )
 
-for try await text in client.textStream(from: input) {
+for try await text in try await client.textStream(from: input) {
     print(text, terminator: "")
 }
 ```
@@ -197,6 +198,7 @@ for try await text in client.textStream(from: input) {
 ```swift
 import LocalLLMClient
 import LocalLLMClientMLX
+import LocalLLMClientUtility
 
 // Download model from Hugging Face
 let downloader = FileDownloader(

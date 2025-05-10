@@ -57,7 +57,7 @@ private let prompt = "<|im_start|>user\nWhat is the answer to one plus two?<|im_
     @Test(.timeLimit(.minutes(5)))
     func image() async throws {
         let stream = try await LocalLLMClient.llama().textStream(from: LLMInput(
-            .text("<|im_start|>user\nWhat is in this image?<|im_end|>\n<|im_start|>assistant\n"),
+            .plain("<|im_start|>user\nWhat is in this image?<|im_end|>\n<|im_start|>assistant\n"),
             attachments: [.image(.init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.jpeg")!)!)]
         ))
 
@@ -96,7 +96,13 @@ private let prompt = "<|im_start|>user\nWhat is the answer to one plus two?<|im_
     func json() async throws {
         var result = ""
 
-        for try await text in try await LocalLLMClient.llama(parameter: .init(options: .init(responseFormat: .json))).textStream(from: prompt) {
+        let input = LLMInput(
+            .chat([.user("What is the answer to one plus two?")]),
+        )
+        for try await text in try await LocalLLMClient.llama(parameter: .init(
+            penaltyRepeat: 1.3,
+            options: .init(responseFormat: .json)
+        )).textStream(from: input) {
             print(text, terminator: "")
             result += text
         }

@@ -3,36 +3,45 @@ name: Test
 on:
   workflow_dispatch:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
     paths:
-      - 'Sources/**'
-      - 'Tests/**'
-      - 'Package.swift'
+      - "Sources/**"
+      - "Tests/**"
+      - "Package.swift"
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
-    branches: [ "main" ]
+    branches: ["main"]
     paths:
-      - 'Sources/**'
-      - 'Tests/**'
-      - 'Package.swift'
+      - "Sources/**"
+      - "Tests/**"
+      - "Package.swift"
 
 jobs:
   test:
+    name: ${{ matrix.name }} Tests
     runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Llama
+            scheme: LocalLLMClientLlama
+          - name: MLX
+            scheme: LocalLLMClientMLX
     env:
       DEVELOPER_DIR: "/Applications/Xcode_16.3.app/Contents/Developer"
       GITHUB_MODEL_CACHE: "${{ github.workspace }}/model_cache"
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
-    
-    - name: Cache model file
-      id: cache-model
-      uses: actions/cache@v4
-      with:
-        path: ${{ github.workspace }}/model_cache
-        key: model_cache
-        
-    - name: Run tests
-      run: xcodebuild test -scheme LocalLLMClient-Package -destination 'platform=macOS'
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache model file
+        id: cache-model
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/model_cache
+          key: model_cache
+
+      - name: Run ${{ matrix.name }} tests
+        run: xcodebuild test -scheme ${{ matrix.scheme }} -destination 'platform=macOS'

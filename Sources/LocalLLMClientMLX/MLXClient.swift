@@ -22,13 +22,21 @@ public final actor MLXClient: LLMClient {
         }
 
         let chat: [Chat.Message] = switch input.value {
-        case .text(let text):
+        case .plain(let text):
             [.user(text, images: images)]
         case .chatTemplate(let messages):
             messages.map {
                 Chat.Message(
                     role: .init(rawValue: $0["role"] as? String ?? "") ?? .user,
                     content: $0["content"] as? String ?? "",
+                    images: images
+                )
+            }
+        case .chat(let messages):
+            messages.map {
+                Chat.Message(
+                    role: .init(rawValue: $0.role.rawValue) ?? .user,
+                    content: $0.content,
                     images: images
                 )
             }

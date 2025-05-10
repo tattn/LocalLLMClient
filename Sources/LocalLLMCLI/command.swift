@@ -91,7 +91,7 @@ struct LocalLLMCommand: AsyncParsableCommand {
         log("---")
 
         let input = LLMInput(
-            .text(prompt),
+            .plain(prompt),
             attachments: attachments
         )
 
