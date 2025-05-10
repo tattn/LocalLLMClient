@@ -98,9 +98,10 @@ actor LocalLLMClientTests {
         var result = ""
 
         let input = LLMInput(
-            .chat([.user("What is the answer to one plus two?")]),
+            .chat([.user("What is the answer to one plus two?\nRespond in JSON.\n\n{ \"answer\": \"<answer>\" }\n")]),
         )
         for try await text in try await LocalLLMClient.llama(parameter: .init(
+            temperature: 0.9,
             penaltyRepeat: 1.3,
             options: .init(responseFormat: .json)
         )).textStream(from: input) {

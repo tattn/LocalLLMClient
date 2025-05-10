@@ -26,7 +26,6 @@ jobs:
     env:
       DEVELOPER_DIR: "/Applications/Xcode_16.3.app/Contents/Developer"
       GITHUB_MODEL_CACHE: "${{ github.workspace }}/model_cache"
-      GITHUB_ACTIONS_TEST: "${{ matrix.test-type }}"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,4 +39,4 @@ jobs:
           key: model_cache
 
       - name: Run ${{ matrix.test-type }} tests
-        run: xcodebuild test -scheme LocalLLMClient-Package -destination 'platform=macOS'
+        run: xcodebuild test -scheme LocalLLMClient-Package -destination 'platform=macOS' GITHUB_ACTIONS_TEST="${{ matrix.test-type }}"
