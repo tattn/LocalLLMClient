@@ -18,19 +18,15 @@ on:
 
 jobs:
   test:
-    name: ${{ matrix.name }} Tests
+    name: ${{ matrix.test-type }} Tests
     runs-on: macos-15
     strategy:
-      fail-fast: false
       matrix:
-        include:
-          - name: Llama
-            scheme: LocalLLMClientLlama
-          - name: MLX
-            scheme: LocalLLMClientMLX
+        test-type: [Llama, MLX]
     env:
       DEVELOPER_DIR: "/Applications/Xcode_16.3.app/Contents/Developer"
       GITHUB_MODEL_CACHE: "${{ github.workspace }}/model_cache"
+      GITHUB_ACTIONS_TEST: "${{ matrix.test-type }}"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,5 +39,5 @@ jobs:
           path: ${{ github.workspace }}/model_cache
           key: model_cache
 
-      - name: Run ${{ matrix.name }} tests
-        run: xcodebuild test -scheme ${{ matrix.scheme }} -destination 'platform=macOS'
+      - name: Run ${{ matrix.test-type }} tests
+        run: xcodebuild test -scheme LocalLLMClient-Package -destination 'platform=macOS'

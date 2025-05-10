@@ -20,7 +20,8 @@ extension LocalLLMClient {
 
 let prompt = "What is the answer to one plus two?"
 
-@Suite(.serialized) actor LocalLLMClientTests {
+@Suite(.serialized, .disabled(if: ![nil, "MLX"].contains(ProcessInfo.processInfo.environment["GITHUB_ACTIONS_TEST"])))
+actor LocalLLMClientTests {
     private static var initialized = false
 
     init() async throws {
