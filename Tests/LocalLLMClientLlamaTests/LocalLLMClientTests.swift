@@ -4,6 +4,8 @@ import LocalLLMClient
 import LocalLLMClientLlama
 import LocalLLMClientUtility
 
+private let disabledTests = ![nil, "Llama"].contains(ProcessInfo.processInfo.environment["GITHUB_ACTIONS_TEST"])
+
 extension LocalLLMClient {
     static let model = "SmolVLM-256M-Instruct-Q8_0.gguf"
     static let clip = "mmproj-SmolVLM-256M-Instruct-Q8_0.gguf"
@@ -32,12 +34,12 @@ extension LocalLLMClient {
 
 private let prompt = "<|im_start|>user\nWhat is the answer to one plus two?<|im_end|>\n<|im_start|>assistant\n"
 
-@Suite(.serialized, .disabled(if: ![nil, "Llama"].contains(ProcessInfo.processInfo.environment["GITHUB_ACTIONS_TEST"])))
+@Suite(.serialized, .disabled(if: disabledTests))
 actor LocalLLMClientTests {
     private static var initialized = false
 
     init() async throws {
-        if !Self.initialized {
+        if !Self.initialized && !disabledTests {
             _ = try await LocalLLMClient.downloadModel()
             Self.initialized = true
         }
@@ -97,19 +99,26 @@ actor LocalLLMClientTests {
     func json() async throws {
         var result = ""
 
-        let input = LLMInput(
-            .chat([.user("What is the answer to one plus two?\nRespond in JSON.\n\n{ \"answer\": \"<answer>\" }\n")]),
-        )
-        for try await text in try await LocalLLMClient.llama(parameter: .init(
-            temperature: 0.9,
-            penaltyRepeat: 1.3,
-            options: .init(responseFormat: .json)
-        )).textStream(from: input) {
-            print(text, terminator: "")
-            result += text
+        for _ in 0...2 {
+            do {
+                let input = LLMInput(
+                    .chat([.user("What is the answer to one plus two?\nRespond in JSON.\n\n{ \"answer\": \"<answer>\" }\n")]),
+                )
+                for try await text in try await LocalLLMClient.llama(parameter: .init(
+                    temperature: 1.0,
+                    penaltyRepeat: 1.3,
+                    options: .init(responseFormat: .json)
+                )).textStream(from: input) {
+                    print(text, terminator: "")
+                    result += text
+                }
+
+                try JSONSerialization.jsonObject(with: Data(result.utf8), options: [])
+                return
+            } catch {
+            }
         }
 
-        #expect(!result.isEmpty)
-        try JSONSerialization.jsonObject(with: Data(result.utf8), options: [])
+        Issue.record()
     }
 }

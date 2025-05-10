@@ -4,6 +4,8 @@ import LocalLLMClient
 import LocalLLMClientMLX
 import LocalLLMClientUtility
 
+private let disabledTests = ![nil, "MLX"].contains(ProcessInfo.processInfo.environment["GITHUB_ACTIONS_TEST"])
+
 extension LocalLLMClient {
     static func mlx() async throws -> MLXClient {
         try await LocalLLMClient.mlx(url: downloadModel(), parameter: .init(maxTokens: 256))
@@ -20,12 +22,12 @@ extension LocalLLMClient {
 
 let prompt = "What is the answer to one plus two?"
 
-@Suite(.serialized, .disabled(if: ![nil, "MLX"].contains(ProcessInfo.processInfo.environment["GITHUB_ACTIONS_TEST"])))
+@Suite(.serialized, .disabled(if: disabledTests))
 actor LocalLLMClientTests {
     private static var initialized = false
 
     init() async throws {
-        if !Self.initialized {
+        if !Self.initialized && !disabledTests {
             _ = try await LocalLLMClient.downloadModel()
             Self.initialized = true
         }

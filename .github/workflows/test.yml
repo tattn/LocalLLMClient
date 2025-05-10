@@ -25,7 +25,7 @@ jobs:
         test-type: [Llama, MLX]
     env:
       DEVELOPER_DIR: "/Applications/Xcode_16.3.app/Contents/Developer"
-      GITHUB_MODEL_CACHE: "${{ github.workspace }}/model_cache"
+      TEST_RUNNER_GITHUB_MODEL_CACHE: "${{ github.workspace }}/model_cache"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -39,4 +39,4 @@ jobs:
           key: model_cache
 
       - name: Run ${{ matrix.test-type }} tests
-        run: xcodebuild test -scheme LocalLLMClient-Package -destination 'platform=macOS' GITHUB_ACTIONS_TEST="${{ matrix.test-type }}"
+        run: TEST_RUNNER_GITHUB_ACTIONS_TEST="${{ matrix.test-type }}" xcodebuild test -scheme LocalLLMClient-Package -destination 'platform=macOS'
