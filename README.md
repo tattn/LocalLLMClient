@@ -38,6 +38,8 @@ dependencies: [
 
 ## Usage
 
+The API documentation is available [here](https://tattn.github.io/LocalLLMClient/documentation/).
+
 ### Basic Example
 
 <details open>
