@@ -53,10 +53,12 @@ let package = Package(
             dependencies: [
                 "LocalLLMClient",
                 "LocalLLMClientLlamaC",
-                "LocalLLMClientLlamaFramework",
                 .product(name: "Transformers", package: "swift-transformers"),
             ],
-            resources: [.process("Resources")]
+            resources: [.process("Resources")],
+            swiftSettings: Context.environment["BUILD_DOCC"] == nil ? [] : [
+                .define("BUILD_DOCC")
+            ]
         ),
         .binaryTarget(
             name: "LocalLLMClientLlamaFramework",

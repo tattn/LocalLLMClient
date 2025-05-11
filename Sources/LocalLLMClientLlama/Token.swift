@@ -1,4 +1,8 @@
-import llama
+#if BUILD_DOCC
+@preconcurrency @_implementationOnly import llama
+#else
+@preconcurrency private import llama
+#endif
 
 package extension [llama_token] {
     init(_ text: String, add_bos: Bool, special: Bool, vocab: OpaquePointer) {

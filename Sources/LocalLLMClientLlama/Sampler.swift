@@ -1,4 +1,8 @@
-@preconcurrency import llama
+#if BUILD_DOCC
+@preconcurrency @_implementationOnly import llama
+#else
+@preconcurrency private import llama
+#endif
 
 typealias Sampler = UnsafeMutablePointer<llama_sampler>
 

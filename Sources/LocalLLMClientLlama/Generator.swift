@@ -1,5 +1,9 @@
 import Foundation
-@preconcurrency import llama
+#if BUILD_DOCC
+@preconcurrency @_implementationOnly import llama
+#else
+@preconcurrency private import llama
+#endif
 import LocalLLMClient
 
 public struct Generator: AsyncSequence, @unchecked Sendable {

@@ -30,11 +30,12 @@ jobs:
 
       - name: Build DocC
         run: |
-          swift package --allow-writing-to-directory ./docs \
-            generate-documentation --target LocalLLMClient \
-            --output-path ./docs \
-            --transform-for-static-hosting \
-            --hosting-base-path LocalLLMClient
+          BUILD_DOCC=1 swift package --allow-writing-to-directory \
+            ./docs generate-documentation --output-path ./docs \
+            --enable-experimental-combined-documentation \
+            --enable-experimental-external-link-support \
+            --target LocalLLMClient --target LocalLLMClientMLX \
+            --target LocalLLMClientUtility --target LocalLLMClientLlama
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
