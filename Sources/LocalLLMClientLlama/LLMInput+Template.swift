@@ -1,6 +1,6 @@
 import LocalLLMClient
 
-extension [LLMInput.Input.Message] {
+extension [LLMInput.Message] {
     func makeTemplate() throws -> [[String: any Sendable]] {
         map { message in
             [

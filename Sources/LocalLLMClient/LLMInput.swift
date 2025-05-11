@@ -11,6 +11,18 @@ public struct LLMInput: Sendable {
         self.attachments = attachments
     }
 
+    public static func plain(_ value: String) -> LLMInput {
+        .init(.plain(value))
+    }
+
+    public static func chatTemplate(_ messages: [[String: any Sendable]]) -> LLMInput {
+        .init(.chatTemplate(messages))
+    }
+
+    public static func chat(_ messages: [Message]) -> LLMInput {
+        .init(.chat(messages))
+    }
+
     public var value: Input
     public var parsesSpecial: Bool?
     public var attachments: [LLMAttachment] = []
@@ -37,7 +49,7 @@ public enum LLMAttachment: @unchecked Sendable {
     case image(LLMInputImage)
 }
 
-public extension LLMInput.Input {
+public extension LLMInput {
     struct Message: Sendable {
         public init(
             role: Role,

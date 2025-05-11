@@ -45,6 +45,9 @@ let package = Package(
                 "LocalLLMClientMLX",
                 "LocalLLMClientUtility",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            ],
+            linkerSettings: [
+                .unsafeFlags(["-rpath", "@executable_path"])
             ]
         ),
 

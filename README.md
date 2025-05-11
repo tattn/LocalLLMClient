@@ -40,7 +40,7 @@ dependencies: [
 
 The API documentation is available [here](https://tattn.github.io/LocalLLMClient/documentation/).
 
-### Basic Example
+### Basic Usage
 
 <details open>
 <summary>Using with llama.cpp</summary>
@@ -54,17 +54,25 @@ let remoteURL = URL(string: "https://huggingface.co/unsloth/gemma-3-1b-it-GGUF/r
 let (modelURL, _) = try await URLSession.shared.download(from: remoteURL)
 
 // Initialize a client with the path to your model file
-let client = try await LocalLLMClient.llama(url: modelURL)
+// You can customize parameters as needed
+let client = try await LocalLLMClient.llama(url: modelURL, parameter: .init(
+    context: 4096,       // Text context size (0 = size the model was trained on)
+    numberOfThreads: 4,  // CPU threads to use (nil = auto)
+    temperature: 0.7,    // Randomness (0.0 to 1.0)
+    topK: 40,            // Top-K sampling
+    topP: 0.9            // Top-P (nucleus) sampling
+))
 
 // Generate text
-let prompt = "Tell me a story about a cat"
-let text = try await client.generateText(from: prompt)
+let input = LLMInput.chat([
+    .system("You are a helpful assistant."),
+    .user("Tell me a story about a cat.")
+])
+let text = try await client.generateText(from: input)
 print(text)
-```
 
-```swift
-// Streaming text
-for try await text in try await client.textStream(from: prompt) {
+// Or use streaming API
+for try await text in try await client.textStream(from: input) {
     print(text, terminator: "")
 }
 ```
@@ -85,66 +93,24 @@ let downloader = FileDownloader(
 let modelURL = try await downloader.download { print("Progress: \($0)") }
 
 // Initialize a client with the downloaded model
-let client = try await LocalLLMClient.mlx(url: modelURL)
-
-// Generate text
-let prompt = "Tell me a story about a cat"
-let text = try await client.generateText(from: prompt)
-print(text)
-```
-
-```swift
-// Streaming text
-for try await text in try await client.textStream(from: prompt) {
-    print(text, terminator: "")
-}
-```
-</details>
-
-### Custom Parameters
-
-<details open>
-<summary>Using with llama.cpp</summary>
-
-```swift
-import LocalLLMClient
-import LocalLLMClientLlama
-
-// Configure custom parameters
-let modelURL = URL(fileURLWithPath: "path/to/your/model.gguf")
-let client = try await LocalLLMClient.llama(url: modelURL, parameter: .init(
-    context: 4096,       // Text context size (0 = size the model was trained on)
-    numberOfThreads: 4,  // CPU threads to use (nil = auto)
+// You can customize parameters as needed
+let client = try await LocalLLMClient.mlx(url: modelURL, parameter: .init(
     temperature: 0.7,    // Randomness (0.0 to 1.0)
-    topK: 40,            // Top-K sampling
     topP: 0.9            // Top-P (nucleus) sampling
 ))
 
 // Generate text
-let prompt = "Write a poem about a cat"
-let text = try await client.generateText(from: prompt)
+let input = LLMInput.chat([
+    .system("You are a helpful assistant."),
+    .user("Tell me a story about a cat.")
+])
+let text = try await client.generateText(from: input)
 print(text)
-```
-</details>
 
-<details>
-<summary>Using with Apple MLX</summary>
-
-```swift
-import LocalLLMClient
-import LocalLLMClientMLX
-
-// Configure custom parameters
-let modelURL = URL(fileURLWithPath: "path/to/your/mlx-model")
-let client = try await LocalLLMClient.mlx(url: modelURL, parameter: .init(
-    temperature: 0.7,          // Randomness (0.0 to 1.0)
-    topP: 0.9                  // Top-P (nucleus) sampling
-))
-
-// Generate text
-let prompt = "Write a poem about a cat"
-let text = try await client.generateText(from: prompt)
-print(text)
+// Or use streaming API
+for try await text in try await client.textStream(from: input) {
+    print(text, terminator: "")
+}
 ```
 </details>
 
@@ -153,7 +119,11 @@ print(text)
 You can use LocalLLMClient directly from the terminal using the command line tool:
 
 ```bash
+# Run using llama.cpp
 swift run localllm --model /path/to/your/model.gguf "Your prompt here"
+
+# Run using MLX
+./scripts/run_mlx.sh --model https://huggingface.co/mlx-community/Qwen3-1.7B-4bit "Your prompt here"
 ```
 
 ## Multimodal for Image (Experimental)
@@ -183,7 +153,7 @@ let client = try await LocalLLMClient.llama(
 )
 
 let input = LLMInput(
-    prompt: "<start_of_turn>user\nWhat's in this image?<end_of_turn>\n<start_of_turn>assistant\n",
+    "<start_of_turn>user\nWhat's in this image?<end_of_turn>\n<start_of_turn>assistant\n",
     attachments: [.image(.init(resource: .yourImage))],
     parameters: .init(tokenImageStart: "<start_of_image>", tokenImageEnd: "<end_of_image>")
 )
@@ -211,7 +181,7 @@ let modelURL = try await downloader.download { print("Progress: \($0)") }
 let client = try await LocalLLMClient.mlx(url: modelURL)
 
 let input = LLMInput(
-    prompt: "What can you see in this image?",
+    "What can you see in this image?",
     attachments: [.image(.init(resource: .yourImage))]
 )
 

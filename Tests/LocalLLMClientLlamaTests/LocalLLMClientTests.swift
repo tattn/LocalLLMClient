@@ -101,9 +101,10 @@ actor LocalLLMClientTests {
 
         for _ in 0...2 {
             do {
-                let input = LLMInput(
-                    .chat([.user("What is the answer to one plus two?\nRespond in JSON.\n\n{ \"answer\": \"<answer>\" }\n")]),
-                )
+                let input = LLMInput.chat([
+                    .system("You are a helpful assistant."),
+                    .user("What is the answer to one plus two?\nRespond in JSON.\n\n{ \"answer\": \"<answer>\" }\n")
+                ])
                 for try await text in try await LocalLLMClient.llama(parameter: .init(
                     temperature: 1.0,
                     penaltyRepeat: 1.3,
