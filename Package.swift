@@ -31,7 +31,8 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/ml-explore/mlx-swift-examples", branch: "main"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.4.0")),
-        .package(url: "https://github.com/huggingface/swift-transformers", .upToNextMinor(from: "0.1.20"))
+        .package(url: "https://github.com/huggingface/swift-transformers", .upToNextMinor(from: "0.1.20")),
+        .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.4.0")
     ],
     targets: [
         .target(
