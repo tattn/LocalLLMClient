@@ -2,50 +2,15 @@ import Testing
 import Foundation
 import LocalLLMClient
 import LocalLLMClientLlama
-import LocalLLMClientUtility
-
-private let disabledTests = ![nil, "Llama"].contains(ProcessInfo.processInfo.environment["GITHUB_ACTIONS_TEST"])
-
-extension LocalLLMClient {
-    static let model = "SmolVLM-256M-Instruct-Q8_0.gguf"
-    static let clip = "mmproj-SmolVLM-256M-Instruct-Q8_0.gguf"
-
-    static func llama(parameter: LlamaClient.Parameter? = nil) async throws -> LlamaClient {
-        let url = try await downloadModel()
-        return try await LocalLLMClient.llama(
-            url: url.appending(component: model),
-            clipURL: url.appending(component: clip),
-            parameter: parameter ?? .init(
-                context: 512,
-                tokenImageStart: "<|im_start|>user\n", tokenImageEnd: "<|im_end|>\n"
-            ),
-            verbose: true
-        )
-    }
-
-    static func downloadModel() async throws -> URL {
-        let downloader = FileDownloader(
-            source: .huggingFace(id: "ggml-org/SmolVLM-256M-Instruct-GGUF", globs: [model, clip]),
-            destination: ProcessInfo.processInfo.environment["GITHUB_MODEL_CACHE"].map { URL(filePath: $0) } ?? FileDownloader.defaultRootDestination
-        )
-        return try await downloader.download { print("Download: \($0)") }
-    }
-}
 
 private let prompt = "<|im_start|>user\nWhat is the answer to one plus two?<|im_end|>\n<|im_start|>assistant\n"
 
-@Suite(.serialized, .disabled(if: disabledTests))
-actor LocalLLMClientTests {
-    private static var initialized = false
+extension ModelTests {
+    struct LocalLLMClientLlamaTests {}
+}
 
-    init() async throws {
-        if !Self.initialized && !disabledTests {
-            _ = try await LocalLLMClient.downloadModel()
-            Self.initialized = true
-        }
-    }
-
-    @Test(.timeLimit(.minutes(5)))
+extension ModelTests.LocalLLMClientLlamaTests {
+    @Test
     func simpleStream() async throws {
         var result = ""
 
@@ -57,11 +22,12 @@ actor LocalLLMClientTests {
         #expect(!result.isEmpty)
     }
 
-    @Test(.timeLimit(.minutes(5)))
+    @Test
     func image() async throws {
         let stream = try await LocalLLMClient.llama().textStream(from: LLMInput(
-            .plain("<|im_start|>user\nWhat is in this image?<|im_end|>\n<|im_start|>assistant\n"),
-            attachments: [.image(.init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.jpeg")!)!)]
+            .chat([.user("<|test_img|><|end_test_img|>What is in this image?", attachments: [
+                .image(.init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.jpeg")!)!)
+            ])]),
         ))
 
         var result = ""
@@ -73,7 +39,7 @@ actor LocalLLMClientTests {
         #expect(!result.isEmpty)
     }
 
-    @Test(.timeLimit(.minutes(5)))
+    @Test
     func cancel() async throws {
         var counter = 0
         var breaked = false
@@ -95,7 +61,7 @@ actor LocalLLMClientTests {
         #expect(breaked)
     }
 
-    @Test(.timeLimit(.minutes(5)))
+    @Test
     func json() async throws {
         var result = ""
 

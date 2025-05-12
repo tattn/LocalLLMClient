@@ -10,8 +10,6 @@ public extension LlamaClient {
             typicalP: Float = 1,
             penaltyLastN: Int = 64,
             penaltyRepeat: Float = 1.1,
-            tokenImageStart: String = "",
-            tokenImageEnd: String = "",
             options: Options = .init()
         ) {
             self.context = context
@@ -23,8 +21,6 @@ public extension LlamaClient {
             self.typicalP = typicalP
             self.penaltyLastN = penaltyLastN
             self.penaltyRepeat = penaltyRepeat
-            self.specialTokenImageStart = tokenImageStart
-            self.specialTokenImageEnd = tokenImageEnd
             self.options = options
         }
         
@@ -37,8 +33,6 @@ public extension LlamaClient {
         public var typicalP: Float
         public var penaltyLastN: Int
         public var penaltyRepeat: Float
-        public var specialTokenImageStart: String
-        public var specialTokenImageEnd: String
 
         public var options: Options
 

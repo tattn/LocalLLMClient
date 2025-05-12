@@ -14,22 +14,15 @@ public final actor MLXClient: LLMClient {
     }
 
     public func textStream(from input: LLMInput) async throws -> AsyncStream<String> {
-        let images = try input.attachments.compactMap {
-            switch $0 {
-            case let .image(image):
-                return try UserInput.Image.ciImage(llmInputImageToCIImage(image))
-            }
-        }
-
         let chat: [Chat.Message] = switch input.value {
         case .plain(let text):
-            [.user(text, images: images)]
+            [.user(text)]
         case .chatTemplate(let messages):
             messages.map {
                 Chat.Message(
-                    role: .init(rawValue: $0["role"] as? String ?? "") ?? .user,
-                    content: $0["content"] as? String ?? "",
-                    images: images
+                    role: .init(rawValue: $0.value["role"] as? String ?? "") ?? .user,
+                    content: $0.value["content"] as? String ?? "",
+                    images: $0.attachments.images
                 )
             }
         case .chat(let messages):
@@ -37,7 +30,7 @@ public final actor MLXClient: LLMClient {
                 Chat.Message(
                     role: .init(rawValue: $0.role.rawValue) ?? .user,
                     content: $0.content,
-                    images: images
+                    images: $0.attachments.images
                 )
             }
         }
@@ -47,7 +40,7 @@ public final actor MLXClient: LLMClient {
         userInput.processing.resize = .init(width: 448, height: 448)
 
         let modelContainer = try context.withLock { context in
-            if !images.isEmpty, !context.supportsVision {
+            if chat.contains(where: { !$0.images.isEmpty }), !context.supportsVision {
                 throw LLMError.visionUnsupported
             }
             return context.modelContainer
@@ -71,6 +64,17 @@ public final actor MLXClient: LLMClient {
                 continuation.onTermination = { _ in
                     task.cancel()
                 }
+            }
+        }
+    }
+}
+
+private extension [LLMAttachment] {
+    var images: [UserInput.Image] {
+        compactMap {
+            switch $0 {
+            case let .image(image):
+                return try? UserInput.Image.ciImage(llmInputImageToCIImage(image))
             }
         }
     }

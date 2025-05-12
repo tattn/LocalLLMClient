@@ -5,48 +5,38 @@ import LocalLLMClient
 public final class LlamaClient: LLMClient {
     private let context: Mutex<Context>
     private let clipModel: Mutex<ClipModel>?
+    private let messageDecoder: any LlamaChatMessageDecoder
 
-    public init(url: URL, clip: sending ClipModel?, parameter: Parameter = .default) throws {
+    public init(
+        url: URL,
+        clip: sending ClipModel?,
+        parameter: Parameter,
+        messageDecoder: (any LlamaChatMessageDecoder)?
+    ) throws {
         context = try .init(Context(url: url, parameter: parameter))
         if let clip {
             clipModel = .init(clip)
         } else {
             clipModel = nil
         }
+        let context = context.withLock { $0 }
+        self.messageDecoder = messageDecoder ?? LlamaAutoMessageDecoder(context: context)
     }
 
     public func textStream(from input: LLMInput) throws -> Generator {
         try context.withLock { context in
-            var decodeContext = DecodingContext(cursor: 0, special: input.parsesSpecial ?? true)
+            var decodeContext = DecodingContext(cursor: 0, special: true)
             let clipModel = clipModel?.withLock { $0 }
 
             do {
-                for attachment in input.attachments {
-                    switch attachment {
-                    case let .image(image):
-                        guard let clipModel else { throw LLMError.clipModelNotFound }
-                        let embed = try clipModel.embedded(image: image)
-                        decodeContext = try context.decode(
-                            text: context.parameter.specialTokenImageStart,
-                            context: decodeContext
-                        )
-                        decodeContext = try context.decode(imageEmbed: embed, context: decodeContext)
-                        decodeContext = try context.decode(
-                            text: context.parameter.specialTokenImageEnd,
-                            context: decodeContext
-                        )
-                    }
-                }
-
                 switch input.value {
                 case .plain(let text):
                     decodeContext = try context.decode(text: text, context: decodeContext)
                 case .chatTemplate(let messages):
-                    let prompt = try context.model.applyTemplate(messages)
-                    decodeContext = try context.decode(text: prompt, context: decodeContext)
+                    decodeContext = try messageDecoder.decode(messages, context: context, clipModel: clipModel)
                 case .chat(let messages):
-                    let prompt = try context.model.applyTemplate(messages.makeTemplate())
-                    decodeContext = try context.decode(text: prompt, context: decodeContext)
+                    let value = messageDecoder.templateValue(from: messages)
+                    decodeContext = try messageDecoder.decode(value, context: context, clipModel: clipModel)
                 }
             } catch {
                 throw LLMError.decodingFailed
@@ -58,9 +48,23 @@ public final class LlamaClient: LLMClient {
 }
 
 public extension LocalLLMClient {
-    static func llama(url: URL, clipURL: URL? = nil, parameter: LlamaClient.Parameter = .default, verbose: Bool = false) async throws -> LlamaClient {
+    static func llama(
+        url: URL,
+        clipURL: URL? = nil,
+        parameter: LlamaClient.Parameter = .default,
+        messageDecoder: (any LlamaChatMessageDecoder)? = nil,
+        verbose: Bool = false
+    ) async throws -> LlamaClient {
         setLlamaVerbose(verbose)
         let clipModel = try clipURL.map { try ClipModel(url: $0, verbose: verbose) }
-        return try LlamaClient(url: url, clip: clipModel, parameter: parameter)
+        return try LlamaClient(url: url, clip: clipModel, parameter: parameter, messageDecoder: messageDecoder)
     }
 }
+
+#if DEBUG
+extension LlamaClient {
+    var _context: Context {
+        context.withLock { $0 }
+    }
+}
+#endif

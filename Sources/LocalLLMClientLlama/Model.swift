@@ -53,45 +53,6 @@ final class Model {
             partialResult[key] = value
         }
     }
-
-    func applyTemplate(_ messages: [[String: Any]], additionalContext: [String: Any]? = nil) throws(LLMError) -> String {
-        guard let chatTemplate else {
-            throw .failedToLoad(reason: "Failed to load template")
-        }
-        do {
-            let template = try Template(chatTemplate)
-
-            var context: [String: Any] = [
-                "messages": messages,
-                "add_generation_prompt": true,
-            ]
-            //    if let tools {
-            //        context["tools"] = tools
-            //    }
-            if let additionalContext {
-                context.merge(additionalContext) { _, new in new }
-            }
-
-            let specialTokenAttributes: [String] = [
-                "bos_token",
-                "eos_token",
-                "unk_token",
-                "sep_token",
-                "pad_token",
-                "cls_token",
-                "mask_token",
-                "additional_special_tokens",
-            ]
-
-            for (key, value) in tokenizerConfigs() where specialTokenAttributes.contains(key) {
-                context[key] = value
-            }
-
-            return try template.render(context)
-        } catch {
-            throw .invalidParameter
-        }
-    }
 }
 
 private func getString(capacity: Int = 1024, getter: (UnsafeMutablePointer<CChar>?, Int) -> Int32) -> String {

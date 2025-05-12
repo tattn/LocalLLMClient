@@ -34,10 +34,6 @@ struct LocalLLMCommand: AsyncParsableCommand {
     var clip: String?
     @Option(name: [.customLong("image")], help: "Path to the image file")
     var imageURL: String?
-    @Option(name: [.long], help: "The special token for image attachment")
-    var imageStart: String = "<|image_start|>"
-    @Option(name: [.long], help: "The special token for image attachment")
-    var imageEnd: String = "<|image_end|>"
 
     @Flag(name: [.customShort("v"), .long], help: "Show verbose output")
     var verbose: Bool = false
@@ -67,8 +63,6 @@ struct LocalLLMCommand: AsyncParsableCommand {
                     temperature: temperature,
                     topK: topK,
                     topP: topP,
-                    tokenImageStart: imageStart,
-                    tokenImageEnd: imageEnd,
                 ),
                 verbose: verbose
             )
@@ -91,8 +85,7 @@ struct LocalLLMCommand: AsyncParsableCommand {
         log("---")
 
         let input = LLMInput(
-            .plain(prompt),
-            attachments: attachments
+            .chat([.user(prompt, attachments: attachments)]),
         )
 
         // Generate response

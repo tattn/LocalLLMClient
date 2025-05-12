@@ -1,21 +1,15 @@
 import Foundation
 
 public struct LLMInput: Sendable {
-    public init(
-        _ value: Input,
-        parsesSpecial: Bool? = nil,
-        attachments: [LLMAttachment] = []
-    ) {
+    public init(_ value: Input) {
         self.value = value
-        self.parsesSpecial = parsesSpecial
-        self.attachments = attachments
     }
 
     public static func plain(_ value: String) -> LLMInput {
         .init(.plain(value))
     }
 
-    public static func chatTemplate(_ messages: [[String: any Sendable]]) -> LLMInput {
+    public static func chatTemplate(_ messages: [ChatTemplateMessage]) -> LLMInput {
         .init(.chatTemplate(messages))
     }
 
@@ -24,15 +18,13 @@ public struct LLMInput: Sendable {
     }
 
     public var value: Input
-    public var parsesSpecial: Bool?
-    public var attachments: [LLMAttachment] = []
 
     public enum Input: Sendable {
         /// e.g.) "hello"
         case plain(String)
 
-        /// e.g.) [["role": "user", "content": "hello", "type": "text"]]
-        case chatTemplate(_ messages: [[String: any Sendable]])
+        /// e.g.) [ChatTemplateMessage(value: ["role": "user", "content": "hello", "type": "text"])]
+        case chatTemplate(_ messages: [ChatTemplateMessage])
 
         /// e.g.) [Message(role: .user, content: "hello")]
         case chat([Message])
@@ -50,30 +42,45 @@ public enum LLMAttachment: @unchecked Sendable {
 }
 
 public extension LLMInput {
+    struct ChatTemplateMessage: Sendable {
+        public init(
+            value: [String: any Sendable],
+            attachments: [LLMAttachment] = []
+        ) {
+            self.value = value
+            self.attachments = attachments
+        }
+
+        public var value: [String: any Sendable]
+        public var attachments: [LLMAttachment]
+    }
+
     struct Message: Sendable {
         public init(
             role: Role,
-            content: String
+            content: String,
+            attachments: [LLMAttachment] = []
         ) {
             self.role = role
             self.content = content
+            self.attachments = attachments
         }
 
         public static func system(_ content: String) -> Message {
             .init(role: .system, content: content)
         }
 
-        public static func user(_ content: String) -> Message {
-            .init(role: .user, content: content)
+        public static func user(_ content: String, attachments: [LLMAttachment] = []) -> Message {
+            .init(role: .user, content: content, attachments: attachments)
         }
 
-        public static func assistant(_ content: String) -> Message {
-            .init(role: .assistant, content: content)
+        public static func assistant(_ content: String, attachments: [LLMAttachment] = []) -> Message {
+            .init(role: .assistant, content: content, attachments: attachments)
         }
 
         public var role: Role
         public var content: String
-        // TODO: Attachments
+        public var attachments: [LLMAttachment]
 
         public enum Role: Sendable {
             case system
