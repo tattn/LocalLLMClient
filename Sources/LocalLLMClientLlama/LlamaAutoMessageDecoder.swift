@@ -27,28 +27,48 @@ public struct LlamaAutoMessageDecoder: LlamaChatMessageDecoder {
             return
         }
 
-        let textMarker = "$$TEXT$$"
+        let contentMarker = "$$TEXT$$"
         let image = LLMInputImage()
-        let messages = [LLMInput.Message(role: .user, content: textMarker, attachments: [.image(image)])]
         let candidateTemplates: [ChatTemplate] = [.gemma3, .qwen2_5_VL, .llama3_2V, .phi4]
-        var maxLength = 0
 
-        for candidate in candidateTemplates {
-            let value = candidate.decoder.templateValue(from: messages).map(\.value)
-            do {
-                // Pick the template that can render
-                let rendered = try template.render(["messages": value])
-                if maxLength < rendered.count {
-                    maxLength = rendered.count
-                    self.chatTemplate = candidate
-                }
+        do {
+            let messages = [
+                LLMInput.Message(role: .user, content: contentMarker, attachments: [.image(image)]),
+            ]
 
-                // If possible, pick the template that can extract image chunks
-                let chunks = try candidate.decoder.extractChunks(prompt: rendered, imageChunks: [[image]])
-                if chunks.hasVisionItems() {
-                    break
+            for candidate in candidateTemplates {
+                let value = candidate.decoder.templateValue(from: messages).map(\.value)
+                do {
+                    // Pick the template that can extract image chunks
+                    let rendered = try template.render(["messages": value])
+                    let chunks = try candidate.decoder.extractChunks(prompt: rendered, imageChunks: [[image]])
+                    if chunks.hasVisionItems() {
+                        self.chatTemplate = candidate
+                        return
+                    }
+                } catch {
                 }
-            } catch {
+            }
+        }
+        do {
+            let messages = [
+                LLMInput.Message(role: .system, content: contentMarker),
+                LLMInput.Message(role: .user, content: contentMarker, attachments: [.image(image)]),
+                LLMInput.Message(role: .assistant, content: contentMarker),
+            ]
+            var maxLength = 0
+
+            for candidate in candidateTemplates {
+                let value = candidate.decoder.templateValue(from: messages).map(\.value)
+                do {
+                    // Pick the template that can render more characters
+                    let rendered = try template.render(["messages": value])
+                    if maxLength <= rendered.count {
+                        maxLength = rendered.count
+                        self.chatTemplate = candidate
+                    }
+                } catch {
+                }
             }
         }
     }

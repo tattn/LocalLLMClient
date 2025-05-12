@@ -4,7 +4,7 @@ import LocalLLMClient
 @testable import LocalLLMClientLlama
 import LocalLLMClientUtility
 
-private let disabledTests = ![nil, "Llama"].contains(ProcessInfo.processInfo.environment["GITHUB_ACTIONS_TEST"])
+let disabledTests = ![nil, "Llama"].contains(ProcessInfo.processInfo.environment["GITHUB_ACTIONS_TEST"])
 
 extension LocalLLMClient {
     static let model = "SmolVLM-256M-Instruct-Q8_0.gguf"
@@ -60,7 +60,7 @@ actor ModelTests {
         ]
         let value = decoder.templateValue(from: messages)
         let template = try decoder.applyTemplate(value, chatTemplate: client._context.model.chatTemplate ?? "")
-        #expect(decoder.chatTemplate == .gemma3)
+        #expect(decoder.chatTemplate == .qwen2_5_VL)
         #expect(template == "<|im_start|>System: You are a helpful assistant.<end_of_utterance>\nUser: What is the answer to one plus two?<end_of_utterance>\nAssistant: The answer is 3.<end_of_utterance>\nAssistant:")
     }
 }

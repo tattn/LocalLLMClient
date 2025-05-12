@@ -7,6 +7,7 @@ private let systemMarker = "$$SYSTEM$$"
 private let userMarker = "$$USER$$"
 private let assistantMarker = "$$ASSISTANT$$"
 
+@Suite(.disabled(if: disabledTests))
 struct LlamaChatMessageDecoderTests {
     @Test
     func qwen2_5_VL() async throws {
@@ -83,7 +84,7 @@ struct LlamaChatMessageDecoderTests {
             .user(userMarker, attachments: [.testImage]),
             .assistant(assistantMarker),
         ])
-        #expect(selected == .phi4)
+        #expect(selected == .default)
         #expect(chunks == [.text("[INST] \(userMarker) [/INST]\(assistantMarker)eos_token")])
     }
 
