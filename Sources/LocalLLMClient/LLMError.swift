@@ -5,8 +5,9 @@ public enum LLMError: Swift.Error {
     case failedToLoad(reason: String)
     
     /// Indicates that an invalid parameter was provided to the LLM.
-    case invalidParameter
-    
+    /// - Parameter reason: A description of the invalid parameter.
+    case invalidParameter(reason: String)
+
     /// Indicates that the LLM response could not be decoded.
     case decodingFailed
     

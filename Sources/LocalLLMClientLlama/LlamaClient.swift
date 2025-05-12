@@ -20,7 +20,7 @@ public final class LlamaClient: LLMClient {
             clipModel = nil
         }
         let context = context.withLock { $0 }
-        self.messageDecoder = messageDecoder ?? LlamaAutoMessageDecoder(context: context)
+        self.messageDecoder = messageDecoder ?? LlamaAutoMessageDecoder(chatTemplate: context.model.chatTemplate ?? "")
     }
 
     public func textStream(from input: LLMInput) throws -> Generator {

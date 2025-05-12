@@ -36,7 +36,7 @@ final class Model {
 
     func makeAndAllocateContext(with ctx_params: llama_context_params) throws(LLMError) -> OpaquePointer {
         guard let context = llama_init_from_model(model, ctx_params) else {
-            throw .invalidParameter
+            throw .invalidParameter(reason: "Failed to create context")
         }
         return context
     }

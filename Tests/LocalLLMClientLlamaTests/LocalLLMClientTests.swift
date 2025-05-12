@@ -25,7 +25,7 @@ extension ModelTests.LocalLLMClientLlamaTests {
     @Test
     func image() async throws {
         let stream = try await LocalLLMClient.llama().textStream(from: LLMInput(
-            .chat([.user("<|test_img|><|end_test_img|>What is in this image?", attachments: [
+            .chat([.user("<|test_img|>What is in this image?", attachments: [
                 .image(.init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.jpeg")!)!)
             ])]),
         ))
@@ -83,6 +83,7 @@ extension ModelTests.LocalLLMClientLlamaTests {
                 try JSONSerialization.jsonObject(with: Data(result.utf8), options: [])
                 return
             } catch {
+                print(error)
             }
         }
 

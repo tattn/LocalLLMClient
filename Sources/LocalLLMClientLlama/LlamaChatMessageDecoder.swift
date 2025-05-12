@@ -1,159 +1,21 @@
 import LocalLLMClient
 import Jinja
 
+public enum MessageChunk: Equatable {
+    case text(String)
+    case image([LLMInputImage])
+    case video([LLMInputImage]) // Placeholder for future video support
+}
+
 public protocol LlamaChatMessageDecoder: Sendable {
     func templateValue(from messages: [LLMInput.Message]) -> [LLMInput.ChatTemplateMessage]
-    func applyTemplate(_ messages: [LLMInput.ChatTemplateMessage], context: Context, additionalContext: [String: Any]?) throws(LLMError) -> String
+    func applyTemplate(_ messages: [LLMInput.ChatTemplateMessage], chatTemplate: String, additionalContext: [String: Any]?) throws(LLMError) -> String
+    func extractChunks(prompt: String, imageChunks: [[LLMInputImage]]) throws -> [MessageChunk]
     func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, clipModel: ClipModel?) throws -> DecodingContext
 }
 
 public extension LlamaChatMessageDecoder {
     func templateValue(from messages: [LLMInput.Message]) -> [LLMInput.ChatTemplateMessage] {
-        messages.map { message in
-            LLMInput.ChatTemplateMessage(
-                value: [
-                    "role": message.role.rawValue,
-                    "content": message.content,
-                    "type": "text",
-                ],
-                attachments: message.attachments
-            )
-        }
-    }
-
-    func applyTemplate(
-        _ messages: [LLMInput.ChatTemplateMessage],
-        context: Context,
-        additionalContext: [String: Any]? = nil
-    ) throws(LLMError) -> String {
-        guard let chatTemplate = context.model.chatTemplate else {
-            throw .failedToLoad(reason: "Failed to load template")
-        }
-        do {
-            let template = try Template(chatTemplate)
-
-            var templateContext: [String: Any] = [
-                "messages": messages.map(\.value),
-                "add_generation_prompt": true,
-            ]
-            //    if let tools {
-            //        context["tools"] = tools
-            //    }
-            if let additionalContext {
-                templateContext.merge(additionalContext) { _, new in new }
-            }
-
-            let specialTokenAttributes: [String] = [
-                "bos_token",
-                "eos_token",
-                "unk_token",
-                "sep_token",
-                "pad_token",
-                "cls_token",
-                "mask_token",
-                "additional_special_tokens",
-            ]
-
-            for (key, value) in context.model.tokenizerConfigs() where specialTokenAttributes.contains(key) {
-                templateContext[key] = value
-            }
-
-            return try template.render(templateContext)
-        } catch {
-            throw .invalidParameter
-        }
-    }
-}
-
-public struct LlamaAutoMessageDecoder: LlamaChatMessageDecoder {
-    var underlyingDecoder: any LlamaChatMessageDecoder = LlamaCustomMessageDecoder()
-
-    init(context: Context) {
-        guard let chatTemplate = context.model.chatTemplate, let template = try? Template(chatTemplate) else {
-            return
-        }
-
-        do {
-            let textMarker = "$TEXT$"
-            let rendered = try template.render(["messages": [["role": "user", "content": [["type": "text", "text": textMarker]]]]])
-            if rendered.contains("<|im_start|>"), rendered.contains(textMarker) {
-                /*
-                 {% set image_count = namespace(value=0) %}{% set video_count = namespace(value=0) %}{% for message in messages %}{% if loop.first and message['role'] != 'system' %}<|im_start|>system You are a helpful assistant.<|im_end|> {% endif %}<|im_start|>{{ message['role'] }} {% if message['content'] is string %}{{ message['content'] }}<|im_end|> {% else %}{% for content in message['content'] %}{% if content['type'] == 'image' or 'image' in content or 'image_url' in content %}{% set image_count.value = image_count.value + 1 %}{% if add_vision_id %}Picture {{ image_count.value }}: {% endif %}<|vision_start|><|image_pad|><|vision_end|>{% elif content['type'] == 'video' or 'video' in content %}{% set video_count.value = video_count.value + 1 %}{% if add_vision_id %}Video {{ video_count.value }}: {% endif %}<|vision_start|><|video_pad|><|vision_end|>{% elif 'text' in content %}{{ content['text'] }}{% endif %}{% endfor %}<|im_end|> {% endif %}{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant {% endif %}
-                 */
-                underlyingDecoder = LlamaQwen2VLMessageDecoder()
-            }
-        } catch {}
-    }
-
-    public func templateValue(from messages: [LLMInput.Message]) -> [LLMInput.ChatTemplateMessage] {
-        underlyingDecoder.templateValue(from: messages)
-    }
-
-    public func applyTemplate(_ messages: [LLMInput.ChatTemplateMessage], context: Context, additionalContext: [String: Any]?) throws(LLMError) -> String {
-        try underlyingDecoder.applyTemplate(messages, context: context, additionalContext: additionalContext)
-    }
-
-    public func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, clipModel: ClipModel?) throws -> DecodingContext {
-        try underlyingDecoder.decode(messages, context: context, clipModel: clipModel)
-    }
-}
-
-public struct LlamaCustomMessageDecoder: LlamaChatMessageDecoder {
-    public init(
-        tokenImageStart: String = "",
-        tokenImageEnd: String = ""
-    ) {
-        self.tokenImageStart = tokenImageStart
-        self.tokenImageEnd = tokenImageEnd
-    }
-
-    public let tokenImageStart: String
-    public let tokenImageEnd: String
-
-    public func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, clipModel: ClipModel?) throws -> DecodingContext {
-        let prompt = try applyTemplate(messages, context: context)
-        let imagesChunks = messages.imageChunks()
-        let pattern = try Regex("\(Regex<Void>(verbatim: tokenImageStart))(.*?)\(Regex<Void>(verbatim: tokenImageEnd))")
-
-        var decodeContext = DecodingContext(cursor: 0, special: true)
-        var lastIndex = prompt.startIndex
-        var imageIndex = 0
-
-        guard !tokenImageStart.isEmpty, !tokenImageEnd.isEmpty else {
-            guard imagesChunks.isEmpty else { throw LLMError.decodingFailed }
-            decodeContext = try context.decode(text: prompt, context: decodeContext)
-            return decodeContext
-        }
-
-        for match in prompt.matches(of: pattern) {
-            if lastIndex < match.range.lowerBound {
-                let prefix = prompt[lastIndex..<match.range.lowerBound]
-                decodeContext = try context.decode(text: String(prefix), context: decodeContext)
-            }
-
-            guard let clipModel else { throw LLMError.clipModelNotFound }
-            guard imageIndex < imagesChunks.count else { throw LLMError.decodingFailed }
-
-            for image in imagesChunks[imageIndex] {
-                let embed = try clipModel.embedded(image: image)
-                decodeContext = try context.decode(imageEmbed: embed, context: decodeContext)
-            }
-            imageIndex += 1
-
-            lastIndex = match.range.upperBound
-        }
-
-        if lastIndex < prompt.endIndex {
-            let suffix = prompt[lastIndex..<prompt.endIndex]
-            decodeContext = try context.decode(text: String(suffix), context: decodeContext)
-        }
-
-        return decodeContext
-    }
-}
-
-public struct LlamaQwen2VLMessageDecoder: LlamaChatMessageDecoder {
-    public func templateValue(from messages: [LLMInput.Message]) -> [LLMInput.ChatTemplateMessage] {
         messages.map { message in
             LLMInput.ChatTemplateMessage(
                 value: [
@@ -166,47 +28,183 @@ public struct LlamaQwen2VLMessageDecoder: LlamaChatMessageDecoder {
             )
         }
     }
+
+    func applyTemplate(
+        _ messages: [LLMInput.ChatTemplateMessage],
+        chatTemplate: String,
+        additionalContext: [String: Any]? = nil
+    ) throws(LLMError) -> String {
+        do {
+            let template = try Template(chatTemplate)
+
+            var templateContext: [String: Any] = [
+                "messages": messages.map(\.value),
+                "add_generation_prompt": true,
+            ]
+
+            if let additionalContext {
+                templateContext.merge(additionalContext) { _, new in new }
+            }
+
+            return try template.render(templateContext)
+        } catch {
+            throw .invalidParameter(reason: "Failed to apply template: \(error.localizedDescription)")
+        }
+    }
     
-    public func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, clipModel: ClipModel?) throws -> DecodingContext {
-        let prompt = try applyTemplate(messages, context: context)
+    func extractChunks(prompt: String, imageChunks: [[LLMInputImage]]) throws -> [MessageChunk] {
+        [.text(prompt)]
+    }
+
+    func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, clipModel: ClipModel?) throws -> DecodingContext {
+        // bos_token is added by the add_bos flag
+        let specialTokens: [String: String] = [
+//            "bos_token": String(utf8String: llama_vocab_get_text(context.model.vocab, max(0, llama_vocab_bos(context.model.vocab)))) ?? "",
+            "eos_token": String(utf8String: llama_vocab_get_text(context.model.vocab, max(0, llama_vocab_eos(context.model.vocab)))) ?? "",
+            "unk_token": String(utf8String: llama_vocab_get_text(context.model.vocab, 0)) ?? "",
+            "sep_token": String(utf8String: llama_vocab_get_text(context.model.vocab, max(0, llama_vocab_sep(context.model.vocab)))) ?? "",
+            "pad_token": String(utf8String: llama_vocab_get_text(context.model.vocab, max(0, llama_vocab_pad(context.model.vocab)))) ?? "",
+            "cls_token": String(utf8String: llama_vocab_get_text(context.model.vocab, max(0, llama_vocab_bos(context.model.vocab)))) ?? "",
+            "mask_token": "",
+        ]
+
+        let prompt = try applyTemplate(messages, chatTemplate: context.model.chatTemplate ?? "", additionalContext: specialTokens)
         let imagesChunks = messages.imageChunks()
-        let pattern = /(?<image><|image_pad|>)|(?<video><|video_pad|>)/
+        let chunks = try extractChunks(prompt: prompt, imageChunks: imagesChunks)
 
         var decodeContext = DecodingContext(cursor: 0, special: true)
-        var lastIndex = prompt.startIndex
-        var imageIndex = 0
 
-        for match in prompt.matches(of: pattern) {
-            let prefix = prompt[lastIndex..<match.range.lowerBound]
-            decodeContext = try context.decode(text: String(prefix), context: decodeContext)
-
-            if let _ = match.output.image {
+        for chunk in chunks {
+            switch chunk {
+            case .text(let text):
+                decodeContext = try context.decode(text: text, context: decodeContext)
+            case .image(let images):
                 guard let clipModel else { throw LLMError.clipModelNotFound }
-                guard imageIndex < imagesChunks.count else { throw LLMError.decodingFailed }
-
-                for image in imagesChunks[imageIndex] {
+                for image in images {
                     let embed = try clipModel.embedded(image: image)
                     decodeContext = try context.decode(imageEmbed: embed, context: decodeContext)
                 }
-                imageIndex += 1
-            } else if let _ = match.output.video {
-                // TODO: Handle video
+            case .video:
+                // Video not supported in this decoder yet
+                break
             }
-
-            lastIndex = match.range.upperBound
-        }
-
-        if lastIndex < prompt.endIndex {
-            let suffix = prompt[lastIndex..<prompt.endIndex]
-            decodeContext = try context.decode(text: String(suffix), context: decodeContext)
         }
 
         return decodeContext
     }
+}
 
-    enum Chunk {
-        case text(String)
-        case images([LLMInputImage])
+public struct LlamaCustomMessageDecoder: LlamaChatMessageDecoder {
+    public init(
+        tokenImageRegex: String = "<start_of_image>"
+    ) {
+        self.tokenImageRegex = tokenImageRegex
+    }
+
+    public let tokenImageRegex: String
+    
+    public func extractChunks(prompt: String, imageChunks: [[LLMInputImage]]) throws -> [MessageChunk] {
+        let pattern = try Regex<Substring>(tokenImageRegex)
+        var chunks: [MessageChunk] = []
+        var lastIndex = prompt.startIndex
+        var imageIndex = 0
+        
+        for match in prompt.matches(of: pattern) {
+            if lastIndex < match.range.lowerBound {
+                let prefix = prompt[lastIndex..<match.range.lowerBound]
+                chunks.append(.text(String(prefix)))
+            }
+            
+            if imageIndex < imageChunks.count {
+                chunks.append(.image(imageChunks[imageIndex]))
+                imageIndex += 1
+            }
+            
+            lastIndex = match.range.upperBound
+        }
+        
+        if lastIndex < prompt.endIndex {
+            let suffix = prompt[lastIndex..<prompt.endIndex]
+            chunks.append(.text(String(suffix)))
+        }
+        
+        return chunks
+    }
+}
+
+public struct LlamaQwen2VLMessageDecoder: LlamaChatMessageDecoder {
+    public func extractChunks(prompt: String, imageChunks: [[LLMInputImage]]) throws -> [MessageChunk] {
+        let pattern = /(?<image><\|image_pad\|>)|(?<video><\|video_pad\|>)/
+        var chunks = [MessageChunk]()
+        var lastIndex = prompt.startIndex
+        var imageIndex = 0
+        
+        for match in prompt.matches(of: pattern) {
+            if lastIndex < match.range.lowerBound {
+                let prefix = prompt[lastIndex..<match.range.lowerBound]
+                chunks.append(.text(String(prefix)))
+            }
+            
+            if let _ = match.output.image {
+                guard imageIndex < imageChunks.count else { 
+                    throw LLMError.decodingFailed 
+                }
+                chunks.append(.image(imageChunks[imageIndex]))
+                imageIndex += 1
+            } else if let _ = match.output.video {
+                // TODO: Handle video - add placeholder for now
+                chunks.append(.video([]))
+            }
+            
+            lastIndex = match.range.upperBound
+        }
+        
+        if lastIndex < prompt.endIndex {
+            let suffix = prompt[lastIndex..<prompt.endIndex]
+            chunks.append(.text(String(suffix)))
+        }
+        
+        return chunks
+    }
+}
+
+public struct LlamaLlama3_2VMessageDecoder: LlamaChatMessageDecoder {
+    public func templateValue(from messages: [LLMInput.Message]) -> [LLMInput.ChatTemplateMessage] {
+        messages.map { message in
+            switch message.role {
+            case .system, .assistant, .custom:
+                LLMInput.ChatTemplateMessage(
+                    value: ["role": message.role.rawValue, "content": message.content],
+                    attachments: message.attachments
+                )
+            case .user:
+                LLMInput.ChatTemplateMessage(
+                    value: [
+                        "role": message.role.rawValue,
+                        "content": [["type": "text", "text": message.content]] + (0..<message.attachments.images().count).map { _ in
+                            ["type": "image"]
+                        },
+                    ],
+                    attachments: message.attachments
+                )
+            }
+        }
+    }
+
+    public func extractChunks(prompt: String, imageChunks: [[LLMInputImage]]) throws -> [MessageChunk] {
+        let decoder = LlamaCustomMessageDecoder(tokenImageRegex: #"<\|image\|>"#)
+        return try decoder.extractChunks(prompt: prompt, imageChunks: imageChunks)
+    }
+}
+
+public struct LlamaChatMLMessageDecoder: LlamaChatMessageDecoder {
+    public func templateValue(from messages: [LLMInput.Message]) -> [LLMInput.ChatTemplateMessage] {
+        messages.map { message in
+            LLMInput.ChatTemplateMessage(
+                value: ["role": message.role.rawValue, "content": message.content],
+                attachments: message.attachments
+            )
+        }
     }
 }
 

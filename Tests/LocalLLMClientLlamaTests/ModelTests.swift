@@ -16,7 +16,7 @@ extension LocalLLMClient {
             url: url.appending(component: model),
             clipURL: url.appending(component: clip),
             parameter: parameter ?? .init(context: 512),
-            messageDecoder: LlamaCustomMessageDecoder(tokenImageStart: "<|test_img|>", tokenImageEnd: "<|end_test_img|>"),
+            messageDecoder: LlamaCustomMessageDecoder(tokenImageRegex: #"<\|test_img\|>"#),
             verbose: true
         )
     }
@@ -47,5 +47,20 @@ actor ModelTests {
         #expect(client._context.model.chatTemplate == """
         <|im_start|>{% for message in messages %}{{message[\'role\'] | capitalize}}{% if message[\'content\'][0][\'type\'] == \'image\' %}{{\':\'}}{% else %}{{\': \'}}{% endif %}{% for line in message[\'content\'] %}{% if line[\'type\'] == \'text\' %}{{line[\'text\']}}{% elif line[\'type\'] == \'image\' %}{{ \'<image>\' }}{% endif %}{% endfor %}<end_of_utterance>\n{% endfor %}{% if add_generation_prompt %}{{ \'Assistant:\' }}{% endif %}
         """)
+    }
+
+    @Test
+    func validateRenderedTemplate() async throws {
+        let client = try await LocalLLMClient.llama()
+        let decoder = LlamaAutoMessageDecoder(chatTemplate: client._context.model.chatTemplate!)
+        let messages: [LLMInput.Message] = [
+            .system("You are a helpful assistant."),
+            .user("What is the answer to one plus two?"),
+            .assistant("The answer is 3."),
+        ]
+        let value = decoder.templateValue(from: messages)
+        let template = try decoder.applyTemplate(value, chatTemplate: client._context.model.chatTemplate ?? "")
+        #expect(decoder.chatTemplate == .gemma3)
+        #expect(template == "<|im_start|>System: You are a helpful assistant.<end_of_utterance>\nUser: What is the answer to one plus two?<end_of_utterance>\nAssistant: The answer is 3.<end_of_utterance>\nAssistant:")
     }
 }
