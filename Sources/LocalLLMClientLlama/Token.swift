@@ -5,11 +5,11 @@
 #endif
 
 package extension [llama_token] {
-    init(_ text: String, add_bos: Bool, special: Bool, vocab: OpaquePointer) {
+    init(_ text: String, addBos: Bool, special: Bool, vocab: OpaquePointer) {
         let utf8Count = text.utf8.count
-        let n_tokens = utf8Count + (add_bos ? 1 : 0) + 1
+        let n_tokens = utf8Count + (addBos ? 1 : 0) + 1
         self.init(unsafeUninitializedCapacity: n_tokens) { buffer, initializedCount in
-            let count = llama_tokenize(vocab, text, Int32(utf8Count), buffer.baseAddress, Int32(n_tokens), add_bos, special)
+            let count = llama_tokenize(vocab, text, Int32(utf8Count), buffer.baseAddress, Int32(n_tokens), addBos, special)
             initializedCount = Int(count)
         }
     }
@@ -18,7 +18,7 @@ package extension [llama_token] {
 package extension llama_token {
     func piece(vocab: OpaquePointer, special: Bool) -> [CChar] {
         let result = UnsafeMutablePointer<Int8>.allocate(capacity: 8)
-        result.initialize(repeating: Int8(0), count: 8)
+        result.initialize(repeating: 0, count: 8)
         defer {
             result.deallocate()
         }
@@ -26,7 +26,7 @@ package extension llama_token {
 
         if nTokens < 0 {
             let newResult = UnsafeMutablePointer<Int8>.allocate(capacity: Int(-nTokens))
-            newResult.initialize(repeating: Int8(0), count: Int(-nTokens))
+            newResult.initialize(repeating: 0, count: Int(-nTokens))
             defer {
                 newResult.deallocate()
             }

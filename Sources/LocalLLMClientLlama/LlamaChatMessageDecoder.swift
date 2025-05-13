@@ -11,7 +11,7 @@ public protocol LlamaChatMessageDecoder: Sendable {
     func templateValue(from messages: [LLMInput.Message]) -> [LLMInput.ChatTemplateMessage]
     func applyTemplate(_ messages: [LLMInput.ChatTemplateMessage], chatTemplate: String, additionalContext: [String: Any]?) throws(LLMError) -> String
     func extractChunks(prompt: String, imageChunks: [[LLMInputImage]]) throws -> [MessageChunk]
-    func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, clipModel: ClipModel?) throws -> DecodingContext
+    func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, clipModel: ClipModel?) throws
 }
 
 public extension LlamaChatMessageDecoder {
@@ -56,7 +56,7 @@ public extension LlamaChatMessageDecoder {
         [.text(prompt)]
     }
 
-    func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, clipModel: ClipModel?) throws -> DecodingContext {
+    func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, clipModel: ClipModel?) throws {
         // bos_token is added by the add_bos flag
         let specialTokens: [String: String] = [
 //            "bos_token": String(utf8String: llama_vocab_get_text(context.model.vocab, max(0, llama_vocab_bos(context.model.vocab)))) ?? "",
@@ -72,25 +72,21 @@ public extension LlamaChatMessageDecoder {
         let imagesChunks = messages.imageChunks()
         let chunks = try extractChunks(prompt: prompt, imageChunks: imagesChunks)
 
-        var decodeContext = DecodingContext(cursor: 0, special: true)
-
         for chunk in chunks {
             switch chunk {
             case .text(let text):
-                decodeContext = try context.decode(text: text, context: decodeContext)
+                try context.decode(text: text)
             case .image(let images):
                 guard let clipModel else { throw LLMError.clipModelNotFound }
                 for image in images {
                     let embed = try clipModel.embedded(image: image)
-                    decodeContext = try context.decode(imageEmbed: embed, context: decodeContext)
+                    try context.decode(imageEmbed: embed)
                 }
             case .video:
                 // Video not supported in this decoder yet
                 break
             }
         }
-
-        return decodeContext
     }
 }
 

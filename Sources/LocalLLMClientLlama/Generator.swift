@@ -7,27 +7,23 @@ import Foundation
 import LocalLLMClient
 
 public struct Generator: AsyncSequence, @unchecked Sendable {
-    public init(context: Context, decodeContext: DecodingContext) {
+    public init(context: Context) {
         self.context = context
-        self.decodeContext = decodeContext
     }
 
     let context: Context
-    let decodeContext: DecodingContext
 
     public func makeAsyncIterator() -> TokenGenerator {
-        TokenGenerator(context: context, decodeContext: decodeContext)
+        TokenGenerator(context: context)
     }
 }
 
 public struct TokenGenerator: AsyncIteratorProtocol {
-    init(context: Context, decodeContext: DecodingContext) {
+    init(context: Context) {
         self.context = context
-        self.decodeContext = decodeContext
     }
 
     private let context: Context
-    private var decodeContext: DecodingContext
     private var iteration = 0
     private var temporaryInvalidCharacters: [CChar] = []
 
@@ -39,7 +35,7 @@ public struct TokenGenerator: AsyncIteratorProtocol {
 
         let newTokenId = context.sampling.sample(context: context, index: -1)
 
-        if llama_vocab_is_eog(context.vocab, newTokenId) || decodeContext.cursor >= context.parameter.context {
+        if llama_vocab_is_eog(context.vocab, newTokenId) || context.position >= context.parameter.context {
             if iteration > 0, temporaryInvalidCharacters.isEmpty {
                 return nil
             } else {
@@ -49,7 +45,7 @@ public struct TokenGenerator: AsyncIteratorProtocol {
             }
         }
 
-        temporaryInvalidCharacters.append(contentsOf: newTokenId.piece(vocab: context.vocab, special: decodeContext.special))
+        temporaryInvalidCharacters.append(contentsOf: newTokenId.piece(vocab: context.vocab, special: true))
 
         let newToken: String
         if let token = String(utf8String: temporaryInvalidCharacters + [0]) {
@@ -70,9 +66,8 @@ public struct TokenGenerator: AsyncIteratorProtocol {
             }
         }
 
-        context.batch.add(id: newTokenId, pos: decodeContext.cursor, seq_ids: [0], logits: true)
+        context.batch.add(id: newTokenId, pos: context.position, seq_ids: [0], logits: true)
 
-        decodeContext.cursor += 1
         iteration += 1
         return newToken
     }

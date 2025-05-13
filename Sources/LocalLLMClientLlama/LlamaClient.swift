@@ -25,24 +25,23 @@ public final class LlamaClient: LLMClient {
 
     public func textStream(from input: LLMInput) throws -> Generator {
         try context.withLock { context in
-            var decodeContext = DecodingContext(cursor: 0, special: true)
             let clipModel = clipModel?.withLock { $0 }
 
             do {
                 switch input.value {
                 case .plain(let text):
-                    decodeContext = try context.decode(text: text, context: decodeContext)
+                    try context.decode(text: text)
                 case .chatTemplate(let messages):
-                    decodeContext = try messageDecoder.decode(messages, context: context, clipModel: clipModel)
+                    try messageDecoder.decode(messages, context: context, clipModel: clipModel)
                 case .chat(let messages):
                     let value = messageDecoder.templateValue(from: messages)
-                    decodeContext = try messageDecoder.decode(value, context: context, clipModel: clipModel)
+                    try messageDecoder.decode(value, context: context, clipModel: clipModel)
                 }
             } catch {
                 throw LLMError.decodingFailed
             }
 
-            return Generator(context: context, decodeContext: decodeContext)
+            return Generator(context: context)
         }
     }
 }

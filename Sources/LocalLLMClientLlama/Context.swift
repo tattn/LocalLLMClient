@@ -20,12 +20,16 @@ public final class Context {
         model.vocab
     }
 
-    package var addBos: Bool {
+    package var needsAddBos: Bool {
         llama_vocab_get_add_bos(vocab)
     }
 
     package var numberOfBatch: Int32 {
         Int32(llama_n_batch(context))
+    }
+
+    package var position: Int32 {
+        llama_kv_self_used_cells(context)
     }
 
     public init(url: URL, parameter: LlamaClient.Parameter = .default) throws(LLMError) {

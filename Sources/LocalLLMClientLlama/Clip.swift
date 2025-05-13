@@ -40,11 +40,10 @@ public final class ImageEmbed: @unchecked Sendable {
 }
 
 public extension Context {
-    func decode(imageEmbed embed: ImageEmbed, context decodeContext: DecodingContext) throws(LLMError) -> DecodingContext {
-        var decodeContext = decodeContext
-        guard llava_eval_image_embed(context, embed.embed, numberOfBatch, &decodeContext.cursor) else {
+    func decode(imageEmbed embed: ImageEmbed) throws(LLMError) {
+        var position = position
+        guard llava_eval_image_embed(context, embed.embed, numberOfBatch, &position) else {
             throw .decodingFailed
         }
-        return decodeContext
     }
 }
