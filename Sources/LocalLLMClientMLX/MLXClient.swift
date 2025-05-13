@@ -35,8 +35,7 @@ public final actor MLXClient: LLMClient {
             }
         }
 
-        var userInput = UserInput(
-            chat: chat, additionalContext: ["enable_thinking": false])
+        var userInput = UserInput(chat: chat, additionalContext: ["enable_thinking": false]) // TODO: public API
         userInput.processing.resize = .init(width: 448, height: 448)
 
         let modelContainer = try context.withLock { context in

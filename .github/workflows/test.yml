@@ -8,6 +8,7 @@ on:
       - "Sources/**"
       - "Tests/**"
       - "Package.swift"
+      - "Example/**"
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
     branches: ["main"]
@@ -15,6 +16,7 @@ on:
       - "Sources/**"
       - "Tests/**"
       - "Package.swift"
+      - "Example/**"
 
 jobs:
   test:
@@ -40,3 +42,18 @@ jobs:
 
       - name: Run ${{ matrix.test-type }} tests
         run: TEST_RUNNER_GITHUB_ACTIONS_TEST="${{ matrix.test-type }}" xcodebuild test -scheme LocalLLMClient-Package -destination 'platform=macOS'
+
+  build-example:
+    runs-on: macos-15
+    needs: test
+    env:
+      DEVELOPER_DIR: "/Applications/Xcode_16.3.app/Contents/Developer"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build Example app for macOS
+        run: |
+          cd Example
+          xcodebuild build -project LocalLLMClientExample.xcodeproj -scheme LocalLLMClientExample -destination 'platform=macOS' CODE_SIGN_IDENTITY="-"

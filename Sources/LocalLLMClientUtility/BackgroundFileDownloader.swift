@@ -2,102 +2,85 @@
 import Synchronization
 import Foundation
 
-public final actor BackgroundFileDownloader {
-    private let source: FileDownloader.Source
-    private let destination: URL
+public final actor BackgroundFileDownloader: FileDownloadable {
+    public let source: FileDownloader.Source
+    private let rootDestination: URL
     private let downloader = BackgroundDownloader()
-    public private(set) var status = Status.preparing
 
     public static let defaultRootDestination = URL.defaultRootDirectory
 
-    public enum Status {
-        case preparing
-        case prepared
-        case error(Error)
+    public nonisolated var destination: URL {
+        source.destination(for: rootDestination)
+    }
+
+    public nonisolated var isDownloaded: Bool {
+        source.isDownloaded(for: destination)
     }
 
     public init(source: FileDownloader.Source, destination: URL = defaultRootDestination) {
         self.source = source
-        self.destination = destination
+        self.rootDestination = destination
         switch source {
-        case let .huggingFace(id, globs):
-            Task {
-                await setUpDownloaderForHuggingFace(id: id, globs: globs.rawValue)
+        case let .huggingFace(id, _):
+            guard let meta = try? FilesMetadata.load(from: destination) else {
+                return
+            }
+            for downloader in makeDownloaders(id: id, destination: source.destination(for: rootDestination), meta: meta) {
+                self.downloader.add(downloader)
             }
         }
     }
 
-    public func download(onProgress: (@Sendable (Double) -> Void)? = nil) {
-        Task {
-            await waitUntilPrepared()
-            switch source {
-            case .huggingFace:
-                guard !downloader.isDownloaded else {
-                    if let onProgress {
-                        onProgress(1.0)
-                    } else {
-                        downloader.progress.completedUnitCount = downloader.progress.totalUnitCount
-                    }
-                    return
-                }
+    public func download(onProgress: (@Sendable (Double) async -> Void)? = nil) async throws {
+        switch source {
+        case let .huggingFace(id, _):
+            guard !source.isDownloaded(for: destination) else {
                 if let onProgress {
-                    downloader.setObserver(onProgress)
+                    Task {
+                        await onProgress(1.0)
+                    }
+                } else {
+                    downloader.progress.completedUnitCount = downloader.progress.totalUnitCount
                 }
-                guard !downloader.isDownloading else {
-                    return
-                }
-                downloader.download()
+                return
             }
+
+            let meta = try await source.saveMetadata(to: destination)
+
+            if let onProgress {
+                downloader.setObserver(onProgress)
+            }
+            guard !downloader.isDownloading else {
+                return
+            }
+            for downloader in makeDownloaders(id: id, destination: source.destination(for: rootDestination), meta: meta) {
+                self.downloader.add(downloader)
+            }
+            downloader.download()
         }
     }
 
-    public func setObserver(_ action: @Sendable @escaping (Double) -> Void) {
+    public func setObserver(_ action: @Sendable @escaping (Double) async -> Void) {
         downloader.setObserver(action)
     }
 
     public var isDownloading: Bool {
-        get async {
-            await waitUntilPrepared()
-            return downloader.isDownloading
-        }
+        downloader.isDownloading
     }
+}
 
-    public var isDownloaded: Bool {
-        get async {
-            await waitUntilPrepared()
-            return downloader.isDownloaded
-        }
-    }
+private func makeDownloaders(id: String, destination: URL, meta: FilesMetadata) -> [BackgroundDownloader.Downloader] {
+    let repo = Hub.Repo(id: id)
+    let baseURL = URL(string: "https://huggingface.co")!
+        .appending(component: repo.type == .models ? "" : repo.type.rawValue)
+        .appending(path: repo.id)
+        .appending(path: "resolve/main")
 
-    private func waitUntilPrepared() async {
-        while case .preparing = status {
-            try? await Task.sleep(for: .seconds(0.1))
-        }
-    }
-
-    private func setUpDownloaderForHuggingFace(id: String, globs: [String]) async {
-        do {
-            let repo = Hub.Repo(id: id)
-            let hub = HubApi.make(destination: destination, offlineMode: false)
-            let filenames = try await hub.getFilenames(from: repo, matching: globs)
-
-            let baseURL = URL(string: "https://huggingface.co")!
-                .appending(component: repo.type == .models ? "" : repo.type.rawValue)
-                .appending(path: repo.id)
-                .appending(path: "resolve/main")
-
-            for filename in filenames {
-                let downloader = await BackgroundDownloader.Downloader(
-                    url: baseURL.appending(path: filename),
-                    destinationURL: hub.localRepoLocation(repo).appending(path: filename)
-                )
-                self.downloader.add(downloader)
-            }
-
-            status = .prepared
-        } catch {
-            status = .error(error)
-        }
+    return meta.files.map { file in
+        BackgroundDownloader.Downloader(
+            url: baseURL.appending(path: file.name),
+            destinationURL: destination.appending(path: file.name)
+        )
     }
 }
 
@@ -122,10 +105,12 @@ final class BackgroundDownloader {
         progress.totalUnitCount += 1
     }
 
-    func setObserver(_ action: @Sendable @escaping (Double) -> Void) {
+    func setObserver(_ action: @Sendable @escaping (Double) async -> Void) {
         observer = progress.observe(\.fractionCompleted, options: [.initial, .new]) { _, change in
             guard let fractionCompleted = change.newValue else { return }
-            action(fractionCompleted)
+            Task {
+                await action(fractionCompleted)
+            }
         }
     }
 
@@ -155,7 +140,7 @@ extension BackgroundDownloader {
             FileManager.default.fileExists(atPath: destinationURL.path)
         }
 
-        public init(url: URL, destinationURL: URL) async {
+        public init(url: URL, destinationURL: URL) {
             self.url = url
             self.destinationURL = destinationURL
 
@@ -164,11 +149,13 @@ extension BackgroundDownloader {
             config.sessionSendsLaunchEvents = true
             session = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
 
-            for task in await session.allTasks {
-                if task.taskDescription == destinationURL.absoluteString {
-                    download(existingTask: task)
-                } else {
-                    task.cancel()
+            Task {
+                for task in await session.allTasks {
+                    if task.taskDescription == destinationURL.absoluteString {
+                        download(existingTask: task)
+                    } else {
+                        task.cancel()
+                    }
                 }
             }
         }
@@ -189,8 +176,6 @@ extension BackgroundDownloader.Downloader {
     final class Delegate: NSObject, URLSessionDownloadDelegate {
         let progress = Progress(totalUnitCount: 1)
         let isDownloading: Mutex<Bool> = .init(false)
-
-
 
         func urlSession(
             _ session: URLSession, downloadTask: URLSessionDownloadTask,

@@ -25,6 +25,7 @@ public final class LlamaClient: LLMClient {
 
     public func textStream(from input: LLMInput) throws -> Generator {
         try context.withLock { context in
+            context.clear()
             let clipModel = clipModel?.withLock { $0 }
 
             do {

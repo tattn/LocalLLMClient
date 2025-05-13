@@ -87,4 +87,8 @@ public final class Context {
         llama_batch_free(batch)
         llama_free(context)
     }
+
+    public func clear() {
+        llama_kv_self_clear(context)
+    }
 }

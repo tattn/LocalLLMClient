@@ -1,16 +1,29 @@
 @preconcurrency import Hub
 import Foundation
 
-public struct FileDownloader {
-    private let source: Source
-    private let destination: URL
+protocol FileDownloadable: Sendable {
+    var destination: URL { get }
+    var isDownloaded: Bool { get }
+}
+
+public struct FileDownloader: FileDownloadable {
+    public let source: Source
+    private let rootDestination: URL
 
     public static let defaultRootDestination = URL.defaultRootDirectory
+
+    public var destination: URL {
+        source.destination(for: rootDestination)
+    }
+
+    public var isDownloaded: Bool {
+        source.isDownloaded(for: rootDestination)
+    }
 
     public enum Source: Sendable {
         case huggingFace(id: String, globs: HuggingFaceGlobs)
 
-        public struct HuggingFaceGlobs: Sendable {
+        public struct HuggingFaceGlobs: Sendable, Equatable {
             public let rawValue: [String]
 
             public init(_ globs: [String]) {
@@ -19,52 +32,85 @@ public struct FileDownloader {
 
             public static let mlx = HuggingFaceGlobs(["*.safetensors", "*.json"])
         }
+
+        func destination(for rootDestination: URL) -> URL {
+            switch self {
+            case let .huggingFace(id, _):
+                let hub = HubApi.make(destination: rootDestination, offlineMode: false)
+                return hub.localRepoLocation(Hub.Repo(id: id))
+            }
+        }
+
+        func isDownloaded(for destination: URL) -> Bool {
+            guard FileManager.default.fileExists(atPath: destination.path),
+                  let meta = try? FilesMetadata.load(from: destination) else {
+                return false
+            }
+
+            let fileURLs = FileManager.default.enumerator(at: destination, includingPropertiesForKeys: nil)?
+                .compactMap { $0 as? URL } ?? []
+            return meta.files.allSatisfy { file in
+                fileURLs.contains { url in
+                    file.name == url.lastPathComponent
+                }
+            }
+        }
+
+        @discardableResult
+        func saveMetadata(to destination: URL) async throws -> FilesMetadata {
+            switch self {
+            case let .huggingFace(id, globs):
+                let filenames = try await HubApi.shared.getFilenames(from: Hub.Repo(id: id), matching: globs.rawValue)
+                let metadata = FilesMetadata(files: filenames.map { FilesMetadata.FileMetadata(name: $0) })
+                try metadata.save(to: destination)
+                return metadata
+            }
+        }
     }
 
     public init(source: Source, destination: URL = defaultRootDestination) {
         self.source = source
-        self.destination = destination
+        self.rootDestination = destination
     }
 
-    public func download(onProgress: @Sendable @escaping (Double) -> Void = { _ in }) async throws -> URL {
-        if let cachedURL = await cachedURL() {
-            return cachedURL
+    public func download(onProgress: @Sendable @escaping (Double) async -> Void = { _ in }) async throws {
+        let destination = source.destination(for: rootDestination)
+        guard !source.isDownloaded(for: destination) else {
+            await onProgress(1.0)
+            return
         }
+        try await source.saveMetadata(to: destination)
+
         switch source {
         case let .huggingFace(id, globs):
             let repo = Hub.Repo(id: id)
-            return try await HubApi.make(destination: destination, offlineMode: false).snapshot(from: repo, matching: globs.rawValue) {
-                onProgress($0.fractionCompleted)
+            try await HubApi.make(destination: rootDestination, offlineMode: false).snapshot(from: repo, matching: globs.rawValue) { progress in
+                Task {
+                    await onProgress(progress.fractionCompleted)
+                }
             }
         }
     }
+}
 
-    public func isDownloaded() async -> Bool {
-        await cachedURL() != nil
+struct FilesMetadata: Codable, Sendable {
+    static let filename = ".filesmeta"
+
+    let files: [FileMetadata]
+
+    struct FileMetadata: Codable, Sendable {
+        let name: String
     }
 
-    public func cachedURL() async -> URL? {
-        do {
-            switch source {
-            case let .huggingFace(id, globs):
-                // TODO: Currently, not a perfect solution.
-                let hub = HubApi.make(destination: destination, offlineMode: true)
-                let repo = Hub.Repo(id: id)
-                let filenames = try FileManager.default
-                    .getFileUrls(at: hub.localRepoLocation(repo))
-                    .map(\.lastPathComponent)
-                let matched = globs.rawValue.reduce(into: Set<String>()) { partialResult, glob in
-                    partialResult.formUnion(filenames.matching(glob: glob))
-                }
-                if filenames.count == matched.count {
-                    return try await hub.snapshot(from: repo, matching: globs.rawValue)
-                } else {
-                    return nil
-                }
-            }
-        } catch {
-            return nil
-        }
+    static func load(from url: URL) throws -> FilesMetadata {
+        let data = try Data(contentsOf: url.appendingPathComponent(filename))
+        return try JSONDecoder().decode(FilesMetadata.self, from: data)
+    }
+
+    func save(to url: URL) throws {
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        let data = try JSONEncoder().encode(self)
+        try data.write(to: url.appendingPathComponent(Self.filename))
     }
 }
 
