@@ -26,7 +26,8 @@ extension LocalLLMClient {
             source: .huggingFace(id: "ggml-org/SmolVLM-256M-Instruct-GGUF", globs: [model, clip]),
             destination: ProcessInfo.processInfo.environment["GITHUB_MODEL_CACHE"].map { URL(filePath: $0) } ?? FileDownloader.defaultRootDestination
         )
-        return try await downloader.download { print("Download: \($0)") }
+        try await downloader.download { print("Download: \($0)") }
+        return downloader.destination
     }
 }
 

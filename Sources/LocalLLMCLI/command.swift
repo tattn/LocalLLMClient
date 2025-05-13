@@ -120,12 +120,12 @@ struct LocalLLMCommand: AsyncParsableCommand {
             id: url.pathComponents[1...2].joined(separator: "/"),
             globs: globs
         ))
-        let repoDestination = try await downloader.download { progress in
+        try await downloader.download { progress in
             log("Downloading model: \(progress)")
         }
         return switch backend {
-        case .llama: repoDestination.appendingPathComponent(url.lastPathComponent)
-        case .mlx: repoDestination
+        case .llama: downloader.destination.appendingPathComponent(url.lastPathComponent)
+        case .mlx: downloader.destination
         }
     }
 

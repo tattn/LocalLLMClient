@@ -16,7 +16,8 @@ extension LocalLLMClient {
             source: .huggingFace(id: "mlx-community/SmolVLM2-256M-Video-Instruct-mlx", globs: .mlx),
             destination: ProcessInfo.processInfo.environment["GITHUB_MODEL_CACHE"].map { URL(filePath: $0) } ?? FileDownloader.defaultRootDestination
         )
-        return try await downloader.download { print("Download: \($0)") }
+        try await downloader.download { print("Download: \($0)") }
+        return downloader.destination
     }
 }
 
