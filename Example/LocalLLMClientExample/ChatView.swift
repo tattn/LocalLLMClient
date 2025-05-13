@@ -12,8 +12,15 @@ struct ChatView: View {
         VStack {
             messageList
 
-            bottomBar
-                .padding([.horizontal, .bottom])
+            BottomBar(
+                text: $viewModel.inputText,
+                isGenerating: viewModel.isGenerating
+            ) { _ in
+                viewModel.sendMessage(to: ai)
+            } onCancel: {
+                viewModel.cancelGeneration()
+            }
+            .padding([.horizontal, .bottom])
         }
         .navigationTitle("Chat")
         .onChange(of: ai.model) { _, _ in
@@ -39,69 +46,6 @@ struct ChatView: View {
             }
         }
         .scrollPosition($position)
-    }
-
-    @ViewBuilder
-    private var bottomBar: some View {
-        HStack {
-#if os(macOS)
-            @Bindable var ai = ai
-            Picker(selection: $ai.model) {
-                ForEach(LLMModel.allCases) { model in
-                    Text(model.name)
-                        .tag(model)
-                }
-            } label: {
-                Image(systemName: "brain.head.profile")
-            }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .fixedSize(horizontal: true, vertical: false)
-#elseif os(iOS)
-            Menu {
-                ForEach(LLMModel.allCases) { model in
-                    Button {
-                        ai.model = model
-                    } label: {
-                        Text(model.name)
-                        if ai.model == model {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-            } label: {
-                Image(systemName: "brain.head.profile")
-            }
-            .menuStyle(.button)
-#endif
-
-            TextField("Hello", text: $viewModel.inputText)
-                .textFieldStyle(.roundedBorder)
-                .submitLabel(.send)
-                .onSubmit{
-                    viewModel.sendMessage(to: ai)
-                }
-                .disabled(viewModel.isGenerating)
-
-            if viewModel.isGenerating {
-                Button {
-                    viewModel.cancelGeneration()
-                } label: {
-                    Image(systemName: "xmark")
-                        .foregroundStyle(.red)
-                }
-            } else if !viewModel.inputText.isEmpty {
-                Button {
-                    viewModel.sendMessage(to: ai)
-                } label: {
-                    Image(systemName: "arrow.up")
-                        .foregroundStyle(viewModel.inputText.isEmpty ? .gray : .accentColor)
-                }
-                .buttonBorderShape(.circle)
-                .keyboardShortcut(.defaultAction)
-            }
-        }
-        .animation(.default, value: viewModel.inputText.isEmpty)
     }
 }
 

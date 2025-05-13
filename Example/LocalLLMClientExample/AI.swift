@@ -6,15 +6,19 @@ import LocalLLMClientLlama
 enum LLMModel: Sendable, CaseIterable, Identifiable {
     case qwen3
     case qwen3_4b
+    case qwen2_5VL_3b
     case gemma3
     case gemma3_4b
+    case mobileVLM_3b
 
     var name: String {
         switch self {
         case .qwen3: "MLX / Qwen3 1.7B"
         case .qwen3_4b: "MLX / Qwen3 4B"
+        case .qwen2_5VL_3b: "MLX / Qwen2.5VL 3B"
         case .gemma3: "llama.cpp / Gemma3 1B"
         case .gemma3_4b: "llama.cpp / Gemma3 4B"
+        case .mobileVLM_3b: "llama.cpp / MobileVLM 3B"
         }
     }
 
@@ -22,24 +26,50 @@ enum LLMModel: Sendable, CaseIterable, Identifiable {
         switch self {
         case .qwen3: "mlx-community/Qwen3-1.7B-4bit"
         case .qwen3_4b: "mlx-community/Qwen3-4B-4bit"
+        case .qwen2_5VL_3b: "mlx-community/Qwen2.5-VL-3B-Instruct-4bit"
         case .gemma3: "lmstudio-community/gemma-3-1B-it-qat-GGUF"
         case .gemma3_4b: "lmstudio-community/gemma-3-4B-it-qat-GGUF"
+        case .mobileVLM_3b: "guinmoon/MobileVLM-3B-GGUF"
         }
     }
 
-    var filename: String {
+    var filename: String? {
         switch self {
-        case .qwen3: ""
-        case .qwen3_4b: ""
+        case .qwen3, .qwen3_4b, .qwen2_5VL_3b: nil
         case .gemma3: "gemma-3-1B-it-QAT-Q4_0.gguf"
         case .gemma3_4b: "gemma-3-4B-it-QAT-Q4_0.gguf"
+        case .mobileVLM_3b: "MobileVLM-3B-Q4_K_M.gguf"
+        }
+    }
+
+    var clipFilename: String? {
+        switch self {
+        case .qwen3, .qwen3_4b, .qwen2_5VL_3b, .gemma3: nil
+#if os(macOS)
+        case .gemma3_4b: "mmproj-model-f16.gguf"
+#elseif os(iOS)
+        case .gemma3_4b: nil
+#endif
+        case .mobileVLM_3b: "MobileVLM-3B-mmproj-f16.gguf"
         }
     }
 
     var isMLX: Bool {
         switch self {
-        case .qwen3, .qwen3_4b: true
-        case .gemma3, .gemma3_4b: false
+        case .qwen3, .qwen3_4b, .qwen2_5VL_3b: true
+        case .gemma3, .gemma3_4b, .mobileVLM_3b: false
+        }
+    }
+
+    var supportsVision: Bool {
+        switch self {
+        case .qwen3, .qwen3_4b, .gemma3: false
+#if os(macOS)
+        case .gemma3_4b: true
+#elseif os(iOS)
+        case .gemma3_4b: false
+#endif
+        case .qwen2_5VL_3b, .mobileVLM_3b: true
         }
     }
 }
@@ -75,7 +105,7 @@ final class AI {
             if model.isMLX {
                 client = try await AnyLLMClient(LocalLLMClient.mlx(url: downloader.url))
             } else {
-                client = try await AnyLLMClient(LocalLLMClient.llama(url: downloader.url))
+                client = try await AnyLLMClient(LocalLLMClient.llama(url: downloader.url, clipURL: downloader.clipURL))
             }
         } catch {
             print("Failed to load LLM: \(error)")

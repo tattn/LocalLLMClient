@@ -53,8 +53,10 @@ public final actor BackgroundFileDownloader: FileDownloadable {
             guard !downloader.isDownloading else {
                 return
             }
-            for downloader in makeDownloaders(id: id, destination: source.destination(for: rootDestination), meta: meta) {
-                self.downloader.add(downloader)
+            if downloader.downloaders.isEmpty {
+                for downloader in makeDownloaders(id: id, destination: source.destination(for: rootDestination), meta: meta) {
+                    self.downloader.add(downloader)
+                }
             }
             downloader.download()
         }
