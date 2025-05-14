@@ -13,6 +13,7 @@ A Swift package to interact with local Large Language Models (LLMs) on Apple pla
 
 *iPhone 16 Pro*
 
+[Example app](https://github.com/tattn/LocalLLMClient/tree/main/Example)
 
 > [!IMPORTANT]
 > This project is still experimental. The API is subject to change.
@@ -21,9 +22,7 @@ A Swift package to interact with local Large Language Models (LLMs) on Apple pla
 
 - Support for GGUF / MLX models
 - Support for iOS and macOS
-- Configurable parameters: temperature, top-k, top-p, etc.
 - Streaming API
-- Command-line interface
 - Multimodal (experimental)
 
 ## Installation
@@ -48,30 +47,42 @@ The API documentation is available [here](https://tattn.github.io/LocalLLMClient
 ```swift
 import LocalLLMClient
 import LocalLLMClientLlama
+import LocalLLMClientUtility
 
-// Download a model file
-let remoteURL = URL(string: "https://huggingface.co/unsloth/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q5_K_M.gguf")!
-let (modelURL, _) = try await URLSession.shared.download(from: remoteURL)
-
-// Initialize a client with the path to your model file
-// You can customize parameters as needed
-let client = try await LocalLLMClient.llama(url: modelURL, parameter: .init(
-    context: 4096,       // Text context size (0 = size the model was trained on)
-    numberOfThreads: 4,  // CPU threads to use (nil = auto)
-    temperature: 0.7,    // Randomness (0.0 to 1.0)
-    topK: 40,            // Top-K sampling
-    topP: 0.9            // Top-P (nucleus) sampling
+// Download model from Hugging Face (Gemma 3)
+let ggufName = "gemma-3-4B-it-QAT-Q4_0.gguf"
+let downloader = FileDownloader(source: .huggingFace(
+    id: "lmstudio-community/gemma-3-4B-it-qat-GGUF",
+    globs: [ggufName]
 ))
+
+try await downloader.download { print("Progress: \($0)") }
+
+// Initialize a client with the downloaded model
+let modelURL = downloader.destination.appending(component: ggufName)
+let client = try await LocalLLMClient.llama(url: modelURL, parameter: .init(
+    context: 4096,      // Context size
+    temperature: 0.7,   // Randomness (0.0〜1.0)
+    topK: 40,           // Top-K sampling
+    topP: 0.9,          // Top-P (nucleus) sampling
+    options: .init(responseFormat: .json) // Response format
+))
+
+let prompt = """
+Create the beginning of a synopsis for an epic story with a cat as the main character.
+Format it in JSON, as shown below.
+{
+    "title": "<title>",
+    "content": "<content>",
+}
+"""
 
 // Generate text
 let input = LLMInput.chat([
     .system("You are a helpful assistant."),
-    .user("Tell me a story about a cat.")
+    .user(prompt)
 ])
-let text = try await client.generateText(from: input)
-print(text)
 
-// Or use streaming API
 for try await text in try await client.textStream(from: input) {
     print(text, terminator: "")
 }
@@ -90,11 +101,10 @@ import LocalLLMClientUtility
 let downloader = FileDownloader(
     source: .huggingFace(id: "mlx-community/Qwen3-1.7B-4bit", globs: .mlx)
 )
-let modelURL = try await downloader.download { print("Progress: \($0)") }
+try await downloader.download { print("Progress: \($0)") }
 
 // Initialize a client with the downloaded model
-// You can customize parameters as needed
-let client = try await LocalLLMClient.mlx(url: modelURL, parameter: .init(
+let client = try await LocalLLMClient.mlx(url: downloader.destination, parameter: .init(
     temperature: 0.7,    // Randomness (0.0 to 1.0)
     topP: 0.9            // Top-P (nucleus) sampling
 ))
@@ -104,15 +114,79 @@ let input = LLMInput.chat([
     .system("You are a helpful assistant."),
     .user("Tell me a story about a cat.")
 ])
-let text = try await client.generateText(from: input)
-print(text)
 
-// Or use streaming API
 for try await text in try await client.textStream(from: input) {
     print(text, terminator: "")
 }
 ```
 </details>
+
+### Multimodal for Image
+
+LocalLLMClient supports multimodal models like LLaVA for processing images along with text prompts.
+
+<details open>
+<summary>Using with llama.cpp</summary>
+
+```swift
+import LocalLLMClient
+import LocalLLMClientLlama
+import LocalLLMClientUtility
+
+// Download model from Hugging Face (Gemma 3)
+let model = "gemma-3-4b-it-Q8_0.gguf"
+let clip = "mmproj-model-f16.gguf"
+
+let downloader = FileDownloader(
+    source: .huggingFace(id: "ggml-org/gemma-3-4b-it-GGUF", globs: [model, clip]),
+)
+try await downloader.download { print("Download: \($0)") }
+
+// Initialize a client with the downloaded model
+let client = try await LocalLLMClient.llama(
+    url: downloader.destination.appending(component: model),
+    clipURL: downloader.destination.appending(component: clip)
+)
+
+let input = LLMInput.chat([
+    .user("What's in this image?", attachments: [.image(.init(resource: .yourImage))]),
+])
+
+// Generate text without streaming
+print(try await client.generateText(from: input))
+```
+</details>
+
+<details>
+<summary>Using with Apple MLX</summary>
+
+```swift
+import LocalLLMClient
+import LocalLLMClientMLX
+import LocalLLMClientUtility
+
+// Download model from Hugging Face (Qwen2.5 VL)
+let downloader = FileDownloader(source: .huggingFace(
+    id: "mlx-community/Qwen2.5-VL-3B-Instruct-abliterated-4bit",
+    globs: .mlx
+))
+try await downloader.download { print("Progress: \($0)") }
+
+let client = try await LocalLLMClient.mlx(url: downloader.destination)
+
+let input = LLMInput.chat([
+    .user("What's in this image?", attachments: [.image(.init(resource: .yourImage))]),
+])
+
+// Generate text without streaming
+print(try await client.generateText(from: input))
+```
+</details>
+
+### Utility
+
+- `FileDownloader`: A utility to download models with progress tracking.
+- `BackgroundFileDownloader`: A utility to download models in the background for iOS apps.
 
 ### CLI tool
 
@@ -126,84 +200,12 @@ swift run localllm --model /path/to/your/model.gguf "Your prompt here"
 ./scripts/run_mlx.sh --model https://huggingface.co/mlx-community/Qwen3-1.7B-4bit "Your prompt here"
 ```
 
-## Multimodal for Image (Experimental)
-
-LocalLLMClient supports multimodal models like LLaVA for processing images along with text prompts. To use this feature:
-
-<details open>
-<summary>Using with llama.cpp</summary>
-
-```swift
-import LocalLLMClient
-import LocalLLMClientLlama
-import LocalLLMClientUtility
-
-// Download model from Hugging Face
-let model = "gemma-3-4b-it-Q8_0.gguf"
-let clip = "mmproj-model-f16.gguf"
-
-let downloader = FileDownloader(
-    source: .huggingFace(id: "ggml-org/gemma-3-4b-it-GGUF", globs: [model, clip]),
-)
-let url = try await downloader.download { print("Download: \($0)") }
-
-let client = try await LocalLLMClient.llama(
-    url: url.appending(component: model),
-    clipURL: url.appending(component: clip)
-)
-
-let input = LLMInput(
-    "<start_of_turn>user\nWhat's in this image?<end_of_turn>\n<start_of_turn>assistant\n",
-    attachments: [.image(.init(resource: .yourImage))],
-    parameters: .init(tokenImageStart: "<start_of_image>", tokenImageEnd: "<end_of_image>")
-)
-
-for try await text in try await client.textStream(from: input) {
-    print(text, terminator: "")
-}
-```
-</details>
-
-<details>
-<summary>Using with Apple MLX</summary>
-
-```swift
-import LocalLLMClient
-import LocalLLMClientMLX
-import LocalLLMClientUtility
-
-// Download model from Hugging Face
-let downloader = FileDownloader(
-    source: .huggingFace(id: "mlx-community/Qwen2-VL-2B-Instruct-4bit", globs: .mlx)
-)
-let modelURL = try await downloader.download { print("Progress: \($0)") }
-
-let client = try await LocalLLMClient.mlx(url: modelURL)
-
-let input = LLMInput(
-    "What can you see in this image?",
-    attachments: [.image(.init(resource: .yourImage))]
-)
-
-for try await text in try await client.textStream(from: input) {
-    print(text, terminator: "")
-}
-```
-</details>
-
-When using multimodal models, you'll need:
-1. A GGUF format LLM that supports multimodal inputs (like LLaVA, Gemma 3, etc.)
-    1. Try [gemma-3-4b-it-GGUF](https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF/tree/main) (Q8_0) or [Qwen2-VL-2B-Instruct](https://huggingface.co/mlx-community/Qwen2-VL-2B-Instruct-4bit/tree/main)
-2. A matching CLIP projection model (.gguf format)
-3. The image you want to analyze
-
-Supported image formats include JPEG, PNG, and other common formats.
-
 ## Tested models
 
 - LLaMA 3
 - Gemma 3 / 2
 - Qwen 3 / 2
+- Phi 4
 
 
 > [Models compatible with llama.cpp backend](https://github.com/ggml-org/llama.cpp?tab=readme-ov-file#text-only)  
