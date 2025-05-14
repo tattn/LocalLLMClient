@@ -20,10 +20,6 @@ public final class Context {
         model.vocab
     }
 
-    package var needsAddBos: Bool {
-        llama_vocab_get_add_bos(vocab)
-    }
-
     package var numberOfBatch: Int32 {
         Int32(llama_n_batch(context))
     }

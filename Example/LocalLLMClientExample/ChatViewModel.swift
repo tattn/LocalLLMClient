@@ -7,9 +7,9 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
     var content: String
 
     enum Role: Sendable {
+        case system
         case user
         case assistant
-        case system
     }
 }
 

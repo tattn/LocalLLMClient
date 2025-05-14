@@ -10,6 +10,39 @@ struct BottomBar: View {
 
     var body: some View {
         HStack {
+            modelMenu
+
+            TextField("Hello", text: $text)
+                .textFieldStyle(.roundedBorder)
+                .submitLabel(.send)
+                .onSubmit{
+                    onSubmit(text)
+                }
+                .disabled(isGenerating)
+
+            if isGenerating {
+                Button {
+                    onCancel()
+                } label: {
+                    Image(systemName: "xmark")
+                        .foregroundStyle(.red)
+                }
+            } else if !text.isEmpty {
+                Button {
+                    onSubmit(text)
+                } label: {
+                    Image(systemName: "arrow.up")
+                        .foregroundStyle(text.isEmpty ? .gray : .accentColor)
+                }
+                .buttonBorderShape(.circle)
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .animation(.default, value: text.isEmpty)
+    }
+
+    @ViewBuilder
+    private var modelMenu: some View {
 #if os(macOS)
             @Bindable var ai = ai
             Picker(selection: $ai.model) {
@@ -50,33 +83,5 @@ struct BottomBar: View {
             }
             .menuStyle(.button)
 #endif
-
-            TextField("Hello", text: $text)
-                .textFieldStyle(.roundedBorder)
-                .submitLabel(.send)
-                .onSubmit{
-                    onSubmit(text)
-                }
-                .disabled(isGenerating)
-
-            if isGenerating {
-                Button {
-                    onCancel()
-                } label: {
-                    Image(systemName: "xmark")
-                        .foregroundStyle(.red)
-                }
-            } else if !text.isEmpty {
-                Button {
-                    onSubmit(text)
-                } label: {
-                    Image(systemName: "arrow.up")
-                        .foregroundStyle(text.isEmpty ? .gray : .accentColor)
-                }
-                .buttonBorderShape(.circle)
-                .keyboardShortcut(.defaultAction)
-            }
-        }
-        .animation(.default, value: text.isEmpty)
     }
 }

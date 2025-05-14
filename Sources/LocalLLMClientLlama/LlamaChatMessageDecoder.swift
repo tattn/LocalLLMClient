@@ -20,9 +20,9 @@ public extension LlamaChatMessageDecoder {
             LLMInput.ChatTemplateMessage(
                 value: [
                     "role": message.role.rawValue,
-                    "content": [["type": "text", "text": message.content]] + (0..<message.attachments.images().count).map { _ in
+                    "content": (0..<message.attachments.images().count).map { _ in
                         ["type": "image"]
-                    },
+                    } + [["type": "text", "text": message.content]],
                 ],
                 attachments: message.attachments
             )
@@ -57,9 +57,8 @@ public extension LlamaChatMessageDecoder {
     }
 
     func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, clipModel: ClipModel?) throws {
-        // bos_token is added by the add_bos flag
         let specialTokens: [String: String] = [
-//            "bos_token": String(utf8String: llama_vocab_get_text(context.model.vocab, max(0, llama_vocab_bos(context.model.vocab)))) ?? "",
+            "bos_token": String(utf8String: llama_vocab_get_text(context.model.vocab, max(0, llama_vocab_bos(context.model.vocab)))) ?? "",
             "eos_token": String(utf8String: llama_vocab_get_text(context.model.vocab, max(0, llama_vocab_eos(context.model.vocab)))) ?? "",
             "unk_token": String(utf8String: llama_vocab_get_text(context.model.vocab, 0)) ?? "",
             "sep_token": String(utf8String: llama_vocab_get_text(context.model.vocab, max(0, llama_vocab_sep(context.model.vocab)))) ?? "",
@@ -68,7 +67,7 @@ public extension LlamaChatMessageDecoder {
             "mask_token": "",
         ]
 
-        let prompt = try applyTemplate(messages, chatTemplate: context.model.chatTemplate ?? "", additionalContext: specialTokens)
+        let prompt = try applyTemplate(messages, chatTemplate: context.model.chatTemplate, additionalContext: specialTokens)
         let imagesChunks = messages.imageChunks()
         let chunks = try extractChunks(prompt: prompt, imageChunks: imagesChunks)
 

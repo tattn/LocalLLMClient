@@ -53,19 +53,15 @@ struct ChatBubbleView: View {
     let message: ChatMessage
     
     var body: some View {
-        HStack {
-            let isUser = message.role == .user
+        let isUser = message.role == .user
 
-            VStack(alignment: isUser ? .trailing : .leading) {
-                Text(message.content)
-                    .padding(12)
-                    .background(isUser ? Color.accentColor : .gray.opacity(0.2))
-                    .foregroundColor(isUser ? .white : .primary)
-                    .cornerRadius(16)
-            }
+        Text(message.content)
+            .padding(12)
+            .background(isUser ? Color.accentColor : .gray.opacity(0.2))
+            .foregroundColor(isUser ? .white : .primary)
+            .cornerRadius(16)
             .frame(maxWidth: 300, alignment: isUser ? .trailing : .leading)
             .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
-        }
     }
 }
 

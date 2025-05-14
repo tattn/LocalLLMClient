@@ -4,7 +4,7 @@ import Jinja
 
 final class Model {
     let model: OpaquePointer
-    let chatTemplate: String?
+    let chatTemplate: String
 
     var vocab: OpaquePointer {
         llama_model_get_vocab(model)
@@ -27,7 +27,9 @@ final class Model {
             // LLM_KV_TOKENIZER_CHAT_TEMPLATE
             llama_model_meta_val_str(model, "tokenizer.chat_template", buffer, length)
         }
-        self.chatTemplate = chatTemplate.isEmpty ? nil : chatTemplate
+
+        // If the template is empty, it uses Gemma3-styled template as default
+        self.chatTemplate = chatTemplate.isEmpty ? #"{{ bos_token }} {%- if messages[0]['role'] == 'system' -%} {%- if messages[0]['content'] is string -%} {%- set first_user_prefix = messages[0]['content'] + ' ' -%} {%- else -%} {%- set first_user_prefix = messages[0]['content'][0]['text'] + ' ' -%} {%- endif -%} {%- set loop_messages = messages[1:] -%} {%- else -%} {%- set first_user_prefix = "" -%} {%- set loop_messages = messages -%} {%- endif -%} {%- for message in loop_messages -%} {%- if (message['role'] == 'user') != (loop.index0 % 2 == 0) -%} {{ raise_exception("Conversation roles must alternate user/assistant/user/assistant/...") }} {%- endif -%} {%- if (message['role'] == 'assistant') -%} {%- set role = "model" -%} {%- else -%} {%- set role = message['role'] -%} {%- endif -%} {{ (first_user_prefix if loop.first else "") }} {%- if message['content'] is string -%} {{ message['content'] | trim }} {%- elif message['content'] is iterable -%} {%- for item in message['content'] -%} {%- if item['type'] == 'image' -%} {{ '<start_of_image>' }} {%- elif item['type'] == 'text' -%} {{ item['text'] | trim }} {%- endif -%} {%- endfor -%} {%- else -%} {{ raise_exception("Invalid content type") }} {%- endif -%} {%- endfor -%}"# : chatTemplate
     }
 
     deinit {

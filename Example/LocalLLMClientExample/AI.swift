@@ -26,10 +26,10 @@ enum LLMModel: Sendable, CaseIterable, Identifiable {
         switch self {
         case .qwen3: "mlx-community/Qwen3-1.7B-4bit"
         case .qwen3_4b: "mlx-community/Qwen3-4B-4bit"
-        case .qwen2_5VL_3b: "mlx-community/Qwen2.5-VL-3B-Instruct-4bit"
+        case .qwen2_5VL_3b: "mlx-community/Qwen2.5-VL-3B-Instruct-abliterated-4bit"
         case .gemma3: "lmstudio-community/gemma-3-1B-it-qat-GGUF"
         case .gemma3_4b: "lmstudio-community/gemma-3-4B-it-qat-GGUF"
-        case .mobileVLM_3b: "guinmoon/MobileVLM-3B-GGUF"
+        case .mobileVLM_3b: "Blombert/MobileVLM-3B-GGUF"
         }
     }
 
@@ -38,7 +38,7 @@ enum LLMModel: Sendable, CaseIterable, Identifiable {
         case .qwen3, .qwen3_4b, .qwen2_5VL_3b: nil
         case .gemma3: "gemma-3-1B-it-QAT-Q4_0.gguf"
         case .gemma3_4b: "gemma-3-4B-it-QAT-Q4_0.gguf"
-        case .mobileVLM_3b: "MobileVLM-3B-Q4_K_M.gguf"
+        case .mobileVLM_3b: "ggml-MobileVLM-3B-q5_k_s.gguf"
         }
     }
 
@@ -50,7 +50,7 @@ enum LLMModel: Sendable, CaseIterable, Identifiable {
 #elseif os(iOS)
         case .gemma3_4b: nil
 #endif
-        case .mobileVLM_3b: "MobileVLM-3B-mmproj-f16.gguf"
+        case .mobileVLM_3b: "mmproj-model-f16.gguf"
         }
     }
 

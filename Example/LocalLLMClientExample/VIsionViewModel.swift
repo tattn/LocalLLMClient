@@ -1,16 +1,11 @@
 import Foundation
-#if canImport(AppKit)
-import AppKit
-#elseif canImport(UIKit)
-import UIKit
-#endif
 import LocalLLMClient
 
 @Observable @MainActor
 final class VisionViewModel {
     var inputText = ""
-    var outputText = ""
     var image: LLMInputImage?
+    private(set) var outputText = ""
     private var generateTask: Task<Void, Never>?
 
     var isGenerating: Bool {
@@ -24,20 +19,8 @@ final class VisionViewModel {
             return
         }
 
-        let size = CGSize(width: 448, height: 448)
-#if os(macOS)
-        let resizedImage = LLMInputImage(size: size)
-        resizedImage.lockFocus()
-        image.draw(in: CGRect(origin: .zero, size: size))
-        resizedImage.unlockFocus()
-#elseif os(iOS)
-        let resizedImage = UIGraphicsImageRenderer(size: size).image { _ in
-            image.draw(in: CGRect(origin: .zero, size: size))
-        }
-#endif
-
         let messages: [LLMInput.Message] = [
-            .user(inputText, attachments: [.image(resizedImage)])
+            .user(inputText, attachments: [.image(image)])
         ]
 
         generateTask = Task {

@@ -26,8 +26,7 @@ public extension Context {
 
     func decode(text: String) throws(LLMError) {
         let position = position
-        let addBos = needsAddBos && position == 0
-        let tokens = [llama_token](text, addBos: addBos, special: true, vocab: vocab)
+        let tokens = [llama_token](text, addBos: false, special: true, vocab: vocab)
         for (index, token) in tokens.enumerated() {
             batch.add(id: token, pos: llama_pos(index) + position, seq_ids: [0], logits: false)
         }

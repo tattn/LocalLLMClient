@@ -53,14 +53,14 @@ actor ModelTests {
     @Test
     func validateRenderedTemplate() async throws {
         let client = try await LocalLLMClient.llama()
-        let decoder = LlamaAutoMessageDecoder(chatTemplate: client._context.model.chatTemplate!)
+        let decoder = LlamaAutoMessageDecoder(chatTemplate: client._context.model.chatTemplate)
         let messages: [LLMInput.Message] = [
             .system("You are a helpful assistant."),
             .user("What is the answer to one plus two?"),
             .assistant("The answer is 3."),
         ]
         let value = decoder.templateValue(from: messages)
-        let template = try decoder.applyTemplate(value, chatTemplate: client._context.model.chatTemplate ?? "")
+        let template = try decoder.applyTemplate(value, chatTemplate: client._context.model.chatTemplate)
         #expect(decoder.chatTemplate == .qwen2_5_VL)
         #expect(template == "<|im_start|>System: You are a helpful assistant.<end_of_utterance>\nUser: What is the answer to one plus two?<end_of_utterance>\nAssistant: The answer is 3.<end_of_utterance>\nAssistant:")
     }
