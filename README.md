@@ -215,8 +215,8 @@ swift run localllm --model /path/to/your/model.gguf "Your prompt here"
 
 ## Requirements
 
-- iOS 18.0+ / macOS 15.0+
-- Xcode 16.3+
+- iOS 17.0+ / macOS 14.0+
+- Xcode 16.0+
 
 ## Acknowledgements
 
