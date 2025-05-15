@@ -8,13 +8,14 @@ public final class LlamaClient: LLMClient {
 
     public init(
         url: URL,
-        clip: sending ClipModel?,
+        clipURL: URL?,
         parameter: Parameter,
-        messageDecoder: (any LlamaChatMessageDecoder)?
+        messageDecoder: (any LlamaChatMessageDecoder)?,
+        verbose: Bool
     ) throws {
         context = try Context(url: url, parameter: parameter)
-        if let clip {
-            clipModel = .init(clip)
+        if let clipURL {
+            clipModel = try ClipModel(url: clipURL, context: context, parameter: parameter, verbose: verbose)
         } else {
             clipModel = nil
         }
@@ -50,8 +51,13 @@ public extension LocalLLMClient {
         verbose: Bool = false
     ) async throws -> LlamaClient {
         setLlamaVerbose(verbose)
-        let clipModel = try clipURL.map { try ClipModel(url: $0, verbose: verbose) }
-        return try LlamaClient(url: url, clip: clipModel, parameter: parameter, messageDecoder: messageDecoder)
+        return try LlamaClient(
+            url: url,
+            clipURL: clipURL,
+            parameter: parameter,
+            messageDecoder: messageDecoder,
+            verbose: verbose
+        )
     }
 }
 
@@ -59,6 +65,10 @@ public extension LocalLLMClient {
 extension LlamaClient {
     var _context: Context {
         context
+    }
+
+    var _clipModel: ClipModel? {
+        clipModel
     }
 }
 #endif

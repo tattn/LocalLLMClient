@@ -77,10 +77,8 @@ public extension LlamaChatMessageDecoder {
                 try context.decode(text: text)
             case .image(let images):
                 guard let clipModel else { throw LLMError.clipModelNotFound }
-                for image in images {
-                    let embed = try clipModel.embedded(image: image)
-                    try context.decode(imageEmbed: embed)
-                }
+                let bitmap = try clipModel.bitmap(images: images)
+                try context.decode(bitmap: bitmap, with: clipModel)
             case .video:
                 // Video not supported in this decoder yet
                 break

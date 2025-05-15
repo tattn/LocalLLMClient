@@ -3,47 +3,76 @@ import LocalLLMClient
 @_exported import LocalLLMClientLlamaC
 
 public class ClipModel: @unchecked Sendable {
-    package let clip: OpaquePointer
+    package let multimodalContext: OpaquePointer
 
-    public init(url: URL, verbose: Bool = false) throws(LLMError) {
-        guard let clip = clip_init(url.path(), .init(use_gpu: true, verbosity: .init(verbose ? 1 : 999))) else {
-            throw .failedToLoad(reason: "Failed to load clip model")
+    public init(url: URL, context: Context, parameter: LlamaClient.Parameter, verbose: Bool = false) throws(LLMError) {
+        var mparams = mtmd_context_params_default()
+        mparams.use_gpu = true
+        mparams.print_timings = verbose
+        if let numberOfThreads = parameter.numberOfThreads {
+            mparams.n_threads = Int32(numberOfThreads)
         }
-        self.clip = clip
+        mparams.verbosity = verbose ? GGML_LOG_LEVEL_DEBUG : GGML_LOG_LEVEL_CONT;
+        guard let multimodalContext = mtmd_init_from_file(url.path(), context.model.model, mparams) else {
+            throw .failedToLoad(reason: "Failed to load multi-modal clip model")
+        }
+        self.multimodalContext = multimodalContext
     }
 
     deinit {
-        clip_free(clip)
+        mtmd_free(multimodalContext)
     }
 
-    public func embedded(image: LLMInputImage, threads: Int = 4) throws(LLMError) -> ImageEmbed {
-        guard let embed = try llmInputImageToData(image).withUnsafeBytes({ buffer in
-            let bytes = buffer.bindMemory(to: UInt8.self).baseAddress
-            return llava_image_embed_make_with_bytes(clip, Int32(threads), bytes, Int32(buffer.count))
-        }) else {
-            throw .failedToLoad(reason: "Failed to create image embed")
+    public func bitmap(images: [LLMInputImage]) throws(LLMError) -> MultimodalChunks {
+        var bitmaps: [OpaquePointer?] = try images.map { image throws(LLMError) in
+            let data = try llmInputImageToData(image)
+            let (bytes, width, height) = imageDataToRGBBytes(imageData: data)!
+            guard let bitmap = mtmd_bitmap_init(UInt32(width), UInt32(height), bytes) else {
+                throw .failedToLoad(reason: "Failed to create bitmap")
+            }
+            return bitmap
         }
-        return ImageEmbed(embed: embed)
+        defer {
+            bitmaps.forEach(mtmd_bitmap_free)
+        }
+
+        let chunks = mtmd_input_chunks_init()!
+
+        let textStorage = "    \(MTMD_DEFAULT_IMAGE_MARKER)    " // spaces for the workaround of tokenizer
+        var text = textStorage.withCString {
+            mtmd_input_text(text: $0, add_special: false, parse_special: true)
+        }
+
+        guard mtmd_tokenize(multimodalContext, chunks, &text, &bitmaps, bitmaps.count) == 0 else {
+            throw .failedToLoad(reason: "Failed to tokenize bitmap")
+        }
+
+        return MultimodalChunks(chunks: chunks)
     }
 }
 
-public final class ImageEmbed: @unchecked Sendable {
-    package let embed: UnsafeMutablePointer<llava_image_embed>
+public final class MultimodalChunks: @unchecked Sendable {
+    package let chunks: OpaquePointer
 
-    public init(embed: UnsafeMutablePointer<llava_image_embed>) {
-        self.embed = embed
+    public init(chunks: OpaquePointer) {
+        self.chunks = chunks
     }
 
     deinit {
-        llava_image_embed_free(embed)
+        mtmd_input_chunks_free(chunks)
     }
 }
 
 public extension Context {
-    func decode(imageEmbed embed: ImageEmbed) throws(LLMError) {
-        var position = position
-        guard llava_eval_image_embed(context, embed.embed, numberOfBatch, &position) else {
-            throw .decodingFailed
-        }
+    func decode(bitmap: MultimodalChunks, with clip: ClipModel) throws(LLMError) {
+        var newPosition: Int32 = 0
+        mtmd_helper_eval_chunks(clip.multimodalContext,
+                                context,
+                                bitmap.chunks,
+                                position,
+                                0, // seq_id
+                                Int32(parameter.batch),
+                                true, // logits_last
+                                &newPosition)
     }
 }

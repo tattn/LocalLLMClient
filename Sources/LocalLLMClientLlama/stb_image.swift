@@ -40,7 +40,7 @@ func stbi_image_free(_ buffer: UnsafeMutableRawPointer) {
     buffer.assumingMemoryBound(to: UInt8.self).deallocate()
 }
 
-private func imageDataToRGBBytes(
+package func imageDataToRGBBytes(
     imageData: Data
 ) -> (bytes: UnsafeMutableRawPointer, width: Int, height: Int)? {
     let context = CIContext()
