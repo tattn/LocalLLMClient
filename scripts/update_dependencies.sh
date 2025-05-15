@@ -58,5 +58,6 @@ rm -rf "$TEMP_DIR"
 echo "Package.swift has been updated to use llama.cpp version $LATEST_TAG"
 
 echo "Updating git submodules..."
-git -C "$PROJECT_ROOT" submodule update --init --recursive
+git fetch --tags
+git -C "$PROJECT_ROOT/Sources/LocalLLMClientLlamaC/exclude/llama.cpp" git checkout tags/$LATEST_TAG
 echo "All submodules have been updated."
