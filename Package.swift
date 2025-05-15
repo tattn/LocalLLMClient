@@ -2,7 +2,7 @@
 
 import PackageDescription
 
-let llamaVersion = "b5335"
+let llamaVersion = "b5391"
 
 let package = Package(
     name: "LocalLLMClient",
@@ -67,7 +67,7 @@ let package = Package(
             name: "LocalLLMClientLlamaFramework",
             url:
                 "https://github.com/ggml-org/llama.cpp/releases/download/\(llamaVersion)/llama-\(llamaVersion)-xcframework.zip",
-            checksum: "32ccc04e4b8674c7cb5a94c36ef7718d8f8d908c6ad9f0c3f4a3a050b506286c"
+            checksum: "ec8999e629010f61cc0591146005afd293c917c1dfcf91678910c7d5b43008c8"
         ),
         .target(
             name: "LocalLLMClientLlamaC",
