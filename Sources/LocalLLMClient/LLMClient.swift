@@ -2,8 +2,7 @@ import Foundation
 
 /// A protocol representing a client for LLM
 public protocol LLMClient: Sendable {
-    associatedtype Error: Swift.Error
-    associatedtype TextGenerator: AsyncSequence<String, Error> & Sendable
+    associatedtype TextGenerator: AsyncSequence & Sendable where Self.TextGenerator.Element == String
 
     /// Processes the provided input and returns the complete generated text
     /// - Parameter input: The input to process

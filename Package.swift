@@ -1,4 +1,4 @@
-// swift-tools-version: 6.1
+// swift-tools-version: 6.0
 
 import PackageDescription
 
@@ -6,7 +6,7 @@ let llamaVersion = "b5335"
 
 let package = Package(
     name: "LocalLLMClient",
-    platforms: [.iOS(.v18), .macOS(.v15)],
+    platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
         .library(
             name: "LocalLLMClient",

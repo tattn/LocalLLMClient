@@ -1,6 +1,6 @@
 @preconcurrency import Hub
-import Synchronization
 import Foundation
+import os.lock
 
 public final actor BackgroundFileDownloader: FileDownloadable {
     public let source: FileDownloader.Source
@@ -177,7 +177,7 @@ extension BackgroundDownloader {
 extension BackgroundDownloader.Downloader {
     final class Delegate: NSObject, URLSessionDownloadDelegate {
         let progress = Progress(totalUnitCount: 1)
-        let isDownloading: Mutex<Bool> = .init(false)
+        let isDownloading = OSAllocatedUnfairLock(initialState: false)
 
         func urlSession(
             _ session: URLSession, downloadTask: URLSessionDownloadTask,

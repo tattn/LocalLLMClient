@@ -2,7 +2,7 @@ import Foundation
 import LocalLLMClient
 @_exported import LocalLLMClientLlamaC
 
-public class ClipModel {
+public class ClipModel: @unchecked Sendable {
     package let clip: OpaquePointer
 
     public init(url: URL, verbose: Bool = false) throws(LLMError) {

@@ -5,8 +5,9 @@
 #endif
 import Foundation
 import LocalLLMClient
+import os.lock
 
-public final class Context {
+public final class Context: @unchecked Sendable {
     let parameter: LlamaClient.Parameter
     package let context: OpaquePointer
     package var batch: llama_batch

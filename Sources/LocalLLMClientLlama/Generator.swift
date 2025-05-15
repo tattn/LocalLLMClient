@@ -27,10 +27,11 @@ public struct TokenGenerator: AsyncIteratorProtocol {
     private var iteration = 0
     private var temporaryInvalidCharacters: [CChar] = []
 
-    mutating public func next() async throws -> String? {
+    mutating public func next() throws -> String? {
         if Task.isCancelled {
             return nil
         }
+
         try context.decode()
 
         let newTokenId = context.sampling.sample(context: context, index: -1)

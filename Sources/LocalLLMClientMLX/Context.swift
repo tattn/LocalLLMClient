@@ -7,7 +7,7 @@ import MLXLMCommon
 import MLXRandom
 import Tokenizers
 
-public final class Context {
+public final class Context: Sendable {
     let modelContainer: ModelContainer
     let supportsVision: Bool
 

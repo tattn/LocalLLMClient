@@ -2,14 +2,13 @@ import LocalLLMClient
 import MLX
 import MLXLMCommon
 import Foundation
-import Synchronization
 
 public final actor MLXClient: LLMClient {
-    private let context: Mutex<Context>
+    private let context: Context
     private let parameter: MLXClient.Parameter
 
     nonisolated public init(url: URL, parameter: Parameter = .default) async throws {
-        context = try await .init(Context(url: url, parameter: parameter))
+        context = try await Context(url: url, parameter: parameter)
         self.parameter = parameter
     }
 
@@ -38,12 +37,10 @@ public final actor MLXClient: LLMClient {
         var userInput = UserInput(chat: chat, additionalContext: ["enable_thinking": false]) // TODO: public API
         userInput.processing.resize = .init(width: 448, height: 448)
 
-        let modelContainer = try context.withLock { context in
-            if chat.contains(where: { !$0.images.isEmpty }), !context.supportsVision {
-                throw LLMError.visionUnsupported
-            }
-            return context.modelContainer
+        if chat.contains(where: { !$0.images.isEmpty }), !context.supportsVision {
+            throw LLMError.visionUnsupported
         }
+        let modelContainer =  context.modelContainer
 
         return try await modelContainer.perform { [userInput] context in
             let lmInput = try await context.processor.prepare(input: userInput)
