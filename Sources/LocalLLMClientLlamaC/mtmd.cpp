@@ -1,1 +1,1 @@
-exclude/llama.cpp/tools/llava/mtmd.cpp
+exclude/llama.cpp/tools/mtmd/mtmd.cpp
