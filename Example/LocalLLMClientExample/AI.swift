@@ -105,7 +105,7 @@ final class AI {
             if model.isMLX {
                 client = try await AnyLLMClient(LocalLLMClient.mlx(url: downloader.url))
             } else {
-                client = try await AnyLLMClient(LocalLLMClient.llama(url: downloader.url, clipURL: downloader.clipURL))
+                client = try await AnyLLMClient(LocalLLMClient.llama(url: downloader.url, mmprojURL: downloader.clipURL))
             }
         } catch {
             print("Failed to load LLM: \(error)")
