@@ -1,5 +1,5 @@
 import ArgumentParser
-import AppKit
+import Foundation
 import LocalLLMClient
 import LocalLLMClientLlama
 import LocalLLMClientMLX
@@ -78,7 +78,7 @@ struct LocalLLMCommand: AsyncParsableCommand {
 
         var attachments: [LLMAttachment] = []
         if let imageURL {
-            attachments.append(.image(NSImage(contentsOf: URL(filePath: imageURL))!))
+            attachments.append(.image(LLMInputImage(contentsOfFile: URL(filePath: imageURL).path())!))
         }
 
         log("Generating response for prompt: \"\(prompt)\"")
