@@ -11,8 +11,7 @@ package extension Sampler {
         let logits = llama_get_logits_ith(context.context, Int32(index))!
 
         for tokenID in 0..<context.cursor.count {
-            let logit = logits[tokenID]
-            context.cursor[tokenID] = llama_token_data(id: Int32(tokenID), logit: logit, p: 0.0)
+            context.cursor[tokenID] = llama_token_data(id: Int32(tokenID), logit: logits[tokenID], p: 0.0)
         }
 
         var tokenDataArray = context.cursor.withUnsafeMutableBufferPointer { buffer in

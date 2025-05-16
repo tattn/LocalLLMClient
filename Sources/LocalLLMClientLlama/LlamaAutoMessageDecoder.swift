@@ -85,8 +85,8 @@ public struct LlamaAutoMessageDecoder: LlamaChatMessageDecoder {
         try chatTemplate.decoder.extractChunks(prompt: prompt, imageChunks: imageChunks)
     }
 
-    public func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, clipModel: ClipModel?) throws {
-        try chatTemplate.decoder.decode(messages, context: context, clipModel: clipModel)
+    public func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, multimodal: MultimodalContext?) throws {
+        try chatTemplate.decoder.decode(messages, context: context, multimodal: multimodal)
     }
 }
 

@@ -3,21 +3,21 @@ import LocalLLMClient
 
 public final class LlamaClient: LLMClient {
     private let context: Context
-    private let clipModel: ClipModel?
+    private let multimodal: MultimodalContext?
     private let messageDecoder: any LlamaChatMessageDecoder
 
     public init(
         url: URL,
-        clipURL: URL?,
+        mmprojURL: URL?,
         parameter: Parameter,
         messageDecoder: (any LlamaChatMessageDecoder)?,
         verbose: Bool
     ) throws {
         context = try Context(url: url, parameter: parameter)
-        if let clipURL {
-            clipModel = try ClipModel(url: clipURL, context: context, parameter: parameter, verbose: verbose)
+        if let mmprojURL {
+            multimodal = try MultimodalContext(url: mmprojURL, context: context, parameter: parameter, verbose: verbose)
         } else {
-            clipModel = nil
+            multimodal = nil
         }
         self.messageDecoder = messageDecoder ?? LlamaAutoMessageDecoder(chatTemplate: context.model.chatTemplate)
     }
@@ -29,13 +29,13 @@ public final class LlamaClient: LLMClient {
             case .plain(let text):
                 try context.decode(text: text)
             case .chatTemplate(let messages):
-                try messageDecoder.decode(messages, context: context, clipModel: clipModel)
+                try messageDecoder.decode(messages, context: context, multimodal: multimodal)
             case .chat(let messages):
                 let value = messageDecoder.templateValue(from: messages)
-                try messageDecoder.decode(value, context: context, clipModel: clipModel)
+                try messageDecoder.decode(value, context: context, multimodal: multimodal)
             }
         } catch {
-            throw LLMError.decodingFailed
+            throw LLMError.failedToDecode(reason: error.localizedDescription)
         }
 
         return Generator(context: context)
@@ -45,7 +45,7 @@ public final class LlamaClient: LLMClient {
 public extension LocalLLMClient {
     static func llama(
         url: URL,
-        clipURL: URL? = nil,
+        mmprojURL: URL? = nil,
         parameter: LlamaClient.Parameter = .default,
         messageDecoder: (any LlamaChatMessageDecoder)? = nil,
         verbose: Bool = false
@@ -53,7 +53,7 @@ public extension LocalLLMClient {
         setLlamaVerbose(verbose)
         return try LlamaClient(
             url: url,
-            clipURL: clipURL,
+            mmprojURL: mmprojURL,
             parameter: parameter,
             messageDecoder: messageDecoder,
             verbose: verbose
@@ -67,8 +67,8 @@ extension LlamaClient {
         context
     }
 
-    var _clipModel: ClipModel? {
-        clipModel
+    var _multimodal: MultimodalContext? {
+        multimodal
     }
 }
 #endif

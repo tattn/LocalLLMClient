@@ -2,10 +2,10 @@ import Foundation
 import LocalLLMClient
 @_exported import LocalLLMClientLlamaC
 
-public class ClipModel: @unchecked Sendable {
+public class MultimodalContext: @unchecked Sendable {
     package let multimodalContext: OpaquePointer
 
-    public init(url: URL, context: Context, parameter: LlamaClient.Parameter, verbose: Bool = false) throws(LLMError) {
+    package init(url: URL, context: Context, parameter: LlamaClient.Parameter, verbose: Bool = false) throws(LLMError) {
         var mparams = mtmd_context_params_default()
         mparams.use_gpu = true
         mparams.print_timings = verbose
@@ -14,7 +14,7 @@ public class ClipModel: @unchecked Sendable {
         }
         mparams.verbosity = verbose ? GGML_LOG_LEVEL_DEBUG : GGML_LOG_LEVEL_CONT;
         guard let multimodalContext = mtmd_init_from_file(url.path(), context.model.model, mparams) else {
-            throw .failedToLoad(reason: "Failed to load multi-modal clip model")
+            throw .failedToLoad(reason: "Failed to load the mmproj file")
         }
         self.multimodalContext = multimodalContext
     }
@@ -23,7 +23,7 @@ public class ClipModel: @unchecked Sendable {
         mtmd_free(multimodalContext)
     }
 
-    public func bitmap(images: [LLMInputImage]) throws(LLMError) -> MultimodalChunks {
+    package func chunks(images: [LLMInputImage]) throws(LLMError) -> MultimodalChunks {
         var bitmaps: [OpaquePointer?] = try images.map { image throws(LLMError) in
             let data = try llmInputImageToData(image)
             let (bytes, width, height) = imageDataToRGBBytes(imageData: data)!
@@ -51,7 +51,7 @@ public class ClipModel: @unchecked Sendable {
     }
 }
 
-public final class MultimodalChunks: @unchecked Sendable {
+package final class MultimodalChunks: @unchecked Sendable {
     package let chunks: OpaquePointer
 
     public init(chunks: OpaquePointer) {
@@ -63,10 +63,10 @@ public final class MultimodalChunks: @unchecked Sendable {
     }
 }
 
-public extension Context {
-    func decode(bitmap: MultimodalChunks, with clip: ClipModel) throws(LLMError) {
+package extension Context {
+    func decode(bitmap: MultimodalChunks, with multimodal: MultimodalContext) throws(LLMError) {
         var newPosition: Int32 = 0
-        mtmd_helper_eval_chunks(clip.multimodalContext,
+        mtmd_helper_eval_chunks(multimodal.multimodalContext,
                                 context,
                                 bitmap.chunks,
                                 position,

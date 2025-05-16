@@ -16,7 +16,7 @@ public extension Context {
         batch.logits[Int(batch.n_tokens) - 1] = 1
 
         guard llama_decode(context, batch) == 0 else {
-            throw .decodingFailed
+            throw .failedToDecode(reason: "batch decode failed")
         }
 
         batch.clear()

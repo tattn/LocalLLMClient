@@ -17,25 +17,14 @@ package extension [llama_token] {
 
 package extension llama_token {
     func piece(vocab: OpaquePointer, special: Bool) -> [CChar] {
-        let result = UnsafeMutablePointer<Int8>.allocate(capacity: 8)
-        result.initialize(repeating: 0, count: 8)
-        defer {
-            result.deallocate()
-        }
-        let nTokens = llama_token_to_piece(vocab, self, result, 8, 0, special)
-
+        var result = [CChar](repeating: 0, count: 8)
+        let nTokens = llama_token_to_piece(vocab, self, &result, 8, 0, special)
         if nTokens < 0 {
-            let newResult = UnsafeMutablePointer<Int8>.allocate(capacity: Int(-nTokens))
-            newResult.initialize(repeating: 0, count: Int(-nTokens))
-            defer {
-                newResult.deallocate()
-            }
-            let nNewTokens = llama_token_to_piece(vocab, self, newResult, -nTokens, 0, special)
-            let bufferPointer = UnsafeBufferPointer(start: newResult, count: Int(nNewTokens))
-            return Array(bufferPointer)
+            result = [CChar](repeating: 0, count: Int(-nTokens))
+            llama_token_to_piece(vocab, self, &result, -nTokens, 0, special)
+            return result
         } else {
-            let bufferPointer = UnsafeBufferPointer(start: result, count: Int(nTokens))
-            return Array(bufferPointer)
+            return Array(result[0..<Int(nTokens)])
         }
     }
 }

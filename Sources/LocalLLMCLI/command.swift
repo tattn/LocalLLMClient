@@ -30,8 +30,8 @@ struct LocalLLMCommand: AsyncParsableCommand {
     @Option(name: [.customShort("k"), .long], help: "Top-k for sampling")
     var topK: Int = 40
 
-    @Option(name: [.long], help: "Path to the clip model")
-    var clip: String?
+    @Option(name: [.long], help: "Path to the mmproj")
+    var mmproj: String?
     @Option(name: [.customLong("image")], help: "Path to the image file")
     var imageURL: String?
 
@@ -58,7 +58,7 @@ struct LocalLLMCommand: AsyncParsableCommand {
         case .llama:
             client = try await LocalLLMClient.llama(
                 url: modelURL,
-                clipURL: clip.asyncMap { try await getModel(for: $0, backend: backend) },
+                mmprojURL: mmproj.asyncMap { try await getModel(for: $0, backend: backend) },
                 parameter: .init(
                     temperature: temperature,
                     topK: topK,

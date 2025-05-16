@@ -135,17 +135,17 @@ import LocalLLMClientUtility
 
 // Download model from Hugging Face (Gemma 3)
 let model = "gemma-3-4b-it-Q8_0.gguf"
-let clip = "mmproj-model-f16.gguf"
+let mmproj = "mmproj-model-f16.gguf"
 
 let downloader = FileDownloader(
-    source: .huggingFace(id: "ggml-org/gemma-3-4b-it-GGUF", globs: [model, clip]),
+    source: .huggingFace(id: "ggml-org/gemma-3-4b-it-GGUF", globs: [model, mmproj]),
 )
 try await downloader.download { print("Download: \($0)") }
 
 // Initialize a client with the downloaded model
 let client = try await LocalLLMClient.llama(
     url: downloader.destination.appending(component: model),
-    clipURL: downloader.destination.appending(component: clip)
+    mmprojURL: downloader.destination.appending(component: mmproj)
 )
 
 let input = LLMInput.chat([

@@ -14,7 +14,7 @@ extension LocalLLMClient {
         let url = try await downloadModel()
         return try await LocalLLMClient.llama(
             url: url.appending(component: model),
-            clipURL: url.appending(component: clip),
+            mmprojURL: url.appending(component: clip),
             parameter: parameter ?? .init(context: 512),
             messageDecoder: LlamaCustomMessageDecoder(tokenImageRegex: #"<\|test_img\|>"#),
             verbose: true

@@ -6,7 +6,7 @@ import Foundation
 #endif
 import LocalLLMClient
 
-public struct Generator: AsyncSequence, @unchecked Sendable {
+public struct Generator: AsyncSequence, Sendable {
     public init(context: Context) {
         self.context = context
     }
@@ -24,10 +24,9 @@ public struct TokenGenerator: AsyncIteratorProtocol {
     }
 
     private let context: Context
-    private var iteration = 0
     private var temporaryInvalidCharacters: [CChar] = []
 
-    mutating public func next() throws -> String? {
+    mutating public func next() async throws -> String? {
         if Task.isCancelled {
             return nil
         }
@@ -37,7 +36,7 @@ public struct TokenGenerator: AsyncIteratorProtocol {
         let newTokenId = context.sampling.sample(context: context, index: -1)
 
         if llama_vocab_is_eog(context.vocab, newTokenId) || context.position >= context.parameter.context {
-            if iteration > 0, temporaryInvalidCharacters.isEmpty {
+            if temporaryInvalidCharacters.isEmpty {
                 return nil
             } else {
                 let newToken = String(utf8String: temporaryInvalidCharacters + [0]) ?? ""
@@ -61,15 +60,12 @@ public struct TokenGenerator: AsyncIteratorProtocol {
         }
 
         if context.extraEOSTokens.contains(newToken) {
-            if iteration > 0 {
-                temporaryInvalidCharacters.removeAll()
-                return nil
-            }
+            temporaryInvalidCharacters.removeAll()
+            return nil
         }
 
         context.batch.add(id: newTokenId, pos: context.position, seq_ids: [0], logits: true)
 
-        iteration += 1
         return newToken
     }
 }

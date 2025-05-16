@@ -11,7 +11,7 @@ public protocol LlamaChatMessageDecoder: Sendable {
     func templateValue(from messages: [LLMInput.Message]) -> [LLMInput.ChatTemplateMessage]
     func applyTemplate(_ messages: [LLMInput.ChatTemplateMessage], chatTemplate: String, additionalContext: [String: Any]?) throws(LLMError) -> String
     func extractChunks(prompt: String, imageChunks: [[LLMInputImage]]) throws -> [MessageChunk]
-    func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, clipModel: ClipModel?) throws
+    func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, multimodal: MultimodalContext?) throws
 }
 
 public extension LlamaChatMessageDecoder {
@@ -56,7 +56,7 @@ public extension LlamaChatMessageDecoder {
         [.text(prompt)]
     }
 
-    func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, clipModel: ClipModel?) throws {
+    func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, multimodal: MultimodalContext?) throws {
         let specialTokens: [String: String] = [
             "bos_token": String(utf8String: llama_vocab_get_text(context.model.vocab, max(0, llama_vocab_bos(context.model.vocab)))) ?? "",
             "eos_token": String(utf8String: llama_vocab_get_text(context.model.vocab, max(0, llama_vocab_eos(context.model.vocab)))) ?? "",
@@ -76,9 +76,9 @@ public extension LlamaChatMessageDecoder {
             case .text(let text):
                 try context.decode(text: text)
             case .image(let images):
-                guard let clipModel else { throw LLMError.clipModelNotFound }
-                let bitmap = try clipModel.bitmap(images: images)
-                try context.decode(bitmap: bitmap, with: clipModel)
+                guard let multimodal else { throw LLMError.failedToDecode(reason: "no mmproj file") }
+                let bitmap = try multimodal.chunks(images: images)
+                try context.decode(bitmap: bitmap, with: multimodal)
             case .video:
                 // Video not supported in this decoder yet
                 break
@@ -140,7 +140,7 @@ public struct LlamaQwen2VLMessageDecoder: LlamaChatMessageDecoder {
             
             if let _ = match.output.image {
                 guard imageIndex < imageChunks.count else { 
-                    throw LLMError.decodingFailed 
+                    throw LLMError.failedToDecode(reason: "Not enough image chunks")
                 }
                 chunks.append(.image(imageChunks[imageIndex]))
                 imageIndex += 1

@@ -9,11 +9,8 @@ public enum LLMError: Swift.Error {
     case invalidParameter(reason: String)
 
     /// Indicates that the LLM response could not be decoded.
-    case decodingFailed
-    
-    /// Indicates that the required CLIP model for image processing was not found.
-    case clipModelNotFound
-    
+    case failedToDecode(reason: String)
+
     /// Indicates that vision features are not supported by the current model or configuration.
     case visionUnsupported
 }
