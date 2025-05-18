@@ -1,16 +1,22 @@
 import SwiftUI
+import PhotosUI
+import LocalLLMClient
 
 struct BottomBar: View {
     @Binding var text: String
+    @Binding var images: [ChatMessage.Image]
     let isGenerating: Bool
     let onSubmit: (String) -> Void
     let onCancel: () -> Void
 
+    @State private var pickedItem: PhotosPickerItem?
     @Environment(AI.self) private var ai
 
     var body: some View {
         HStack {
             modelMenu
+            imagePicker
+                .disabled(!ai.model.supportsVision)
 
             TextField("Hello", text: $text)
                 .textFieldStyle(.roundedBorder)
@@ -38,7 +44,30 @@ struct BottomBar: View {
                 .keyboardShortcut(.defaultAction)
             }
         }
+        .safeAreaInset(edge: .top) {
+            if !images.isEmpty {
+                ScrollView(.horizontal) {
+                    HStack {
+                        ForEach(images) { image in
+                            Image(llm: image.value)
+                                .resizable()
+                                .aspectRatio(1, contentMode: .fill)
+                                .cornerRadius(8)
+                                .contextMenu {
+                                    Button {
+                                        images.removeAll { $0.id == image.id }
+                                    } label: {
+                                        Text("Remove")
+                                    }
+                                }
+                        }
+                    }
+                    .frame(height: 60)
+                }
+            }
+        }
         .animation(.default, value: text.isEmpty)
+        .animation(.default, value: images.count)
     }
 
     @ViewBuilder
@@ -84,4 +113,34 @@ struct BottomBar: View {
             .menuStyle(.button)
 #endif
     }
+
+    @ViewBuilder
+    private var imagePicker: some View {
+        PhotosPicker(
+            selection: $pickedItem,
+            matching: .images,
+            preferredItemEncoding: .compatible
+        ) {
+            Image(systemName: "photo")
+        }
+        .onChange(of: pickedItem) { _, item in
+            guard let item else { return }
+            pickedItem = nil
+            Task {
+                let data = try await item.loadTransferable(type: Data.self)
+                guard let data, let image = LLMInputImage(data: data) else { return }
+                images.append(.init(value: image))
+            }
+        }
+    }
+}
+
+#Preview(traits: .sizeThatFitsLayout) {
+    @Previewable @State var text = ""
+    @Previewable @State var images: [ChatMessage.Image] = [
+        .preview, .preview2
+    ]
+
+    BottomBar(text: $text, images: $images, isGenerating: false, onSubmit: { _ in }, onCancel: {})
+        .environment(AI())
 }

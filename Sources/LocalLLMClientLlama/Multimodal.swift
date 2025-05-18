@@ -4,6 +4,7 @@ import LocalLLMClient
 
 public class MultimodalContext: @unchecked Sendable {
     package let multimodalContext: OpaquePointer
+    package let verbose: Bool
 
     package init(url: URL, context: Context, parameter: LlamaClient.Parameter, verbose: Bool = false) throws(LLMError) {
         var mparams = mtmd_context_params_default()
@@ -17,6 +18,7 @@ public class MultimodalContext: @unchecked Sendable {
             throw .failedToLoad(reason: "Failed to load the mmproj file")
         }
         self.multimodalContext = multimodalContext
+        self.verbose = verbose
     }
 
     deinit {
@@ -66,13 +68,29 @@ package final class MultimodalChunks: @unchecked Sendable {
 package extension Context {
     func decode(bitmap: MultimodalChunks, with multimodal: MultimodalContext) throws(LLMError) {
         var newPosition: Int32 = 0
-        mtmd_helper_eval_chunks(multimodal.multimodalContext,
-                                context,
-                                bitmap.chunks,
-                                position,
-                                0, // seq_id
-                                Int32(parameter.batch),
-                                true, // logits_last
-                                &newPosition)
+        let chunk = mtmd_input_chunks_get(bitmap.chunks, 1) // 1: <space><img><space>
+
+        let imageTokens = mtmd_input_chunk_get_tokens_image(chunk)
+
+        if multimodal.verbose {
+            llamaLog(level: .debug, message: "encoding image or slice...\n")
+        }
+
+        guard mtmd_encode(multimodal.multimodalContext, imageTokens) == 0 else {
+            throw .failedToDecode(reason: "Failed to encode image")
+        }
+
+        let embd = mtmd_get_output_embd(multimodal.multimodalContext);
+        guard mtmd_helper_decode_image_chunk(
+            multimodal.multimodalContext,
+            context,
+            chunk,
+            embd,
+            position,
+            0, // seq_id
+            Int32(parameter.batch),
+            &newPosition) == 0 else {
+            throw .failedToDecode(reason: "Failed to decode image")
+        }
     }
 }

@@ -3,7 +3,7 @@ import LocalLLMClient
 import LocalLLMClientMLX
 
 struct ChatView: View {
-    @State private var viewModel = ChatViewModel()
+    @State var viewModel = ChatViewModel()
     @State private var position = ScrollPosition(idType: ChatMessage.ID.self)
 
     @Environment(AI.self) private var ai
@@ -14,6 +14,7 @@ struct ChatView: View {
 
             BottomBar(
                 text: $viewModel.inputText,
+                images: $viewModel.inputImages,
                 isGenerating: viewModel.isGenerating
             ) { _ in
                 viewModel.sendMessage(to: ai)
@@ -23,6 +24,17 @@ struct ChatView: View {
             .padding([.horizontal, .bottom])
         }
         .navigationTitle("Chat")
+        .toolbar {
+            ToolbarItem {
+                Menu {
+                    Button("Clear Chat") {
+                        viewModel.clearMessages()
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
+        }
         .onChange(of: ai.model) { _, _ in
             viewModel.clearMessages()
         }
@@ -55,19 +67,41 @@ struct ChatBubbleView: View {
     var body: some View {
         let isUser = message.role == .user
 
-        Text(message.content)
-            .padding(12)
-            .background(isUser ? Color.accentColor : .gray.opacity(0.2))
-            .foregroundColor(isUser ? .white : .primary)
-            .cornerRadius(16)
-            .frame(maxWidth: 300, alignment: isUser ? .trailing : .leading)
-            .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
+        VStack(alignment: isUser ? .trailing : .leading) {
+            LazyVGrid(columns: [.init(.adaptive(minimum: 100))], alignment: .leading) {
+                ForEach(message.images) { image in
+                    Image(llm: image.value)
+                        .resizable()
+                        .scaledToFit()
+                        .cornerRadius(16)
+                }
+                .scaleEffect(x: isUser ? -1 : 1)
+            }
+            .scaleEffect(x: isUser ? -1 : 1)
+
+            Text(message.text)
+                .padding(12)
+                .background(isUser ? Color.accentColor : .gray.opacity(0.2))
+                .foregroundColor(isUser ? .white : .primary)
+                .cornerRadius(16)
+        }
+        .padding(isUser ? .leading : .trailing, 50)
+        .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
     }
 }
 
-#Preview {
+#Preview("Text") {
     NavigationStack {
-        ChatView()
+        ChatView(viewModel: .init(messages: [
+            .init(role: .user, text: "Hello"),
+            .init(role: .assistant, text: "Hi! How can I help you?"),
+            .init(role: .user, text: "Hello", images: [.preview, .preview2]),
+        ]))
     }
     .environment(AI())
+}
+
+extension ChatMessage.Image {
+    static let preview = try! Self.init(value: LLMInputImage(data: .init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.jpeg")!))!)
+    static let preview2 = try! Self.init(value: LLMInputImage(data: .init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/robot.png")!))!)
 }

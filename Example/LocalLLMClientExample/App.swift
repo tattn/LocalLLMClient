@@ -14,20 +14,8 @@ struct RootView: View {
     @Environment(AI.self) private var ai
 
     var body: some View {
-        TabView {
-            NavigationStack {
-                ChatView()
-            }
-            .tabItem {
-                Label("Chat", systemImage: "message")
-            }
-
-            NavigationStack {
-                VisionView()
-            }
-            .tabItem {
-                Label("Vision", systemImage: "photo")
-            }
+        NavigationStack {
+            ChatView()
         }
         .disabled(ai.isLoading)
         .overlay {

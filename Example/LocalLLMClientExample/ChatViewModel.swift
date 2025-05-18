@@ -4,20 +4,31 @@ import LocalLLMClient
 struct ChatMessage: Identifiable, Equatable, Sendable {
     var id = UUID()
     var role: Role
-    var content: String
+    var text: String
+    var images: [Image] = []
 
     enum Role: Sendable {
         case system
         case user
         case assistant
     }
+
+    struct Image: Identifiable, Equatable, @unchecked Sendable {
+        var id = UUID()
+        var value: LLMInputImage
+    }
 }
 
 @Observable @MainActor
 final class ChatViewModel {
     var inputText = ""
+    var inputImages: [ChatMessage.Image] = []
     private(set) var messages: [ChatMessage] = []
     private var generateTask: Task<Void, Never>?
+
+    init(messages: [ChatMessage] = []) {
+        self.messages = messages
+    }
 
     var isGenerating: Bool {
         generateTask != nil
@@ -26,23 +37,24 @@ final class ChatViewModel {
     func sendMessage(to ai: AI) {
         guard !inputText.isEmpty, !isGenerating else { return }
 
-        messages.append(ChatMessage(role: .user, content: inputText))
+        messages.append(ChatMessage(role: .user, text: inputText, images: inputImages))
         let newMessages = messages
-        messages.append(ChatMessage(role: .assistant, content: ""))
+        messages.append(ChatMessage(role: .assistant, text: ""))
 
-        let currentInput = inputText
+        let currentInput = (inputText, inputImages)
         inputText = ""
+        inputImages = []
 
         generateTask = Task {
             do {
                 var response = ""
                 for try await token in try await ai.ask(newMessages.llmMessages()) {
                     response += token
-                    messages[messages.count - 1].content = response
+                    messages[messages.count - 1].text = response
                 }
             } catch {
-                messages[messages.count - 1].content = "Error: \(error.localizedDescription)"
-                inputText = currentInput
+                messages[messages.count - 1].text = "Error: \(error.localizedDescription)"
+                (inputText, inputImages) = currentInput
             }
 
             generateTask = nil
@@ -69,7 +81,10 @@ extension [ChatMessage] {
                 case .system: return .system
                 }
             }
-            return LLMInput.Message(role: role, content: message.content)
+            let attachments: [LLMAttachment] = message.images.map { image in
+                .image(image.value)
+            }
+            return LLMInput.Message(role: role, content: message.text, attachments: attachments)
         }
     }
 }

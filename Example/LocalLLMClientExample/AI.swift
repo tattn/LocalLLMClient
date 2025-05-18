@@ -85,6 +85,10 @@ final class AI {
     func loadLLM() async {
         isLoading = true
         defer { isLoading = false }
+
+        // Release memory first if a previous model was loaded
+        client = nil
+
         do {
             let downloader = Downloader(model: model)
             if downloader.isDownloaded {
@@ -105,7 +109,7 @@ final class AI {
             if model.isMLX {
                 client = try await AnyLLMClient(LocalLLMClient.mlx(url: downloader.url))
             } else {
-                client = try await AnyLLMClient(LocalLLMClient.llama(url: downloader.url, mmprojURL: downloader.clipURL))
+                client = try await AnyLLMClient(LocalLLMClient.llama(url: downloader.url, mmprojURL: downloader.clipURL, verbose: true))
             }
         } catch {
             print("Failed to load LLM: \(error)")

@@ -1,9 +1,12 @@
 @preconcurrency import Hub
 import Foundation
 
-protocol FileDownloadable: Sendable {
+public protocol FileDownloadable: Sendable {
+    var source: FileDownloader.Source { get }
     var destination: URL { get }
     var isDownloaded: Bool { get }
+
+    func removeMetadata() throws
 }
 
 public struct FileDownloader: FileDownloadable {
@@ -66,6 +69,10 @@ public struct FileDownloader: FileDownloadable {
                 return metadata
             }
         }
+
+        func removeMetadata(from destination: URL) throws {
+            try FileManager.default.removeItem(at: destination.appendingPathComponent(FilesMetadata.filename))
+        }
     }
 
     public init(source: Source, destination: URL = defaultRootDestination) {
@@ -111,6 +118,12 @@ struct FilesMetadata: Codable, Sendable {
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         let data = try JSONEncoder().encode(self)
         try data.write(to: url.appendingPathComponent(Self.filename))
+    }
+}
+
+public extension FileDownloadable {
+    func removeMetadata() throws {
+        try source.removeMetadata(from: destination)
     }
 }
 

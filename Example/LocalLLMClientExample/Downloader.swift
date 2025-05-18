@@ -14,6 +14,7 @@ struct Downloader: Sendable {
 #elseif os(iOS)
         downloader = BackgroundFileDownloader(source: .huggingFace(id: model.id, globs: globs))
 #endif
+        // try? downloader.removeMetadata() // use it if you update the models
     }
 
     private let model: LLMModel

@@ -78,12 +78,14 @@ private func makeDownloaders(id: String, destination: URL, meta: FilesMetadata) 
         .appending(path: repo.id)
         .appending(path: "resolve/main")
 
-    return meta.files.map { file in
-        BackgroundDownloader.Downloader(
-            url: baseURL.appending(path: file.name),
-            destinationURL: destination.appending(path: file.name)
-        )
-    }
+    return meta.files.map(\.name)
+        .filter { !FileManager.default.fileExists(atPath: destination.appending(path: $0).path) }
+        .map { filename in
+            BackgroundDownloader.Downloader(
+                url: baseURL.appending(path: filename),
+                destinationURL: destination.appending(path: filename)
+            )
+        }
 }
 
 final class BackgroundDownloader {
@@ -117,6 +119,12 @@ final class BackgroundDownloader {
     }
 
     func download() {
+        guard !downloaders.isEmpty else {
+            // Notify that download is complete
+            progress.totalUnitCount = 1
+            progress.completedUnitCount = 1
+            return
+        }
         for downloader in downloaders {
             downloader.download()
         }

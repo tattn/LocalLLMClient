@@ -4,8 +4,8 @@ This example demonstrates how to use the LocalLLMClient to integrate on-device L
 
 <table>
   <tr>
-    <td><img src="https://github.com/user-attachments/assets/c3f20c4b-e121-4926-bee8-e85c9bcc5059" width="100%"/></td>
-    <td><img src="https://github.com/user-attachments/assets/a96cd67c-7e06-4810-8165-688149a22386" width="100%"/></td>
+    <td><img src="https://github.com/user-attachments/assets/f949ba1d-f063-463c-a6fa-dcdf14c01e8b" width="100%" alt="example on iOS" /></td>
+    <td><img src="https://github.com/user-attachments/assets/3ac6aef5-df1a-45e9-8989-e4dbce223ceb" width="100%" alt="example on macOS" /></td>
   </tr>
 </table>
 
