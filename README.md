@@ -7,11 +7,23 @@
 
 A Swift package to interact with local Large Language Models (LLMs) on Apple platforms.
 
+<table>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/f949ba1d-f063-463c-a6fa-dcdf14c01e8b" width="100%" alt="example on iOS" /></td>
+    <td><img src="https://github.com/user-attachments/assets/3ac6aef5-df1a-45e9-8989-e4dbce223ceb" width="100%" alt="example on macOS" /></td>
+  </tr>
+</table>
+
+<details>
+<summary>Demo / Multimodal</summary>
+
 | MobileVLM-3B (llama.cpp) | Qwen2.5 VL 3B (MLX) |
 |:-:|:-:|
 |<video src="https://github.com/user-attachments/assets/7704b05c-2a8c-40ef-838c-f9485ad0cfe0">|<video src="https://github.com/user-attachments/assets/475609a4-aaef-4043-aadc-db44c28296ee">|
 
 *iPhone 16 Pro*
+
+</details>
 
 [Example app](https://github.com/tattn/LocalLLMClient/tree/main/Example)
 
