@@ -1,9 +1,10 @@
 # LocalLLMClient
 
-![logo](https://github.com/user-attachments/assets/3975c03a-cb1a-474f-94a1-726fd2de93b2)
-
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/tattn/LocalLLMClient/actions/workflows/test.yml/badge.svg)](https://github.com/tattn/LocalLLMClient/actions/workflows/test.yml)
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Ftattn%2FLocalLLMClient%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/tattn/LocalLLMClient)
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Ftattn%2FLocalLLMClient%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/tattn/LocalLLMClient)
+
 
 A Swift package to interact with local Large Language Models (LLMs) on Apple platforms.
 
