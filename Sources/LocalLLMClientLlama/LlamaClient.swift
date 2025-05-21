@@ -23,10 +23,10 @@ public final class LlamaClient: LLMClient {
     }
 
     public func textStream(from input: LLMInput) throws -> Generator {
-        context.clear()
         do {
             switch input.value {
             case .plain(let text):
+                context.clear()
                 try context.decode(text: text)
             case .chatTemplate(let messages):
                 try messageDecoder.decode(messages, context: context, multimodal: multimodal)

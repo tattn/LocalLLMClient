@@ -25,9 +25,11 @@ public struct TokenGenerator: AsyncIteratorProtocol {
 
     private let context: Context
     private var temporaryInvalidCharacters: [CChar] = []
+    private var currentResult = ""
 
     mutating public func next() async throws -> String? {
         if Task.isCancelled {
+            updatePromptCache()
             return nil
         }
 
@@ -37,9 +39,10 @@ public struct TokenGenerator: AsyncIteratorProtocol {
 
         if llama_vocab_is_eog(context.vocab, newTokenId) || context.position >= context.parameter.context {
             if temporaryInvalidCharacters.isEmpty {
+                updatePromptCache()
                 return nil
             } else {
-                let newToken = String(utf8String: temporaryInvalidCharacters + [0]) ?? ""
+                let newToken = makeString() ?? ""
                 temporaryInvalidCharacters.removeAll()
                 return newToken
             }
@@ -48,11 +51,11 @@ public struct TokenGenerator: AsyncIteratorProtocol {
         temporaryInvalidCharacters.append(contentsOf: newTokenId.piece(vocab: context.vocab, special: true))
 
         let newToken: String
-        if let token = String(utf8String: temporaryInvalidCharacters + [0]) {
+        if let token = makeString() {
             temporaryInvalidCharacters.removeAll()
             newToken = token
         } else if (1 ..< temporaryInvalidCharacters.count).contains(where: { String(utf8String: Array(temporaryInvalidCharacters.suffix($0)) + [0]) != nil }) {
-            let token = String(utf8String: temporaryInvalidCharacters + [0]) ?? ""
+            let token = makeString() ?? ""
             temporaryInvalidCharacters.removeAll()
             newToken = token
         } else {
@@ -61,11 +64,28 @@ public struct TokenGenerator: AsyncIteratorProtocol {
 
         if context.extraEOSTokens.contains(newToken) {
             temporaryInvalidCharacters.removeAll()
+            updatePromptCache()
             return nil
         }
 
         context.batch.add(id: newTokenId, pos: context.position, seq_ids: [0], logits: true)
 
         return newToken
+    }
+
+    private mutating func makeString() -> String? {
+        guard let text = String(utf8String: temporaryInvalidCharacters + [0]) else {
+            return nil
+        }
+        currentResult += text
+        return text
+    }
+
+    private func updatePromptCache() {
+        if case let .text(cacheText) = context.promptCaches.last?.chunk {
+            context.promptCaches[context.promptCaches.endIndex - 1] = (
+                chunk: .text(cacheText + currentResult), lastPosition: context.position
+            )
+        }
     }
 }

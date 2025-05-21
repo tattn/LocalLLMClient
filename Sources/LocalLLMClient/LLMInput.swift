@@ -81,7 +81,7 @@ extension LLMInput: ExpressibleByStringLiteral {
 }
 
 /// Represents different types of attachments that can be included with messages.
-public enum LLMAttachment: @unchecked Sendable {
+public enum LLMAttachment: @unchecked Sendable, Hashable {
     /// An image attachment.
     case image(LLMInputImage)
 }
@@ -116,7 +116,7 @@ public extension LLMInput {
     ///
     /// Each message has a role (system, user, assistant, or custom), content text,
     /// and optional attachments such as images.
-    struct Message: Sendable {
+    struct Message: Sendable, Hashable {
         /// Initializes a message with the specified role and content.
         ///
         /// - Parameters:
@@ -177,7 +177,7 @@ public extension LLMInput {
         public var attachments: [LLMAttachment]
 
         /// Enumeration representing the role of a message sender in a conversation.
-        public enum Role: Sendable {
+        public enum Role: Sendable, Hashable {
             /// System role, typically used for instructions or context.
             case system
             

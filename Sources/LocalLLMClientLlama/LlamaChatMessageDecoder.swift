@@ -1,7 +1,7 @@
 import LocalLLMClient
 import Jinja
 
-public enum MessageChunk: Equatable {
+public enum MessageChunk: Equatable, Hashable {
     case text(String)
     case image([LLMInputImage])
     case video([LLMInputImage]) // Placeholder for future video support
@@ -64,12 +64,13 @@ public extension LlamaChatMessageDecoder {
             "sep_token": String(utf8String: llama_vocab_get_text(context.model.vocab, max(0, llama_vocab_sep(context.model.vocab)))) ?? "",
             "pad_token": String(utf8String: llama_vocab_get_text(context.model.vocab, max(0, llama_vocab_pad(context.model.vocab)))) ?? "",
             "cls_token": String(utf8String: llama_vocab_get_text(context.model.vocab, max(0, llama_vocab_bos(context.model.vocab)))) ?? "",
-            "mask_token": "",
+            "mask_token": ""
         ]
 
         let prompt = try applyTemplate(messages, chatTemplate: context.model.chatTemplate, additionalContext: specialTokens)
         let imagesChunks = messages.imageChunks()
-        let chunks = try extractChunks(prompt: prompt, imageChunks: imagesChunks)
+        var chunks = try extractChunks(prompt: prompt, imageChunks: imagesChunks)
+        context.removeCachedChunks(&chunks)
 
         for chunk in chunks {
             switch chunk {
@@ -83,6 +84,8 @@ public extension LlamaChatMessageDecoder {
                 // Video not supported in this decoder yet
                 break
             }
+
+            context.addCache(for: chunk, position: context.position)
         }
     }
 }

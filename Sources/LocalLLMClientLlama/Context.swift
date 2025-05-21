@@ -16,6 +16,7 @@ public final class Context: @unchecked Sendable {
     var cursor: [llama_token_data]
     let model: Model
     let extraEOSTokens: Set<String>
+    var promptCaches: [(chunk: MessageChunk, lastPosition: llama_pos)] = []
 
     package var vocab: OpaquePointer {
         model.vocab
@@ -87,5 +88,55 @@ public final class Context: @unchecked Sendable {
 
     public func clear() {
         llama_kv_self_clear(context)
+    }
+
+    func addCache(for chunk: MessageChunk, position: llama_pos) {
+        let endIndex = promptCaches.endIndex - 1
+        switch (chunk, promptCaches.last?.chunk) {
+        case let (.text(chunkText), .text(cacheText)):
+            promptCaches[endIndex] = (chunk: .text(cacheText + chunkText), lastPosition: position)
+        case let (.image(chunkImages), .image(cacheImages)):
+            promptCaches[endIndex] = (chunk: .image(cacheImages + chunkImages), lastPosition: position)
+        case let (.video(chunkVideos), .video(cacheVideos)):
+            promptCaches[endIndex] = (chunk: .video(cacheVideos + chunkVideos), lastPosition: position)
+        default:
+            promptCaches.append((chunk: chunk, lastPosition: position))
+        }
+    }
+
+    func removeCachedChunks(_ chunks: inout [MessageChunk]) {
+        guard let (lastCacheIndex, newChunk) = lastCacheIndex(of: chunks) else {
+            return
+        }
+        chunks = Array(chunks[(lastCacheIndex + 1)...])
+        if let newChunk {
+            chunks.append(newChunk)
+        }
+        if promptCaches[lastCacheIndex].lastPosition < position {
+            assert(llama_kv_self_seq_rm(context, 0, promptCaches[lastCacheIndex].lastPosition, position))
+        }
+        if promptCaches.count > lastCacheIndex {
+            promptCaches.removeSubrange((lastCacheIndex + 1)...)
+        }
+    }
+
+    func lastCacheIndex(of chunks: [MessageChunk]) -> (index: Int, remaining: MessageChunk?)? {
+        for (index, (chunk, cache)) in zip(chunks, promptCaches).enumerated() {
+            switch (chunk, cache.chunk) {
+            case let (.text(chunkText), .text(cacheText)) where chunkText.hasPrefix(cacheText):
+                if chunkText == cacheText {
+                    return (index, nil)
+                } else {
+                    return (index, .text(String(chunkText.dropFirst(cacheText.count))))
+                }
+            case let (.image(chunkImages), .image(cacheImages)) where chunkImages == cacheImages:
+                return (index, nil)
+            case let (.video(chunkVideos), .video(cacheVideos)) where chunkVideos == cacheVideos:
+                return (index, nil)
+            default:
+                break
+            }
+        }
+        return nil
     }
 }
