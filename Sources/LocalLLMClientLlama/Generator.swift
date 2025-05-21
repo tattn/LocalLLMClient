@@ -82,10 +82,6 @@ public struct TokenGenerator: AsyncIteratorProtocol {
     }
 
     private func updatePromptCache() {
-        if case let .text(cacheText) = context.promptCaches.last?.chunk {
-            context.promptCaches[context.promptCaches.endIndex - 1] = (
-                chunk: .text(cacheText + currentResult), lastPosition: context.position
-            )
-        }
+        context.addCache(for: .text(currentResult), position: context.position)
     }
 }

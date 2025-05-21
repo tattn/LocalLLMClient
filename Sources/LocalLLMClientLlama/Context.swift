@@ -16,7 +16,7 @@ public final class Context: @unchecked Sendable {
     var cursor: [llama_token_data]
     let model: Model
     let extraEOSTokens: Set<String>
-    var promptCaches: [(chunk: MessageChunk, lastPosition: llama_pos)] = []
+    private var promptCaches: [(chunk: MessageChunk, lastPosition: llama_pos)] = []
 
     package var vocab: OpaquePointer {
         model.vocab
@@ -27,7 +27,7 @@ public final class Context: @unchecked Sendable {
     }
 
     package var position: Int32 {
-        llama_kv_self_used_cells(context)
+        llama_kv_self_seq_pos_max(context, 0) + 1
     }
 
     public init(url: URL, parameter: LlamaClient.Parameter = .default) throws(LLMError) {
