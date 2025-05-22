@@ -50,7 +50,7 @@ public final class Context: @unchecked Sendable {
         let penaltyFreq: Float = 0
         let penaltyPresent: Float = 0
         llama_sampler_chain_add(sampling, llama_sampler_init_temp(parameter.temperature))
-        llama_sampler_chain_add(sampling, llama_sampler_init_dist(LLAMA_DEFAULT_SEED))
+        llama_sampler_chain_add(sampling, llama_sampler_init_dist(parameter.seed.map(UInt32.init) ?? LLAMA_DEFAULT_SEED))
         llama_sampler_chain_add(sampling, llama_sampler_init_top_k(Int32(parameter.topK)))
         llama_sampler_chain_add(sampling, llama_sampler_init_top_p(parameter.topP, minKeep))
         llama_sampler_chain_add(sampling, llama_sampler_init_min_p(1 - parameter.topP, 1))

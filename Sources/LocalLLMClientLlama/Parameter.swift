@@ -2,6 +2,7 @@ public extension LlamaClient {
     struct Parameter: Sendable {
         public init(
             context: Int = 2048,
+            seed: Int? = nil,
             numberOfThreads: Int? = nil,
             batch: Int = 512,
             temperature: Float = 0.8,
@@ -13,6 +14,7 @@ public extension LlamaClient {
             options: Options = .init()
         ) {
             self.context = context
+            self.seed = seed
             self.numberOfThreads = numberOfThreads
             self.batch = batch
             self.temperature = temperature
@@ -25,6 +27,7 @@ public extension LlamaClient {
         }
         
         public var context: Int
+        public var seed: Int?
         public var numberOfThreads: Int?
         public var batch: Int
         public var temperature: Float

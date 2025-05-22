@@ -10,13 +10,16 @@ extension LocalLLMClient {
     static let model = "SmolVLM-256M-Instruct-Q8_0.gguf"
     static let clip = "mmproj-SmolVLM-256M-Instruct-Q8_0.gguf"
 
-    static func llama(parameter: LlamaClient.Parameter? = nil) async throws -> LlamaClient {
+    static func llama(
+        parameter: LlamaClient.Parameter? = nil,
+        messageDecoder: any LlamaChatMessageDecoder = LlamaCustomMessageDecoder(tokenImageRegex: #"<\|test_img\|>"#)
+    ) async throws -> LlamaClient {
         let url = try await downloadModel()
         return try await LocalLLMClient.llama(
             url: url.appending(component: model),
             mmprojURL: url.appending(component: clip),
             parameter: parameter ?? .init(context: 512),
-            messageDecoder: LlamaCustomMessageDecoder(tokenImageRegex: #"<\|test_img\|>"#),
+            messageDecoder: messageDecoder,
             verbose: true
         )
     }
