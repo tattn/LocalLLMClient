@@ -13,7 +13,7 @@ public final class Context: @unchecked Sendable {
     package var batch: llama_batch
     var sampling: Sampler
     let grammer: Sampler?
-    var cursor: [llama_token_data]
+    let cursorPointer: UnsafeMutableBufferPointer<llama_token_data>
     let model: Model
     let extraEOSTokens: Set<String>
     private var promptCaches: [(chunk: MessageChunk, lastPosition: llama_pos)] = []
@@ -57,10 +57,7 @@ public final class Context: @unchecked Sendable {
         llama_sampler_chain_add(sampling, llama_sampler_init_typical(parameter.typicalP, minKeep))
         llama_sampler_chain_add(sampling, llama_sampler_init_penalties(Int32(parameter.penaltyLastN), parameter.penaltyRepeat, penaltyFreq, penaltyPresent))
 
-        let cursorCount = Int(llama_vocab_n_tokens(model.vocab))
-        cursor = Array(unsafeUninitializedCapacity: cursorCount) { _, initializedCount in
-            initializedCount = cursorCount
-        }
+        cursorPointer = .allocate(capacity: Int(llama_vocab_n_tokens(model.vocab)))
 
         if let format = parameter.options.responseFormat {
             switch format {
@@ -81,6 +78,7 @@ public final class Context: @unchecked Sendable {
     }
 
     deinit {
+        cursorPointer.deallocate()
         llama_sampler_free(sampling)
         llama_batch_free(batch)
         llama_free(context)
