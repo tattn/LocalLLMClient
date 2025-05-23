@@ -1,18 +1,37 @@
 @preconcurrency import Hub
 import Foundation
 
+/// A protocol defining the requirements for an entity that can download files.
+///
+/// Types conforming to `FileDownloadable` are expected to manage the source and destination
+/// of downloadable files, check their download status, and handle associated metadata.
 public protocol FileDownloadable: Sendable {
+    /// The source from which the file(s) are downloaded (e.g., a specific Hugging Face repository).
     var source: FileDownloader.Source { get }
+    /// The local URL where the downloaded file(s) are or will be stored.
     var destination: URL { get }
+    /// A Boolean value indicating whether the file(s) from the source have been successfully downloaded to the destination.
     var isDownloaded: Bool { get }
 
+    /// Removes any metadata associated with the downloaded files.
+    ///
+    /// This is useful for clearing up stored information about the files, potentially
+    /// forcing a re-download or re-check of metadata in the future.
+    ///
+    /// - Throws: An error if the metadata cannot be removed, for example, due to file permission issues or if the metadata file doesn't exist.
     func removeMetadata() throws
 }
 
+/// A struct that implements the `FileDownloadable` protocol to manage file downloads.
+///
+/// This struct provides a concrete implementation for downloading files, particularly from
+/// Hugging Face Hub, using the `HubApi`. It handles metadata storage and progress reporting.
 public struct FileDownloader: FileDownloadable {
     public let source: Source
     private let rootDestination: URL
 
+    /// The default root directory where downloaded files are stored.
+    /// This is typically a subdirectory within the application's support directory, named "LocalLLM".
     public static let defaultRootDestination = URL.defaultRootDirectory
 
     public var destination: URL {
@@ -23,16 +42,28 @@ public struct FileDownloader: FileDownloadable {
         source.isDownloaded(for: rootDestination)
     }
 
+    /// Specifies the source from which files are to be downloaded.
     public enum Source: Sendable {
+        /// Represents a source from Hugging Face Hub.
+        ///
+        /// - Parameters:
+        ///   - id: The repository identifier on Hugging Face (e.g., "ml-explore/mlx-swift-examples").
+        ///   - globs: A set of glob patterns to filter which files are downloaded from the repository.
         case huggingFace(id: String, globs: HuggingFaceGlobs)
 
+        /// A struct representing a collection of glob patterns used to filter files
+        /// when downloading from a Hugging Face repository.
         public struct HuggingFaceGlobs: Sendable, Equatable {
             public let rawValue: [String]
 
+            /// Initializes a new set of Hugging Face glob patterns.
+            ///
+            /// - Parameter globs: An array of strings, where each string is a glob pattern (e.g., "*.json", "model.*.gguf").
             public init(_ globs: [String]) {
                 self.rawValue = globs
             }
 
+            /// Default glob patterns for MLX models, typically including "*.safetensors" and "*.json".
             public static let mlx = HuggingFaceGlobs(["*.safetensors", "*.json"])
         }
 
@@ -75,11 +106,23 @@ public struct FileDownloader: FileDownloadable {
         }
     }
 
+    /// Initializes a new file downloader.
+    ///
+    /// - Parameters:
+    ///   - source: The source from which to download the file(s), e.g., a Hugging Face repository.
+    ///   - destination: The root URL where the downloaded files should be stored. Defaults to `defaultRootDestination`.
     public init(source: Source, destination: URL = defaultRootDestination) {
         self.source = source
         self.rootDestination = destination
     }
 
+    /// Starts the download of the file(s) from the specified source.
+    ///
+    /// If the files are already downloaded, this method completes immediately, calling the progress handler with `1.0`.
+    /// It handles saving metadata and then uses `HubApi` to perform the actual download, reporting progress via the `onProgress` closure.
+    ///
+    /// - Parameter onProgress: An asynchronous closure that is called with the download progress (a `Double` between 0.0 and 1.0). Defaults to an empty closure.
+    /// - Throws: An error if saving metadata fails or if the `HubApi` encounters an issue during the download.
     public func download(onProgress: @Sendable @escaping (Double) async -> Void = { _ in }) async throws {
         let destination = source.destination(for: rootDestination)
         guard !source.isDownloaded(for: destination) else {
