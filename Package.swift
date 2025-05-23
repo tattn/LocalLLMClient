@@ -101,5 +101,6 @@ let package = Package(
                 .product(name: "MLXLMCommon", package: "mlx-swift-examples"),
             ],
         ),
-    ]
+    ],
+    cxxLanguageStandard: .cxx20
 )
