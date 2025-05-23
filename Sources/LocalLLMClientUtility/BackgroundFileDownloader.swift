@@ -2,13 +2,22 @@
 import Foundation
 import os.lock
 
+/// An actor responsible for managing the download of files in the background.
+///
+/// This class conforms to `FileDownloadable` and utilizes `URLSession` with background configurations
+/// to download files, primarily from Hugging Face Hub, and store them locally.
+/// It supports progress observation and can resume existing downloads.
 public final actor BackgroundFileDownloader: FileDownloadable {
+    /// The source from which the file(s) are being downloaded (e.g., a Hugging Face repository).
     public let source: FileDownloader.Source
     private let rootDestination: URL
     private let downloader = BackgroundDownloader()
 
+    /// The default root directory where downloaded files are stored.
+    /// This is typically a subdirectory within the application's support directory.
     public static let defaultRootDestination = URL.defaultRootDirectory
 
+    /// The specific destination URL for the downloaded file(s), derived from the `source` and `rootDestination`.
     public nonisolated var destination: URL {
         source.destination(for: rootDestination)
     }
@@ -17,6 +26,11 @@ public final actor BackgroundFileDownloader: FileDownloadable {
         source.isDownloaded(for: destination)
     }
 
+    /// Initializes a new background file downloader.
+    ///
+    /// - Parameters:
+    ///   - source: The source from which to download the file(s), e.g., a Hugging Face repository.
+    ///   - destination: The root URL where the downloaded files should be stored. Defaults to `defaultRootDestination`.
     public init(source: FileDownloader.Source, destination: URL = defaultRootDestination) {
         self.source = source
         self.rootDestination = destination
@@ -31,6 +45,13 @@ public final actor BackgroundFileDownloader: FileDownloadable {
         }
     }
 
+    /// Starts or resumes the download of the file(s) from the specified source.
+    ///
+    /// If the files are already downloaded, this method completes immediately, calling the progress handler with `1.0`.
+    /// It handles saving metadata and setting up individual downloaders for each file part if necessary.
+    ///
+    /// - Parameter onProgress: An optional asynchronous closure that is called with the download progress (a `Double` between 0.0 and 1.0).
+    /// - Throws: An error if fetching metadata fails or if there's an issue setting up the download tasks.
     public func download(onProgress: (@Sendable (Double) async -> Void)? = nil) async throws {
         switch source {
         case let .huggingFace(id, _):
@@ -62,10 +83,14 @@ public final actor BackgroundFileDownloader: FileDownloadable {
         }
     }
 
+    /// Sets an observer action to be called when the download progress changes.
+    ///
+    /// - Parameter action: An asynchronous closure that takes a `Double` representing the fraction completed (0.0 to 1.0) and is called whenever the progress updates.
     public func setObserver(_ action: @Sendable @escaping (Double) async -> Void) {
         downloader.setObserver(action)
     }
 
+    /// A Boolean value indicating whether any files managed by this downloader are currently being downloaded.
     public var isDownloading: Bool {
         downloader.isDownloading
     }
