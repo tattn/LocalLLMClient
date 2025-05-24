@@ -140,17 +140,17 @@ targets.append(
         // Or, more explicitly, defining sources.
         // For now, let's try to include all sources by not excluding 'exclude'.
         // We might need to list them explicitly if there are non-C/CPP files.
-        sources: ["common/common.cpp", "ggml/ggml.c", "ggml/ggml-alloc.c", "ggml/ggml-backend.c", "ggml/ggml-mpi.c", "ggml/ggml-quants.c", "llama.cpp"],
-        publicHeadersPath: "common", // Assuming common headers are here
+        sources: ["exclude/common/common.cpp", "exclude/ggml/ggml.c", "exclude/ggml/ggml-alloc.c", "exclude/ggml/ggml-backend.c", "exclude/ggml/ggml-mpi.c", "exclude/ggml/ggml-quants.c", "exclude/llama.cpp"],
+        publicHeadersPath: "exclude", // Assuming common headers are here
         cSettings: [
             .unsafeFlags(["-w"]), // Keep existing warning suppression
             .define("GGML_USE_PTHREAD", .when(platforms: [.linux])),
             .define("GGML_USE_LLAMAFILE", .when(platforms: [.linux])), // Example, if needed
             // We might need to add include paths if headers are not found
             // For example, if llama.h is at the root of 'exclude'
-            .headerSearchPath("."), // Current directory within target
-            .headerSearchPath("ggml"), // For ggml headers
-            .headerSearchPath("common"), // For common headers
+            .headerSearchPath("exclude"), // Current directory within target (now exclude)
+            .headerSearchPath("exclude/ggml"), // For ggml headers
+            .headerSearchPath("exclude/common"), // For common headers
         ],
         cxxSettings: [
             // Add any C++ specific settings if needed
