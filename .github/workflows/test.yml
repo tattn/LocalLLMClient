@@ -57,3 +57,29 @@ jobs:
         run: |
           cd Example
           xcodebuild build -project LocalLLMClientExample.xcodeproj -scheme LocalLLMClientExample -destination 'platform=macOS' CODE_SIGN_IDENTITY="-"
+
+  test-linux:
+    name: Linux Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: '6.0'
+
+      - name: Install system dependencies for llama.cpp
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libvulkan-dev # Example, more might be needed
+
+      - name: Build Llama Components
+        run: swift build --target LocalLLMClientLlamaC --target LocalLLMClientLlama
+        # If the above fails, `swift build --product LocalLLMClientLlama` might be an alternative
+        # or simply `swift build --build-tests` before `swift test`
+
+      - name: Run Swift Tests
+        run: swift test --enable-experimental-swift-testing
