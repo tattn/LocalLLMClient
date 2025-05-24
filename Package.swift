@@ -174,7 +174,7 @@ if let mlxTestsTarget = localLLMClientMLXTestsTarget {
 
 let package = Package(
     name: "LocalLLMClient",
-    platforms: [.iOS(.v16), .macOS(.v14), .linux(.v5_10)],
+    platforms: [.iOS(.v16), .macOS(.v14)],
     products: products,
     dependencies: packageDependencies,
     targets: targets,
