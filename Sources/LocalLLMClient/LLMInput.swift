@@ -203,8 +203,8 @@ public extension LLMInput {
     }
 }
 
-import class CoreImage.CIImage
 #if os(macOS)
+import class CoreImage.CIImage
 @preconcurrency import class AppKit.NSImage
 @preconcurrency import class AppKit.NSBitmapImageRep
 /// On macOS, represents an image that can be used as input to a language model.
@@ -237,7 +237,8 @@ package func llmInputImageToCIImage(_ image: LLMInputImage) throws(LLMError) -> 
     }
     return ciImage
 }
-#else
+#elseif os(iOS)
+import class CoreImage.CIImage
 @preconcurrency import class UIKit.UIImage
 /// On iOS, represents an image that can be used as input to a language model.
 public typealias LLMInputImage = UIImage
@@ -264,5 +265,16 @@ package func llmInputImageToCIImage(_ image: LLMInputImage) throws(LLMError) -> 
         throw LLMError.failedToLoad(reason: "Failed to load image")
     }
     return ciImage
+}
+#else
+public typealias LLMInputImage = Data
+
+/// Converts an image to data.
+///
+/// - Parameter image: The image to convert.
+/// - Returns: Data representation of the image.
+/// - Throws: `LLMError.failedToLoad` if the conversion fails.
+package func llmInputImageToData(_ image: LLMInputImage) throws(LLMError) -> Data {
+    image
 }
 #endif
