@@ -1,3 +1,4 @@
+#if canImport(CoreImage)
 // // Alternative to stb_image.h
 import Accelerate
 import CoreImage
@@ -73,3 +74,13 @@ package func imageDataToRGBBytes(
 
     return (result.baseAddress!, width, height)
 }
+#else
+import Foundation
+
+package func imageDataToRGBBytes(
+    imageData: Data
+) -> (bytes: UnsafeMutableRawPointer, width: Int, height: Int)? {
+    // TODO: Not supported in this environment currently.
+    return nil
+}
+#endif

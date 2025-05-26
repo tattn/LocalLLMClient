@@ -1,9 +1,13 @@
 #if BUILD_DOCC
 @preconcurrency @_implementationOnly import llama
-#else
+#elseif canImport(llama)
 @preconcurrency private import llama
+#else
+@preconcurrency import LocalLLMClientLlamaC
 #endif
+#if canImport(OSLog)
 import OSLog
+#endif
 
 // MARK: - Global State
 

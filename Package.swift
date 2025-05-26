@@ -8,6 +8,7 @@ let llamaVersion = "b5486"
 
 var packageDependencies: [Package.Dependency] = [
     .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.4.0")),
+    .package(url: "https://github.com/johnmai-dev/Jinja", .upToNextMinor(from: "1.1.0")),
 ]
 
 #if os(iOS) || os(macOS)
@@ -30,6 +31,10 @@ packageProducts.append(contentsOf: [
     .library(name: "LocalLLMClientLlama", targets: ["LocalLLMClientLlama"]),
     .library(name: "LocalLLMClientMLX", targets: ["LocalLLMClientMLX"]),
     .library(name: "LocalLLMClientUtility", targets: ["LocalLLMClientUtility"])
+])
+#elseif os(Linux)
+packageProducts.append(contentsOf: [
+   .library(name: "LocalLLMClientLlama", targets: ["LocalLLMClientLlama"]),
 ])
 #endif
 
@@ -59,7 +64,7 @@ packageTargets.append(contentsOf: [
         dependencies: [
             "LocalLLMClient",
             "LocalLLMClientLlamaC",
-            .product(name: "Transformers", package: "swift-transformers"),
+            .product(name: "Jinja", package: "Jinja")
         ],
         resources: [.process("Resources")],
         swiftSettings: Context.environment["BUILD_DOCC"] == nil ? [] : [
@@ -105,6 +110,30 @@ packageTargets.append(contentsOf: [
             .product(name: "MLXLMCommon", package: "mlx-swift-examples"),
         ],
     )
+])
+#elseif os(Linux)
+packageTargets.append(contentsOf: [
+    .target(
+        name: "LocalLLMClientLlama",
+        dependencies: [
+            "LocalLLMClient",
+            "LocalLLMClientLlamaC",
+            .product(name: "Jinja", package: "Jinja")
+        ],
+        resources: [.process("Resources")]
+    ),
+    .target(
+        name: "LocalLLMClientLlamaC",
+        exclude: ["exclude"],
+        cSettings: [
+            .unsafeFlags(["-w"])
+        ],
+        linkerSettings: [
+            .unsafeFlags([
+                "-lggml-base", "-lggml-cpu", "-lggml-rpc", "-lggml", "-lllama", "-lmtmd_shared"
+            ])
+        ]
+    ),
 ])
 #endif
 

@@ -1,11 +1,12 @@
 #if BUILD_DOCC
 @preconcurrency @_implementationOnly import llama
-#else
+#elseif canImport(llama)
 @preconcurrency private import llama
+#else
+@preconcurrency import LocalLLMClientLlamaC
 #endif
 import Foundation
 import LocalLLMClient
-import os.lock
 
 public final class Context: @unchecked Sendable {
     let parameter: LlamaClient.Parameter
