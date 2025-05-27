@@ -22,7 +22,7 @@ fi
 
 echo "Latest release tag: $LATEST_TAG"
 
-CURRENT_VERSION=$(grep -E "let llamaVersion = \"[a-zA-Z0-9]+\"" "$PACKAGE_FILE" | sed -E 's/let llamaVersion = "([a-zA-Z0-9]+)"/\1/')
+CURRENT_VERSION=$("$PROJECT_ROOT/scripts/get_llama_version.sh")
 
 echo "Current version: $CURRENT_VERSION"
 

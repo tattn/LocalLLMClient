@@ -77,10 +77,21 @@ package func imageDataToRGBBytes(
 #else
 import Foundation
 
+@_silgen_name("stbi_load_from_memory")
+func stbi_load_from_memory(_ buffer: UnsafePointer<UInt8>, _ len: Int32, _ x: UnsafeMutablePointer<Int32>, _ y: UnsafeMutablePointer<Int32>, _ comp: UnsafeMutablePointer<Int32>, _ req_comp: Int32) -> UnsafeMutablePointer<UInt8>?
+
 package func imageDataToRGBBytes(
     imageData: Data
 ) -> (bytes: UnsafeMutableRawPointer, width: Int, height: Int)? {
-    // TODO: Not supported in this environment currently.
-    return nil
+    var width: Int32 = 0
+    var height: Int32 = 0
+    var comp: Int32 = 0
+    return imageData.withUnsafeBytes { rawBufferPointer -> ((UnsafeMutableRawPointer, Int, Int)?) in
+        guard let baseAddress = rawBufferPointer.baseAddress else { return nil }
+        let pointer = baseAddress.assumingMemoryBound(to: UInt8.self)
+        return stbi_load_from_memory(pointer, Int32(imageData.count), &width, &height, &comp, 3).map { bytes in
+            (UnsafeMutableRawPointer(bytes), Int(width), Int(height))
+        }
+    }
 }
 #endif

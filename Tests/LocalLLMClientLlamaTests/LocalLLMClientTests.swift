@@ -1,5 +1,8 @@
 import Testing
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import LocalLLMClient
 import LocalLLMClientLlama
 
@@ -26,7 +29,7 @@ extension ModelTests.LocalLLMClientLlamaTests {
     func image() async throws {
         let stream = try await LocalLLMClient.llama().textStream(from: LLMInput(
             .chat([.user("<|test_img|>What is in this image?", attachments: [
-                .image(.init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.jpeg")!)!)
+                .image(.init(data: Data(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.jpeg")!))!)
             ])]),
         ))
 
@@ -53,7 +56,7 @@ extension ModelTests.LocalLLMClientLlamaTests {
             breaked = true
         }
 
-        try await Task.sleep(for: .seconds(2))
+        try await Task.sleep(for: .seconds(5))
         task!.cancel()
         try? await task!.value
 

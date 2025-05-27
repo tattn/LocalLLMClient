@@ -267,7 +267,19 @@ package func llmInputImageToCIImage(_ image: LLMInputImage) throws(LLMError) -> 
     return ciImage
 }
 #else
-public typealias LLMInputImage = Data
+public struct LLMInputImage: Sendable, Equatable, Hashable {
+    package let data: Data?
+
+    /// Initializes an empty image.
+    public init() {
+        data = nil
+    }
+
+    /// Initializes an image with data.
+    public init?(data: Data) {
+        self.data = data
+    }
+}
 
 /// Converts an image to data.
 ///
@@ -275,6 +287,9 @@ public typealias LLMInputImage = Data
 /// - Returns: Data representation of the image.
 /// - Throws: `LLMError.failedToLoad` if the conversion fails.
 package func llmInputImageToData(_ image: LLMInputImage) throws(LLMError) -> Data {
-    image
+    guard let image = image.data else {
+        throw LLMError.failedToLoad(reason: "data is nil")
+    }
+    return image
 }
 #endif
