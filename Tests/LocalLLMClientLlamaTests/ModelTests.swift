@@ -35,7 +35,7 @@ extension LocalLLMClient {
         try await downloader.download { print("Download: \($0)") }
         return downloader.destination
 #else
-        return URL(filePath: ProcessInfo.processInfo.environment["GITHUB_MODEL_CACHE"] ?? "~/.localllmclient")
+        return URL(filePath: ProcessInfo.processInfo.environment["GITHUB_MODEL_CACHE", default: "~/.localllmclient"])
             .appending(component: "huggingface/models/ggml-org/SmolVLM-256M-Instruct-GGUF")
 #endif
     }
@@ -47,7 +47,11 @@ actor ModelTests {
 
     init() async throws {
         if !Self.initialized && !disabledTests {
-            _ = try await LocalLLMClient.downloadModel()
+            let url = try await LocalLLMClient.downloadModel()
+            let path = url.appending(component: LocalLLMClient.model).path
+            if !FileManager.default.fileExists(atPath: path) {
+                throw LLMError.failedToLoad(reason: "Model file not found at \(path)")
+            }
             Self.initialized = true
         }
     }
