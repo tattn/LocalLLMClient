@@ -34,7 +34,8 @@ packageProducts.append(contentsOf: [
 ])
 #elseif os(Linux)
 packageProducts.append(contentsOf: [
-   .library(name: "LocalLLMClientLlama", targets: ["LocalLLMClientLlama"]),
+    .executable(name: "localllm", targets: ["LocalLLMCLI"]),
+    .library(name: "LocalLLMClientLlama", targets: ["LocalLLMClientLlama"]),
 ])
 #endif
 
@@ -113,6 +114,19 @@ packageTargets.append(contentsOf: [
 ])
 #elseif os(Linux)
 packageTargets.append(contentsOf: [
+    .executableTarget(
+        name: "LocalLLMCLI",
+        dependencies: [
+            "LocalLLMClientLlama",
+            .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        ],
+        linkerSettings: [
+            .unsafeFlags([
+                Context.environment["LDFLAGS", default: ""],
+            ])
+        ]
+    ),
+
     .target(
         name: "LocalLLMClientLlama",
         dependencies: [
@@ -122,6 +136,16 @@ packageTargets.append(contentsOf: [
         ],
         resources: [.process("Resources")]
     ),
+    .testTarget(
+        name: "LocalLLMClientLlamaTests",
+        dependencies: ["LocalLLMClientLlama"],
+        linkerSettings: [
+            .unsafeFlags([
+                Context.environment["LDFLAGS", default: ""],
+            ])
+        ]
+    ),
+
     .target(
         name: "LocalLLMClientLlamaC",
         exclude: ["exclude"],

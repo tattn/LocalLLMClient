@@ -66,6 +66,13 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Cache model file
+        id: cache-model
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/model_cache
+          key: model_cache
+
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -84,5 +91,21 @@ jobs:
           echo "SWIFTLY_BIN_DIR=${SWIFTLY_BIN_DIR}" >>"${GITHUB_ENV}"
           echo "${SWIFTLY_BIN_DIR}" >>"${GITHUB_PATH}"
 
+      - name: Download and extract llama.cpp binaries
+        run: |
+          LLAMA_VERSION=$(./scripts/get_llama_version.sh)
+          mkdir -p ${{ github.workspace }}/lib
+
+          # Download and extract llama.cpp binaries
+          LLAMA_URL="https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_VERSION}/llama-${LLAMA_VERSION}-bin-ubuntu-x64.zip"
+          echo "Downloading llama.cpp binaries from: $LLAMA_URL"
+          curl -L $LLAMA_URL -o llama-bin.zip
+          unzip -j llama-bin.zip "*.so" -d "${{ github.workspace }}/lib"
+          ls -la ${{ github.workspace }}/lib
+
       - name: Build package
-        run: swift build
+        run: LDFLAGS="-L${{ github.workspace }}/lib" swift build
+        # LD_LIBRARY_PATH="$(pwd)/lib" ./.build/debug/localllm -m "${{ github.workspace }}/model_cache/huggingface/models/ggml-org/SmolVLM-256M-Instruct-GGUF/SmolVLM-256M-Instruct-Q8_0.gguf" "Hello"
+
+      - name: Run tests
+        run: LDFLAGS="-L${{ github.workspace }}/lib" LD_LIBRARY_PATH="${{ github.workspace }}/lib" swift test

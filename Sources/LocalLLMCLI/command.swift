@@ -1,9 +1,20 @@
+#if os(Linux)
+// Workaround: https://github.com/swiftlang/swift/issues/77866
+@preconcurrency import var Glibc.stdout
+#endif
 import ArgumentParser
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import LocalLLMClient
 import LocalLLMClientLlama
+#if canImport(LocalLLMClientMLX)
 import LocalLLMClientMLX
+#endif
+#if canImport(LocalLLMClientUtility)
 import LocalLLMClientUtility
+#endif
 
 @main
 struct LocalLLMCommand: AsyncParsableCommand {
@@ -67,6 +78,7 @@ struct LocalLLMCommand: AsyncParsableCommand {
                 verbose: verbose
             )
         case .mlx:
+#if canImport(LocalLLMClientMLX)
             client = try await LocalLLMClient.mlx(
                 url: modelURL,
                 parameter: .init(
@@ -74,11 +86,14 @@ struct LocalLLMCommand: AsyncParsableCommand {
                     topP: topP,
                 )
             )
+#else
+            throw LocalLLMCommandError.invalidModel("MLX backend is not supported on this platform.")
+#endif
         }
 
         var attachments: [LLMAttachment] = []
         if let imageURL {
-            attachments.append(.image(LLMInputImage(contentsOfFile: URL(filePath: imageURL).path())!))
+            attachments.append(.image(LLMInputImage(data: try Data(contentsOf: URL(filePath: imageURL)))!))
         }
 
         log("Generating response for prompt: \"\(prompt)\"")
@@ -109,6 +124,7 @@ struct LocalLLMCommand: AsyncParsableCommand {
     }
 
     private func downloadModel(from url: URL, backend: Backend) async throws -> URL {
+        #if canImport(LocalLLMClientUtility)
         log("Downloading model from Hugging Face: \(model)")
 
         let globs: FileDownloader.Source.HuggingFaceGlobs = switch backend {
@@ -127,6 +143,9 @@ struct LocalLLMCommand: AsyncParsableCommand {
         case .llama: downloader.destination.appendingPathComponent(url.lastPathComponent)
         case .mlx: downloader.destination
         }
+        #else
+        throw LocalLLMCommandError.invalidModel("Downloading models is not supported on this platform.")
+        #endif
     }
 
     private func log(_ message: String) {

@@ -2,7 +2,9 @@ import Testing
 import Foundation
 import LocalLLMClient
 @testable import LocalLLMClientLlama
+#if canImport(LocalLLMClientUtility)
 import LocalLLMClientUtility
+#endif
 
 let disabledTests = ![nil, "Llama"].contains(ProcessInfo.processInfo.environment["GITHUB_ACTIONS_TEST"])
 
@@ -25,12 +27,17 @@ extension LocalLLMClient {
     }
 
     static func downloadModel() async throws -> URL {
+#if canImport(LocalLLMClientUtility)
         let downloader = FileDownloader(
             source: .huggingFace(id: "ggml-org/SmolVLM-256M-Instruct-GGUF", globs: [model, clip]),
             destination: ProcessInfo.processInfo.environment["GITHUB_MODEL_CACHE"].map { URL(filePath: $0) } ?? FileDownloader.defaultRootDestination
         )
         try await downloader.download { print("Download: \($0)") }
         return downloader.destination
+#else
+        return URL(filePath: ProcessInfo.processInfo.environment["GITHUB_MODEL_CACHE"] ?? "~/.localllmclient")
+            .appending(component: "huggingface/models/ggml-org/SmolVLM-256M-Instruct-GGUF")
+#endif
     }
 }
 
