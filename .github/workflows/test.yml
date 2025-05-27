@@ -37,7 +37,7 @@ jobs:
         id: cache-model
         uses: actions/cache@v4
         with:
-          path: ${{ github.workspace }}/model_cache
+          path: model_cache
           key: model_cache
 
       - name: Run ${{ matrix.test-type }} tests
@@ -61,6 +61,8 @@ jobs:
   build-ubuntu-x86_64:
     runs-on: ubuntu-latest
     needs: test
+    env:
+      GITHUB_MODEL_CACHE: "${{ github.workspace }}/model_cache"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -70,7 +72,7 @@ jobs:
         id: cache-model
         uses: actions/cache@v4
         with:
-          path: ${{ github.workspace }}/model_cache
+          path: model_cache
           key: model_cache
 
       - name: Install dependencies
