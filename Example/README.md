@@ -19,8 +19,16 @@ This example demonstrates how to use the LocalLLMClient to integrate on-device L
 
 To run the example app:
 
-1. Open `LocalLLMClientExample.xcodeproj` in Xcode
-2. Build and run the app on your device, not a simulator
+1. Clone the repository:
+  ```bash
+  git clone --recursive https://github.com/tattn/LocalLLMClient
+  ```
+  If you already cloned the repository without `--recursive`, run:
+  ```bash
+  git submodule update --init --recursive
+  ```
+2. Open `LocalLLMClientExample.xcodeproj` in Xcode
+3. Build and run the app on your device, not a simulator
 
 *Note: The app requires a physical device*
 
