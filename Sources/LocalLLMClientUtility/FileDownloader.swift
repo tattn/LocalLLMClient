@@ -43,7 +43,7 @@ public struct FileDownloader: FileDownloadable {
     }
 
     /// Specifies the source from which files are to be downloaded.
-    public enum Source: Sendable {
+    public enum Source: Sendable, Equatable {
         /// Represents a source from Hugging Face Hub.
         ///
         /// - Parameters:

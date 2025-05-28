@@ -110,6 +110,10 @@ packageTargets.append(contentsOf: [
         dependencies: [
             .product(name: "MLXLMCommon", package: "mlx-swift-examples"),
         ],
+    ),
+    .testTarget(
+        name: "LocalLLMClientUtilityTests",
+        dependencies: ["LocalLLMClientUtility"]
     )
 ])
 #elseif os(Linux)
