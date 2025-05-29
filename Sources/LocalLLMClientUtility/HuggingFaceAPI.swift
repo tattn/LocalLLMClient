@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// Represents the Hugging Face API client
 public struct HuggingFaceAPI: Sendable {

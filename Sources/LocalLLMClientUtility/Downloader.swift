@@ -1,9 +1,16 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 final class CommonDownloader {
     private(set) var downloaders: [Downloader] = []
-    let progress = Progress()
+    let progress = Progress(totalUnitCount: 0)
+#if os(Linux)
+    private var observer: Task<Void, Never>?
+#else
     private var observer: NSKeyValueObservation?
+#endif
 
     var isDownloading: Bool {
         downloaders.contains(where: \.isDownloading)
@@ -22,11 +29,24 @@ final class CommonDownloader {
     }
 
     func setObserver(_ action: @Sendable @escaping (Progress) async -> Void) {
+#if os(Linux)
+        observer = Task { [progress] in
+            var fractionCompleted = progress.fractionCompleted
+            while !Task.isCancelled {
+                if fractionCompleted != progress.fractionCompleted {
+                    fractionCompleted = progress.fractionCompleted
+                    await action(progress)
+                }
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
+#else
         observer = progress.observe(\.fractionCompleted, options: [.initial, .new]) { progress, change in
             Task {
                 await action(progress)
             }
         }
+#endif
     }
 
     func download() {
@@ -73,6 +93,7 @@ extension CommonDownloader {
             self.destinationURL = destinationURL
             session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
 
+#if !os(Linux)
             Task {
                 for task in await session.allTasks {
                     if task.taskDescription == destinationURL.absoluteString {
@@ -82,6 +103,7 @@ extension CommonDownloader {
                     }
                 }
             }
+#endif
         }
 
         public func download(existingTask: URLSessionTask? = nil) {
