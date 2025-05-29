@@ -4,7 +4,7 @@ import LocalLLMClientUtility
 struct Downloader: Sendable {
     init(model: LLMModel) {
         self.model = model
-        let globs: FileDownloader.Source.HuggingFaceGlobs = switch model {
+        let globs: Globs = switch model {
         case .qwen3, .qwen3_4b, .qwen2_5VL_3b: .mlx
         case .gemma3, .gemma3_4b, .mobileVLM_3b: .init(
             (model.filename.map { [$0] } ?? []) + (model.clipFilename.map { [$0] } ?? [])

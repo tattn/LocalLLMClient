@@ -127,7 +127,7 @@ struct LocalLLMCommand: AsyncParsableCommand {
         #if canImport(LocalLLMClientUtility)
         log("Downloading model from Hugging Face: \(model)")
 
-        let globs: FileDownloader.Source.HuggingFaceGlobs = switch backend {
+        let globs: Globs = switch backend {
         case .llama: .init(["*\(url.lastPathComponent)"])
         case .mlx: .mlx
         }

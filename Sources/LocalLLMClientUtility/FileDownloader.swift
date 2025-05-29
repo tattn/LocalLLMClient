@@ -1,4 +1,3 @@
-@preconcurrency import Hub
 import Foundation
 
 /// A protocol defining the requirements for an entity that can download files.
@@ -49,29 +48,13 @@ public struct FileDownloader: FileDownloadable {
         /// - Parameters:
         ///   - id: The repository identifier on Hugging Face (e.g., "ml-explore/mlx-swift-examples").
         ///   - globs: A set of glob patterns to filter which files are downloaded from the repository.
-        case huggingFace(id: String, globs: HuggingFaceGlobs)
-
-        /// A struct representing a collection of glob patterns used to filter files
-        /// when downloading from a Hugging Face repository.
-        public struct HuggingFaceGlobs: Sendable, Equatable {
-            public let rawValue: [String]
-
-            /// Initializes a new set of Hugging Face glob patterns.
-            ///
-            /// - Parameter globs: An array of strings, where each string is a glob pattern (e.g., "*.json", "model.*.gguf").
-            public init(_ globs: [String]) {
-                self.rawValue = globs
-            }
-
-            /// Default glob patterns for MLX models, typically including "*.safetensors" and "*.json".
-            public static let mlx = HuggingFaceGlobs(["*.safetensors", "*.json"])
-        }
+        case huggingFace(id: String, globs: Globs)
 
         func destination(for rootDestination: URL) -> URL {
             switch self {
             case let .huggingFace(id, _):
-                let hub = HubApi.make(destination: rootDestination, offlineMode: false)
-                return hub.localRepoLocation(Hub.Repo(id: id))
+                let client = HuggingFaceAPI(repo: .init(id: id))
+                return client.getLocalRepoLocation(downloadBase: rootDestination)
             }
         }
 
@@ -90,11 +73,24 @@ public struct FileDownloader: FileDownloadable {
             }
         }
 
+        func downloadFiles(to rootDestination: URL, onProgress: @Sendable @escaping (Double) async -> Void) async throws {
+            switch self {
+            case let .huggingFace(id, globs):
+                let client = HuggingFaceAPI(repo: .init(id: id))
+                try await client.downloadSnapshot(to: rootDestination, matching: globs) { progress in
+                    Task { [progress] in
+                        await onProgress(progress.fractionCompleted)
+                    }
+                }
+            }
+        }
+
         @discardableResult
         func saveMetadata(to destination: URL) async throws -> FilesMetadata {
             switch self {
             case let .huggingFace(id, globs):
-                let filenames = try await HubApi.shared.getFilenames(from: Hub.Repo(id: id), matching: globs.rawValue)
+                let client = HuggingFaceAPI(repo: .init(id: id))
+                let filenames = try await client.getFilenames(matching: globs)
                 let metadata = FilesMetadata(files: filenames.map { FilesMetadata.FileMetadata(name: $0) })
                 try metadata.save(to: destination)
                 return metadata
@@ -130,16 +126,7 @@ public struct FileDownloader: FileDownloadable {
             return
         }
         try await source.saveMetadata(to: destination)
-
-        switch source {
-        case let .huggingFace(id, globs):
-            let repo = Hub.Repo(id: id)
-            try await HubApi.make(destination: rootDestination, offlineMode: false).snapshot(from: repo, matching: globs.rawValue) { progress in
-                Task {
-                    await onProgress(progress.fractionCompleted)
-                }
-            }
-        }
+        try await source.downloadFiles(to: rootDestination, onProgress: onProgress)
     }
 }
 
@@ -167,20 +154,5 @@ struct FilesMetadata: Codable, Sendable {
 public extension FileDownloadable {
     func removeMetadata() throws {
         try source.removeMetadata(from: destination)
-    }
-}
-
-extension FileDownloader.Source.HuggingFaceGlobs: ExpressibleByArrayLiteral {
-    public init(arrayLiteral elements: String...) {
-        self.init(elements)
-    }
-}
-
-extension HubApi {
-    static func make(destination: URL, offlineMode: Bool) -> HubApi {
-        HubApi(
-            downloadBase: destination.appending(component: "huggingface"),
-            useOfflineMode: offlineMode
-        )
     }
 }
