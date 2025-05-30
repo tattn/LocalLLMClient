@@ -30,6 +30,7 @@ final class CommonDownloader {
 
     func setObserver(_ action: @Sendable @escaping (Progress) async -> Void) {
 #if os(Linux)
+        observer?.cancel()
         observer = Task { [progress] in
             var fractionCompleted = progress.fractionCompleted
             while !Task.isCancelled {
