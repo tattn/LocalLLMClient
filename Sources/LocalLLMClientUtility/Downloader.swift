@@ -22,6 +22,12 @@ final class CommonDownloader {
 
     init() {}
 
+    deinit {
+#if os(Linux)
+        observer?.cancel()
+#endif
+    }
+
     func add(_ downloader: Downloader) {
         downloaders.append(downloader)
         progress.addChild(downloader.progress, withPendingUnitCount: 1)
