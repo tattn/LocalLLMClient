@@ -1,7 +1,7 @@
 import Foundation
 
 extension URL {
-#if os(macOS)
+#if os(macOS) || os(Linux)
     static let defaultRootDirectory = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".localllmclient").excludedFromBackup
 #else
     static let defaultRootDirectory = URL.documentsDirectory.appending(path: ".localllmclient").excludedFromBackup

@@ -1,5 +1,7 @@
 #if canImport(os)
 import os
+#else
+import Glibc
 #endif
 
 #if canImport(os)

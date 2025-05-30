@@ -1,3 +1,4 @@
+#if os(iOS) || os(macOS)
 @preconcurrency import Hub
 import Foundation
 import os.lock
@@ -115,7 +116,7 @@ private func makeDownloaders(id: String, destination: URL, meta: FilesMetadata) 
 
 final class BackgroundDownloader {
     private(set) var downloaders: [Downloader] = []
-    let progress = Progress()
+    let progress = Progress(totalUnitCount: 0)
     private var observer: NSKeyValueObservation?
 
     var isDownloading: Bool {
@@ -256,3 +257,4 @@ extension BackgroundDownloader.Downloader {
         }
     }
 }
+#endif

@@ -122,6 +122,7 @@ packageTargets.append(contentsOf: [
         name: "LocalLLMCLI",
         dependencies: [
             "LocalLLMClientLlama",
+            "LocalLLMClientUtility",
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
         ],
         linkerSettings: [
@@ -162,6 +163,14 @@ packageTargets.append(contentsOf: [
             ])
         ]
     ),
+
+    .target(
+        name: "LocalLLMClientUtility"
+    ),
+    .testTarget(
+        name: "LocalLLMClientUtilityTests",
+        dependencies: ["LocalLLMClientUtility"]
+    )
 ])
 #endif
 
