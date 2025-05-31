@@ -18,6 +18,7 @@ struct URLExtensionTests {
         #endif
     }
 
+#if !os(Linux)
     @Test
     func testExcludedFromBackup() throws {
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("testExcludedFromBackup")
@@ -32,4 +33,5 @@ struct URLExtensionTests {
 
         #expect(isExcluded, "URL should be excluded from backup")
     }
+#endif
 }

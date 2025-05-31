@@ -106,7 +106,7 @@ public struct HuggingFaceAPI: Sendable {
         // Get filenames to download
         let filenames = try await getFilenames(matching: globs, revision: revision)
 
-        let downloader = CommonDownloader()
+        let downloader = Downloader()
         for filename in filenames {
             let type = repo.type == .models ? "" : "\(repo.type.rawValue)/"
             downloader.add(.init(

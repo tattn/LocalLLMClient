@@ -8,10 +8,14 @@ extension URL {
 #endif
 
     var excludedFromBackup: URL {
+#if os(Linux)
+        return self
+#else
         var url = self
         var resourceValues = URLResourceValues()
         resourceValues.isExcludedFromBackup = true
         try? url.setResourceValues(resourceValues)
         return url
+#endif
     }
 }

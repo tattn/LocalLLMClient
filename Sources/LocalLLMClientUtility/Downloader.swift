@@ -3,8 +3,8 @@ import Foundation
 import FoundationNetworking
 #endif
 
-final class CommonDownloader {
-    private(set) var downloaders: [Downloader] = []
+final class Downloader {
+    private(set) var downloaders: [ChildDownloader] = []
     let progress = Progress(totalUnitCount: 0)
 #if os(Linux)
     private var observer: Task<Void, Never>?
@@ -22,13 +22,13 @@ final class CommonDownloader {
 
     init() {}
 
-    deinit {
 #if os(Linux)
+    deinit {
         observer?.cancel()
-#endif
     }
+#endif
 
-    func add(_ downloader: Downloader) {
+    func add(_ downloader: ChildDownloader) {
         downloaders.append(downloader)
         progress.addChild(downloader.progress, withPendingUnitCount: 1)
         progress.totalUnitCount += 1
@@ -76,8 +76,8 @@ final class CommonDownloader {
     }
 }
 
-extension CommonDownloader {
-    final class Downloader: Sendable {
+extension Downloader {
+    final class ChildDownloader: Sendable {
         private let url: URL
         private let destinationURL: URL
         private let session: URLSession
@@ -125,7 +125,7 @@ extension CommonDownloader {
     }
 }
 
-extension CommonDownloader.Downloader {
+extension Downloader.ChildDownloader {
     final class Delegate: NSObject, URLSessionDownloadDelegate {
         let progress = Progress(totalUnitCount: 1)
         let isDownloading = Locked(false)
@@ -145,6 +145,10 @@ extension CommonDownloader.Downloader {
             }
             try? FileManager.default.removeItem(at: destinationURL)
             do {
+                try FileManager.default.createDirectory(
+                    at: destinationURL.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
                 try FileManager.default.moveItem(at: location, to: destinationURL)
             } catch {
                 print("The URLSessionTask may be old. The app container was already invalid: \(error.localizedDescription)")
