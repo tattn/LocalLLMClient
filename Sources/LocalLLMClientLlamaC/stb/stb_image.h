@@ -1,5 +1,5 @@
 #ifdef __linux__
-#include "../exclude/llama.cpp/tools/mtmd/vendor/stb_image.h"
+#include "../exclude/llama.cpp/vendor/stb/stb_image.h"
 #else
 // Implemented by stb_image.swift
 
