@@ -12,7 +12,7 @@ public final actor BackgroundFileDownloader: FileDownloadable {
     /// The source from which the file(s) are being downloaded (e.g., a Hugging Face repository).
     public let source: FileDownloader.Source
     private let rootDestination: URL
-    private let downloader = BackgroundDownloader()
+    private let downloader = Downloader()
 
     /// The default root directory where downloaded files are stored.
     /// This is typically a subdirectory within the application's support directory.
@@ -40,9 +40,7 @@ public final actor BackgroundFileDownloader: FileDownloadable {
             guard let meta = try? FilesMetadata.load(from: destination) else {
                 return
             }
-            for downloader in makeDownloaders(id: id, destination: source.destination(for: rootDestination), meta: meta) {
-                self.downloader.add(downloader)
-            }
+            downloader.configureForHuggingFace(id: id, destination: source.destination(for: rootDestination), meta: meta)
         }
     }
 
@@ -70,15 +68,13 @@ public final actor BackgroundFileDownloader: FileDownloadable {
             let meta = try await source.saveMetadata(to: destination)
 
             if let onProgress {
-                downloader.setObserver(onProgress)
+                downloader.setObserver { await onProgress($0.fractionCompleted) }
             }
             guard !downloader.isDownloading else {
                 return
             }
             if downloader.downloaders.isEmpty {
-                for downloader in makeDownloaders(id: id, destination: source.destination(for: rootDestination), meta: meta) {
-                    self.downloader.add(downloader)
-                }
+                downloader.configureForHuggingFace(id: id, destination: source.destination(for: rootDestination), meta: meta)
             }
             downloader.download()
         }
@@ -88,7 +84,7 @@ public final actor BackgroundFileDownloader: FileDownloadable {
     ///
     /// - Parameter action: An asynchronous closure that takes a `Double` representing the fraction completed (0.0 to 1.0) and is called whenever the progress updates.
     public func setObserver(_ action: @Sendable @escaping (Double) async -> Void) {
-        downloader.setObserver(action)
+        downloader.setObserver { await action($0.fractionCompleted) }
     }
 
     /// A Boolean value indicating whether any files managed by this downloader are currently being downloaded.
@@ -97,164 +93,28 @@ public final actor BackgroundFileDownloader: FileDownloadable {
     }
 }
 
-private func makeDownloaders(id: String, destination: URL, meta: FilesMetadata) -> [BackgroundDownloader.Downloader] {
-    let repo = Hub.Repo(id: id)
-    let baseURL = URL(string: "https://huggingface.co")!
-        .appending(component: repo.type == .models ? "" : repo.type.rawValue)
-        .appending(path: repo.id)
-        .appending(path: "resolve/main")
+private extension Downloader {
+    func configureForHuggingFace(id: String, destination: URL, meta: FilesMetadata) {
+        let repo = Hub.Repo(id: id)
+        let baseURL = URL(string: "https://huggingface.co")!
+            .appending(component: repo.type == .models ? "" : repo.type.rawValue)
+            .appending(path: repo.id)
+            .appending(path: "resolve/main")
 
-    return meta.files.map(\.name)
-        .filter { !FileManager.default.fileExists(atPath: destination.appending(path: $0).path) }
-        .map { filename in
-            BackgroundDownloader.Downloader(
-                url: baseURL.appending(path: filename),
-                destinationURL: destination.appending(path: filename)
-            )
-        }
-}
-
-final class BackgroundDownloader {
-    private(set) var downloaders: [Downloader] = []
-    let progress = Progress(totalUnitCount: 0)
-    private var observer: NSKeyValueObservation?
-
-    var isDownloading: Bool {
-        downloaders.contains(where: \.isDownloading)
-    }
-
-    var isDownloaded: Bool {
-        downloaders.allSatisfy(\.isDownloaded)
-    }
-
-    init() {}
-
-    func add(_ downloader: Downloader) {
-        downloaders.append(downloader)
-        progress.addChild(downloader.progress, withPendingUnitCount: 1)
-        progress.totalUnitCount += 1
-    }
-
-    func setObserver(_ action: @Sendable @escaping (Double) async -> Void) {
-        observer = progress.observe(\.fractionCompleted, options: [.initial, .new]) { _, change in
-            guard let fractionCompleted = change.newValue else { return }
-            Task {
-                await action(fractionCompleted)
+        meta.files.map(\.name)
+            .filter { !FileManager.default.fileExists(atPath: destination.appending(path: $0).path) }
+            .forEach {
+                let url = baseURL.appending(path: $0)
+                let configuration = URLSessionConfiguration.background(withIdentifier: "\(url.absoluteString)_locallmclient")
+                configuration.isDiscretionary = true
+                configuration.sessionSendsLaunchEvents = true
+                add(.init(
+                    url: url,
+                    destinationURL: destination.appending(path: $0),
+                    configuration: configuration
+                ))
             }
-        }
-    }
-
-    func download() {
-        guard !downloaders.isEmpty else {
-            // Notify that download is complete
-            progress.totalUnitCount = 1
-            progress.completedUnitCount = 1
-            return
-        }
-        for downloader in downloaders {
-            downloader.download()
-        }
     }
 }
 
-extension BackgroundDownloader {
-    final class Downloader: Sendable {
-        private let url: URL
-        private let destinationURL: URL
-        private let session: URLSession
-        private let delegate = Delegate()
-
-        var progress: Progress {
-            delegate.progress
-        }
-
-        var isDownloading: Bool {
-            delegate.isDownloading.withLock(\.self)
-        }
-
-        var isDownloaded: Bool {
-            FileManager.default.fileExists(atPath: destinationURL.path)
-        }
-
-        public init(url: URL, destinationURL: URL) {
-            self.url = url
-            self.destinationURL = destinationURL
-
-            let config = URLSessionConfiguration.background(withIdentifier: "\(url.absoluteString)_locallmclient")
-            config.isDiscretionary = true
-            config.sessionSendsLaunchEvents = true
-            session = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
-
-            Task {
-                for task in await session.allTasks {
-                    if task.taskDescription == destinationURL.absoluteString {
-                        download(existingTask: task)
-                    } else {
-                        task.cancel()
-                    }
-                }
-            }
-        }
-
-        public func download(existingTask: URLSessionTask? = nil) {
-            guard !isDownloading else { return }
-            delegate.isDownloading.withLock { $0 = true }
-
-            try? FileManager.default.createDirectory(at: destinationURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let task = existingTask ?? session.downloadTask(with: url)
-            task.taskDescription = destinationURL.absoluteString
-            task.resume()
-        }
-    }
-}
-
-extension BackgroundDownloader.Downloader {
-    final class Delegate: NSObject, URLSessionDownloadDelegate {
-        let progress = Progress(totalUnitCount: 1)
-        let isDownloading = OSAllocatedUnfairLock(initialState: false)
-
-        func urlSession(
-            _ session: URLSession, downloadTask: URLSessionDownloadTask,
-            didFinishDownloadingTo location: URL
-        ) {
-#if DEBUG
-            print("Download finished to location: \(location.path)")
-#endif
-
-            // Move the downloaded file to the permanent location
-            guard let taskDescription = downloadTask.taskDescription,
-                  let destinationURL = URL(string: taskDescription) else {
-                return
-            }
-            try? FileManager.default.removeItem(at: destinationURL)
-            do {
-                try FileManager.default.moveItem(at: location, to: destinationURL)
-            } catch {
-                print("The URLSessionTask may be old. The app container was already invalid: \(error.localizedDescription)")
-            }
-        }
-
-        func urlSession(
-            _ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?
-        ) {
-#if DEBUG
-            if let error {
-                print("Download failed with error: \(error.localizedDescription)")
-            }
-#endif
-            isDownloading.withLock { $0 = false }
-        }
-
-        func urlSession(
-            _ session: URLSession, downloadTask: URLSessionDownloadTask,
-            didWriteData bytesWritten: Int64,
-            totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64
-        ) {
-            if bytesWritten == totalBytesWritten {
-                progress.totalUnitCount = totalBytesExpectedToWrite
-            }
-            progress.completedUnitCount = totalBytesWritten
-        }
-    }
-}
 #endif

@@ -2,6 +2,9 @@ import Foundation
 import LocalLLMClient
 import LocalLLMClientMLX
 import LocalLLMClientLlama
+#if canImport(UIKit)
+import UIKit
+#endif
 
 enum LLMModel: Sendable, CaseIterable, Identifiable {
     case qwen3
@@ -101,7 +104,7 @@ final class AI {
             }
 
             #if os(iOS)
-            while downloadProgress < 1 {
+            while downloadProgress < 1 || UIApplication.shared.applicationState != .active {
                 try await Task.sleep(for: .seconds(2))
             }
             #endif
