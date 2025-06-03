@@ -2,7 +2,7 @@
 
 import PackageDescription
 
-let llamaVersion = "b5535"
+let llamaVersion = "b5575"
 
 // MARK: - Package Dependencies
 
@@ -13,7 +13,7 @@ var packageDependencies: [Package.Dependency] = [
 
 #if os(iOS) || os(macOS)
 packageDependencies.append(contentsOf: [
-    .package(url: "https://github.com/huggingface/swift-transformers", .upToNextMinor(from: "0.1.20")),
+    .package(url: "https://github.com/huggingface/swift-transformers", exact: "0.1.20"),
     .package(url: "https://github.com/ml-explore/mlx-swift-examples", branch: "main"),
     .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.4.0")
 ])
@@ -94,7 +94,7 @@ packageTargets.append(contentsOf: [
         name: "LocalLLMClientLlamaFramework",
         url:
             "https://github.com/ggml-org/llama.cpp/releases/download/\(llamaVersion)/llama-\(llamaVersion)-xcframework.zip",
-        checksum: "fccdc6219fc19f6271d22d9157d1ceed8278aba855b8d9b2f79af0eeb774a188"
+        checksum: "78ba1f1a8622e548f5e8a29b93473afe2e879b9b0781c3af0d31673c3310c7d6"
     ),
     .target(
         name: "LocalLLMClientLlamaC",
@@ -159,7 +159,7 @@ packageTargets.append(contentsOf: [
         ],
         linkerSettings: [
             .unsafeFlags([
-                "-lggml-base", "-lggml-cpu", "-lggml-rpc", "-lggml", "-lllama", "-lmtmd_shared", "-lmtmd_helper_shared"
+                "-lggml-base", "-lggml-cpu", "-lggml-rpc", "-lggml", "-lllama", "-lmtmd"
             ])
         ]
     ),
