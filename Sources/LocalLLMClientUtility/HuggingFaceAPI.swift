@@ -48,6 +48,32 @@ public struct HuggingFaceAPI: Sendable {
         }
     }
 
+    public struct DownloadConfiguration: Sendable {
+        public var identifier: String?
+        public var protocolClasses: [AnyClass]?
+
+        /// Initializes a new download configuration
+        public static let `default` = DownloadConfiguration(identifier: nil)
+
+        /// Creates a new download configuration for background downloads
+        public static func background(withIdentifier identifier: String) -> DownloadConfiguration {
+            DownloadConfiguration(identifier: identifier)
+        }
+
+        func makeURLSessionConfiguration() -> URLSessionConfiguration {
+            let config: URLSessionConfiguration
+            if let identifier {
+                config = URLSessionConfiguration.background(withIdentifier: identifier)
+                config.isDiscretionary = true
+                config.sessionSendsLaunchEvents = true
+            } else {
+                config = .default
+            }
+            config.protocolClasses = protocolClasses
+            return config
+        }
+    }
+
     /// Get the local directory location for a repository
     /// - Parameters:
     ///   - downloadBase: The base directory for downloads
@@ -64,9 +90,16 @@ public struct HuggingFaceAPI: Sendable {
     ///   - globs: Array of glob patterns to match files (e.g., "*.json")
     ///   - revision: The repository revision (branch, tag, or commit hash), defaults to "main"
     /// - Returns: Array of matching filenames
-    public func getFilenames(matching globs: Globs, revision: String = "main") async throws -> [String] {
+    public func getFilenames(
+        matching globs: Globs,
+        revision: String = "main",
+        configuration: URLSessionConfiguration = .default
+    ) async throws -> [String] {
         // Read repo info and only parse "siblings" (files in the repository)
-        let (data, _) = try await get(for: endpoint.appending(path: "api/\(repo.type.rawValue)/\(repo.id)/revision/\(revision)"))
+        let (data, _) = try await get(
+            for: endpoint.appending(path: "api/\(repo.type.rawValue)/\(repo.id)/revision/\(revision)"),
+            configuration: configuration
+        )
 
         // Decode the JSON response
         let response = try JSONDecoder().decode(SiblingsResponse.self, from: data)
@@ -89,6 +122,7 @@ public struct HuggingFaceAPI: Sendable {
     ///   - downloadBase: The base directory for downloads
     ///   - globs: Array of glob patterns to match files (e.g., "*.json")
     ///   - revision: The repository revision (branch, tag, or commit hash), defaults to "main"
+    ///   - configuration: URLSession configuration to use for the download, defaults to .default
     ///   - progressHandler: Closure to report download progress
     /// - Returns: The local URL where files were downloaded
     @discardableResult
@@ -96,7 +130,8 @@ public struct HuggingFaceAPI: Sendable {
         to downloadBase: URL,
         matching globs: Globs,
         revision: String = "main",
-        progressHandler: @Sendable @escaping (Progress) -> Void = { _ in }
+        configuration: DownloadConfiguration = .default,
+        progressHandler: @Sendable @escaping (Progress) async -> Void = { _ in }
     ) async throws -> URL {
         let destination = getLocalRepoLocation(downloadBase: downloadBase)
 
@@ -104,19 +139,29 @@ public struct HuggingFaceAPI: Sendable {
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
 
         // Get filenames to download
-        let filenames = try await getFilenames(matching: globs, revision: revision)
+        let filenames = try await getFilenames(matching: globs, revision: revision, configuration: configuration.makeURLSessionConfiguration())
 
         let downloader = Downloader()
         for filename in filenames {
             let type = repo.type == .models ? "" : "\(repo.type.rawValue)/"
             downloader.add(.init(
                 url: endpoint.appending(path: "\(type)\(repo.id)/resolve/\(revision)/\(filename)"),
-                destinationURL: destination.appendingPathComponent(filename)
+                destinationURL: destination.appendingPathComponent(filename),
+                configuration: {
+                    if let identifier = configuration.identifier {
+                        var configuration = configuration
+                        configuration.identifier = "\(identifier)_\(filename)"
+                        return configuration.makeURLSessionConfiguration()
+                    } else {
+                        return configuration.makeURLSessionConfiguration()
+                    }
+                }()
             ))
         }
         downloader.setObserver { progress in
-            progressHandler(progress)
+            await progressHandler(progress)
         }
+
         try await downloader.downloadAndAwait()
 
         return destination
@@ -192,13 +237,20 @@ extension HuggingFaceAPI {
     /// Performs an HTTP GET request to the specified URL
     /// - Parameter url: The URL to request
     /// - Returns: Tuple containing the response data and HTTP response
-    private func get(for url: URL) async throws -> (Data, HTTPURLResponse) {
+    private func get(for url: URL, configuration: URLSessionConfiguration = .default) async throws -> (Data, HTTPURLResponse) {
         var request = URLRequest(url: url)
         if let hfToken {
             request.setValue("Bearer \(hfToken)", forHTTPHeaderField: "Authorization")
         }
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
+
+        var configuration = configuration
+        if configuration.identifier != nil {
+            let foregroundConfiguration = URLSessionConfiguration.default
+            foregroundConfiguration.protocolClasses = configuration.protocolClasses
+            configuration = foregroundConfiguration
+        }
+
+        let (data, response) = try await URLSession(configuration: configuration).data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw URLError(.badServerResponse)
         }
@@ -213,52 +265,6 @@ extension HuggingFaceAPI {
         default:
             throw URLError(.badServerResponse)
         }
-    }
-}
-
-final class Delegate: NSObject, URLSessionDownloadDelegate {
-    let progress = Progress(totalUnitCount: 1)
-
-    func urlSession(
-        _ session: URLSession, downloadTask: URLSessionDownloadTask,
-        didFinishDownloadingTo location: URL
-    ) {
-#if DEBUG
-        print("Download finished to location: \(location.path)")
-#endif
-
-        // Move the downloaded file to the permanent location
-        guard let taskDescription = downloadTask.taskDescription,
-              let destinationURL = URL(string: taskDescription) else {
-            return
-        }
-        try? FileManager.default.removeItem(at: destinationURL)
-        do {
-            try FileManager.default.moveItem(at: location, to: destinationURL)
-        } catch {
-            print("The URLSessionTask may be old. The app container was already invalid: \(error.localizedDescription)")
-        }
-    }
-
-    func urlSession(
-        _ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?
-    ) {
-#if DEBUG
-        if let error {
-            print("Download failed with error: \(error.localizedDescription)")
-        }
-#endif
-    }
-
-    func urlSession(
-        _ session: URLSession, downloadTask: URLSessionDownloadTask,
-        didWriteData bytesWritten: Int64,
-        totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64
-    ) {
-        if bytesWritten == totalBytesWritten {
-            progress.totalUnitCount = totalBytesExpectedToWrite
-        }
-        progress.completedUnitCount = totalBytesWritten
     }
 }
 

@@ -70,7 +70,7 @@ final class Downloader {
 
     func downloadAndAwait() async throws {
         download()
-        while isDownloading {
+        while isDownloading && progress.fractionCompleted < 1.0 {
             try await Task.sleep(for: .seconds(1))
         }
     }
