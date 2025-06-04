@@ -62,6 +62,7 @@ public struct HuggingFaceAPI: Sendable {
 
         func makeURLSessionConfiguration() -> URLSessionConfiguration {
             let config: URLSessionConfiguration
+#if os(iOS) || os(macOS)
             if let identifier {
                 config = URLSessionConfiguration.background(withIdentifier: identifier)
                 config.isDiscretionary = true
@@ -69,6 +70,9 @@ public struct HuggingFaceAPI: Sendable {
             } else {
                 config = .default
             }
+#else
+            config = .default
+#endif
             config.protocolClasses = protocolClasses
             return config
         }
@@ -162,7 +166,9 @@ public struct HuggingFaceAPI: Sendable {
             await progressHandler(progress)
         }
 
-        try await downloader.downloadAndAwait()
+        downloader.download()
+        await downloader.waitForDownloads()
+        await progressHandler(downloader.progress)
 
         return destination
     }

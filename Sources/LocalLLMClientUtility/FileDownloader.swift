@@ -28,6 +28,7 @@ public protocol FileDownloadable: Sendable {
 public struct FileDownloader: FileDownloadable {
     public let source: Source
     private let rootDestination: URL
+    private let downloadConfiguration: DownloadConfiguration
 
     /// The default root directory where downloaded files are stored.
     /// This is typically a subdirectory within the application's support directory, named "LocalLLM".
@@ -73,11 +74,11 @@ public struct FileDownloader: FileDownloadable {
             }
         }
 
-        func downloadFiles(to rootDestination: URL, onProgress: @Sendable @escaping (Double) async -> Void) async throws {
+        func downloadFiles(to rootDestination: URL, configuration: HuggingFaceAPI.DownloadConfiguration = .default, onProgress: @Sendable @escaping (Double) async -> Void) async throws {
             switch self {
             case let .huggingFace(id, globs):
                 let client = HuggingFaceAPI(repo: .init(id: id))
-                try await client.downloadSnapshot(to: rootDestination, matching: globs) { progress in
+                try await client.downloadSnapshot(to: rootDestination, matching: globs, configuration: configuration) { progress in
                     Task { [progress] in
                         await onProgress(progress.fractionCompleted)
                     }
@@ -102,6 +103,29 @@ public struct FileDownloader: FileDownloadable {
         }
     }
 
+    public struct DownloadConfiguration: Sendable {
+        public var identifier: String?
+        public var protocolClasses: [AnyClass]?
+
+        /// Initializes a new download configuration
+        public static let `default` = DownloadConfiguration(identifier: nil)
+
+        /// Creates a new download configuration for background downloads
+        public static func background(withIdentifier identifier: String) -> DownloadConfiguration {
+            DownloadConfiguration(identifier: identifier)
+        }
+
+        func makeHuggingFaceConfiguration() -> HuggingFaceAPI.DownloadConfiguration {
+            var result: HuggingFaceAPI.DownloadConfiguration = if let identifier {
+                .background(withIdentifier: identifier)
+            } else {
+                .default
+            }
+            result.protocolClasses = protocolClasses
+            return result
+        }
+    }
+
     /// Initializes a new file downloader.
     ///
     /// - Parameters:
@@ -110,6 +134,19 @@ public struct FileDownloader: FileDownloadable {
     public init(source: Source, destination: URL = defaultRootDestination) {
         self.source = source
         self.rootDestination = destination
+        self.downloadConfiguration = .default
+    }
+    
+    /// Initializes a new file downloader with a custom download configuration.
+    ///
+    /// - Parameters:
+    ///   - source: The source from which to download the file(s), e.g., a Hugging Face repository.
+    ///   - destination: The root URL where the downloaded files should be stored. Defaults to `defaultRootDestination`.
+    ///   - configuration: The download configuration to use, which can include background download settings.
+    public init(source: Source, destination: URL = defaultRootDestination, configuration: DownloadConfiguration) {
+        self.source = source
+        self.rootDestination = destination
+        self.downloadConfiguration = configuration
     }
 
     /// Starts the download of the file(s) from the specified source.
@@ -126,7 +163,11 @@ public struct FileDownloader: FileDownloadable {
             return
         }
         try await source.saveMetadata(to: destination)
-        try await source.downloadFiles(to: rootDestination, onProgress: onProgress)
+        try await source.downloadFiles(
+            to: rootDestination,
+            configuration: downloadConfiguration.makeHuggingFaceConfiguration(),
+            onProgress: onProgress
+        )
     }
 }
 

@@ -12,17 +12,16 @@ struct Downloader: Sendable {
 #if os(macOS)
         downloader = FileDownloader(source: .huggingFace(id: model.id, globs: globs))
 #elseif os(iOS)
-        downloader = BackgroundFileDownloader(source: .huggingFace(id: model.id, globs: globs))
+        downloader = FileDownloader(
+            source: .huggingFace(id: model.id, globs: globs),
+            configuration: .background(withIdentifier: "localllmclient.downloader.\(model.id)")
+        )
 #endif
         // try? downloader.removeMetadata() // use it if you update the models
     }
 
     private let model: LLMModel
-#if os(macOS)
     private let downloader: FileDownloader
-#elseif os(iOS)
-    private let downloader: BackgroundFileDownloader
-#endif
 
     var url: URL {
         downloader.destination.appending(component: model.filename ?? "")

@@ -56,7 +56,7 @@ public final class Context: Sendable {
                 )
             }
 
-            try loadWeights(modelDirectory: url, model: model, quantization: baseConfiguration.quantization)
+            try loadWeights(modelDirectory: url, model: model, perLayerQuantization: baseConfiguration.perLayerQuantization)
 
             let tokenizer = try await loadTokenizer(configuration: configuration, hub: .shared)
             return (model, tokenizer)

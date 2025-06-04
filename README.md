@@ -199,7 +199,6 @@ print(try await client.generateText(from: input))
 ### Utility
 
 - `FileDownloader`: A utility to download models with progress tracking.
-- `BackgroundFileDownloader`: A utility to download models in the background for iOS apps.
 
 ### CLI tool
 

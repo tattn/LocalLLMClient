@@ -114,8 +114,10 @@ struct DownloaderTests {
         }
         
         // Start the download and wait for completion
-        try await downloader.downloadAndAwait()
-        
+        downloader.download()
+        await downloader.waitForDownloads()
+
+
         // Verify the download completed successfully
         #expect(!downloader.isDownloading)
         #expect(downloader.isDownloaded)
@@ -162,8 +164,9 @@ struct DownloaderTests {
         downloader.add(childDownloader)
         
         // Start the download and wait for completion
-        try await downloader.downloadAndAwait()
-        
+        downloader.download()
+        await downloader.waitForDownloads()
+
         // Verify the download completed with error
         #expect(!downloader.isDownloading)
         #expect(!FileManager.default.fileExists(atPath: destinationURL.path))
@@ -215,8 +218,9 @@ struct DownloaderTests {
         #expect(downloader.progress.totalUnitCount == 2)
         
         // Start the downloads and wait for completion
-        try await downloader.downloadAndAwait()
-        
+        downloader.download()
+        await downloader.waitForDownloads()
+
         // Verify all downloads completed successfully
         #expect(!downloader.isDownloading)
         #expect(downloader.isDownloaded)
@@ -280,7 +284,8 @@ struct DownloaderTests {
             }
             
             // Start the download
-            try? await downloader.downloadAndAwait()
+            downloader.download()
+            await downloader.waitForDownloads()
         }
         
         // Extract the final progress updates
@@ -335,8 +340,9 @@ struct DownloaderTests {
         #expect(downloader.isDownloaded)
         
         // Start the download anyway
-        try await downloader.downloadAndAwait()
-        
+        downloader.download()
+        await downloader.waitForDownloads()
+
         // Verify the download is still marked as complete
         #expect(!downloader.isDownloading)
         #expect(downloader.isDownloaded)

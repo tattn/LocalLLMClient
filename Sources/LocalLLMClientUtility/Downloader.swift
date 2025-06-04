@@ -68,10 +68,9 @@ final class Downloader {
         }
     }
 
-    func downloadAndAwait() async throws {
-        download()
+    func waitForDownloads() async {
         while isDownloading && progress.fractionCompleted < 1.0 {
-            try await Task.sleep(for: .seconds(1))
+            try? await Task.sleep(for: .seconds(1))
         }
     }
 }
@@ -120,6 +119,7 @@ extension Downloader {
             try? FileManager.default.createDirectory(at: destinationURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             let task = existingTask ?? session.downloadTask(with: url)
             task.taskDescription = destinationURL.absoluteString
+            task.priority = URLSessionTask.highPriority
             task.resume()
         }
     }
