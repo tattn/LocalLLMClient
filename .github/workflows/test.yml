@@ -26,7 +26,7 @@ jobs:
       matrix:
         test-type: [Llama, MLX]
     env:
-      DEVELOPER_DIR: "/Applications/Xcode_16.3.app/Contents/Developer"
+      DEVELOPER_DIR: "/Applications/Xcode_16.4.app/Contents/Developer"
       TEST_RUNNER_GITHUB_MODEL_CACHE: "${{ github.workspace }}/model_cache"
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +47,7 @@ jobs:
     runs-on: macos-15
     needs: test
     env:
-      DEVELOPER_DIR: "/Applications/Xcode_16.3.app/Contents/Developer"
+      DEVELOPER_DIR: "/Applications/Xcode_16.4.app/Contents/Developer"
     steps:
       - uses: actions/checkout@v4
         with:

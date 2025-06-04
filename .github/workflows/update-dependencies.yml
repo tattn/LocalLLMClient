@@ -7,7 +7,9 @@ on:
 
 jobs:
   update-dependencies:
-    runs-on: macos-latest
+    runs-on: macos-15
+    env:
+      DEVELOPER_DIR: "/Applications/Xcode_16.4.app/Contents/Developer"
     permissions:
       contents: write
       pull-requests: write
