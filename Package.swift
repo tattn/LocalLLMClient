@@ -13,7 +13,7 @@ var packageDependencies: [Package.Dependency] = [
 
 #if os(iOS) || os(macOS)
 packageDependencies.append(contentsOf: [
-    .package(url: "https://github.com/huggingface/swift-transformers", exact: "0.1.20"),
+    .package(url: "https://github.com/huggingface/swift-transformers", .upToNextMinor(from: "0.1.21")),
     .package(url: "https://github.com/ml-explore/mlx-swift-examples", branch: "main"),
     .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.4.0")
 ])
