@@ -159,7 +159,7 @@ packageTargets.append(contentsOf: [
         ],
         linkerSettings: [
             .unsafeFlags([
-                "-lggml-base", "-lggml-cpu", "-lggml-rpc", "-lggml", "-lllama", "-lmtmd"
+                 "-lggml-base", "-lggml", "-lllama", "-lmtmd"
             ])
         ]
     ),

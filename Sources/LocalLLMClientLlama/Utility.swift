@@ -5,6 +5,7 @@
 #else
 @preconcurrency import LocalLLMClientLlamaC
 #endif
+import Foundation
 #if canImport(OSLog)
 import OSLog
 #endif
@@ -20,6 +21,10 @@ nonisolated(unsafe) private var llamaLogCallback: ((LlamaLogLevel, String) -> Vo
 public func initializeLlama() {
     guard !isLlamaInitialized else { return }
     isLlamaInitialized = true
+#if os(Linux)
+    ggml_backend_load_all_from_path(ProcessInfo.processInfo.environment["LD_LIBRARY_PATH"])
+#endif
+
     llama_backend_init()
 
     if !isCustomLogEnabled {
