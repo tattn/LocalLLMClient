@@ -79,7 +79,7 @@ struct DownloaderTests {
         #expect(downloader.isDownloaded)
     }
     
-    @Test(.disabled(if: canImportFoundationNetworking))
+    @Test(.disabled(if: canImportFoundationNetworking)) @MainActor
     func testSuccessfulDownload() async throws {
         // Prepare the mock data
         let testData = "Test file content".data(using: .utf8)!

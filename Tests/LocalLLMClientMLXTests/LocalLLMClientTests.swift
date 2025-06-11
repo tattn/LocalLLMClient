@@ -37,7 +37,7 @@ extension ModelTests.LocalLLMClientMLXTests {
         #expect(!result.isEmpty)
     }
 
-    @Test(.timeLimit(.minutes(5)))
+    @Test(.timeLimit(.minutes(5))) @MainActor
     func cancel() async throws {
         var counter = 0
         var breaked = false

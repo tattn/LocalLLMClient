@@ -23,7 +23,7 @@ extension LocalLLMClient {
 
 @Suite(.serialized, .disabled(if: disabledTests))
 actor ModelTests {
-    private static var initialized = false
+    nonisolated(unsafe) private static var initialized = false
 
     init() async throws {
         if !Self.initialized && !disabledTests {

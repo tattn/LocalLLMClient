@@ -42,7 +42,7 @@ extension ModelTests.LocalLLMClientLlamaTests {
         #expect(!result.isEmpty)
     }
 
-    @Test
+    @Test @MainActor
     func cancel() async throws {
         var counter = 0
         var breaked = false
