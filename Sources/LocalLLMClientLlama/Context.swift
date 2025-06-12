@@ -28,7 +28,11 @@ public final class Context: @unchecked Sendable {
     }
 
     package var position: Int32 {
-        llama_kv_self_seq_pos_max(context, 0) + 1
+        guard let kv = llama_get_memory(context) else {
+            return -1
+        }
+
+        return llama_memory_seq_pos_max(kv, 0) + 1
     }
 
     public init(url: URL, parameter: LlamaClient.Parameter = .default) throws(LLMError) {
@@ -86,7 +90,11 @@ public final class Context: @unchecked Sendable {
     }
 
     public func clear() {
-        llama_kv_self_clear(context)
+        guard let kv = llama_get_memory(context) else {
+            return
+        }
+
+        llama_memory_clear(kv, true)
     }
 
     func addCache(for chunk: MessageChunk, position: llama_pos) {
@@ -111,8 +119,9 @@ public final class Context: @unchecked Sendable {
         if let newChunk {
             chunks.append(newChunk)
         }
-        if promptCaches[lastCacheIndex].lastPosition < position {
-            assert(llama_kv_self_seq_rm(context, 0, promptCaches[lastCacheIndex].lastPosition, position))
+        if promptCaches[lastCacheIndex].lastPosition < position,
+           let kv = llama_get_memory(context) {
+            assert(llama_memory_seq_rm(kv, 0, promptCaches[lastCacheIndex].lastPosition, position))
         }
         if promptCaches.count > lastCacheIndex {
             promptCaches.removeSubrange((lastCacheIndex + 1)...)
