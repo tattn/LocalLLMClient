@@ -6,9 +6,14 @@ import FoundationModels
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
 public final actor FoundationModelsClient: LLMClient {
+    let model: SystemLanguageModel
     let generationOptions: GenerationOptions
 
-    init(generationOptions: GenerationOptions) {
+    init(
+        model: SystemLanguageModel,
+        generationOptions: GenerationOptions,
+    ) {
+        self.model = model
         self.generationOptions = generationOptions
     }
 
@@ -17,7 +22,7 @@ public final actor FoundationModelsClient: LLMClient {
             let task = Task {
                 do {
                     var position: String.Index?
-                    let session = LanguageModelSession(transcript: input.makeTranscript(generationOptions: generationOptions))
+                    let session = LanguageModelSession(model: model, transcript: input.makeTranscript(generationOptions: generationOptions))
                     for try await text in session.streamResponse(to: input.makePrompt(), options: generationOptions) {
                         continuation.yield(String(text[(position ?? text.startIndex)...]))
                         position = text.endIndex
@@ -113,7 +118,7 @@ public extension LocalLLMClient {
         model: SystemLanguageModel = .default,
         parameter: GenerationOptions = .init()
     ) async throws -> FoundationModelsClient {
-        FoundationModelsClient(generationOptions: parameter)
+        FoundationModelsClient(model: model, generationOptions: parameter)
     }
 }
 

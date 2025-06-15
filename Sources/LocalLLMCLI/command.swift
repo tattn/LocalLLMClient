@@ -93,17 +93,15 @@ struct LocalLLMCommand: AsyncParsableCommand {
 #endif
         case .foundationModels:
 #if canImport(FoundationModels)
-            if #available(macOS 26.0, *) {
+            if #available(macOS 26.0, iOS 26.0, *) {
                 client = try await LocalLLMClient.foundationModels(
                     parameter: .init(
                         temperature: Double(temperature)
                     )
                 )
-            } else {
-                throw LocalLLMCommandError.invalidModel("FoundationModels backend is not supported on this environment.")
             }
 #else
-            fatalError("FoundationModels backend is not supported on this environment.")
+            throw LocalLLMCommandError.invalidModel("FoundationModels backend is not supported on this environment.")
 #endif
         }
 
@@ -161,7 +159,7 @@ struct LocalLLMCommand: AsyncParsableCommand {
         return switch backend {
         case .llama: downloader.destination.appendingPathComponent(url.lastPathComponent)
         case .mlx: downloader.destination
-        case .foundationModels: fatalError()
+        case .foundationModels: throw LocalLLMCommandError.invalidModel("Model downloading is not applicable for the FoundationModels backend.")
         }
         #else
         throw LocalLLMCommandError.invalidModel("Downloading models is not supported on this platform.")
