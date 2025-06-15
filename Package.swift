@@ -30,6 +30,7 @@ packageProducts.append(contentsOf: [
     .executable(name: "localllm", targets: ["LocalLLMCLI"]),
     .library(name: "LocalLLMClientLlama", targets: ["LocalLLMClientLlama"]),
     .library(name: "LocalLLMClientMLX", targets: ["LocalLLMClientMLX"]),
+    .library(name: "LocalLLMClientFoundationModels", targets: ["LocalLLMClientFoundationModels"]),
     .library(name: "LocalLLMClientUtility", targets: ["LocalLLMClientUtility"])
 ])
 #elseif os(Linux)
@@ -52,6 +53,7 @@ packageTargets.append(contentsOf: [
         dependencies: [
             "LocalLLMClientLlama",
             "LocalLLMClientMLX",
+            "LocalLLMClientFoundationModels",
             "LocalLLMClientUtility",
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
         ],
@@ -88,6 +90,10 @@ packageTargets.append(contentsOf: [
     .testTarget(
         name: "LocalLLMClientMLXTests",
         dependencies: ["LocalLLMClientMLX", "LocalLLMClientUtility"]
+    ),
+    .target(
+        name: "LocalLLMClientFoundationModels",
+        dependencies: ["LocalLLMClient"]
     ),
 
     .binaryTarget(

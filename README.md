@@ -33,7 +33,7 @@ A Swift package to interact with local Large Language Models (LLMs) on Apple pla
 
 ## Features
 
-- Support for GGUF / MLX models
+- Support for [GGUF](https://github.com/ggml-org/ggml/blob/master/docs/gguf.md) / [MLX models](https://opensource.apple.com/projects/mlx/) / [FoundationModels framework](https://developer.apple.com/documentation/foundationmodels)
 - Support for iOS and macOS
 - Streaming API
 - Multimodal (experimental)
@@ -126,6 +126,35 @@ let client = try await LocalLLMClient.mlx(url: downloader.destination, parameter
 let input = LLMInput.chat([
     .system("You are a helpful assistant."),
     .user("Tell me a story about a cat.")
+])
+
+for try await text in try await client.textStream(from: input) {
+    print(text, terminator: "")
+}
+```
+</details>
+
+<details>
+<summary>Using with Apple FoundationModels</summary>
+
+```swift
+import LocalLLMClient
+import LocalLLMClientFoundationModels
+
+// Available on iOS 26.0+ / macOS 26.0+ and requires Apple Intelligence 
+let client = try await LocalLLMClient.foundationModels(
+    // Use system's default model
+    model: .default,
+    // Configure generation options
+    parameter: .init(
+        temperature: 0.7,
+    )
+)
+
+// Generate text
+let input = LLMInput.chat([
+    .system("You are a helpful assistant."),
+    .user("Tell me a short story about a clever fox.")
 ])
 
 for try await text in try await client.textStream(from: input) {

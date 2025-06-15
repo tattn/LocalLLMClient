@@ -12,6 +12,9 @@ import LocalLLMClientLlama
 #if canImport(LocalLLMClientMLX)
 import LocalLLMClientMLX
 #endif
+#if canImport(LocalLLMClientFoundationModels)
+import LocalLLMClientFoundationModels
+#endif
 #if canImport(LocalLLMClientUtility)
 import LocalLLMClientUtility
 #endif
@@ -27,7 +30,7 @@ struct LocalLLMCommand: AsyncParsableCommand {
     )
 
     @Option(name: [.short, .long], help: "Path to the model file")
-    var model: String
+    var model: String = ""
 
     @Option(name: [.short, .long], help: "Backend to use: \(Backend.allCases.map(\.rawValue).joined(separator: ", "))")
     var backend: String = Backend.llama.rawValue
@@ -55,20 +58,19 @@ struct LocalLLMCommand: AsyncParsableCommand {
     enum Backend: String, CaseIterable {
         case llama
         case mlx
+        case foundationModels = "foundation-models"
     }
 
     func run() async throws {
         let backend = Backend(rawValue: backend) ?? .llama
         log("Loading model from: \(model) with backend: \(backend.rawValue)")
 
-        let modelURL = try await getModel(for: model, backend: backend)
-
         // Initialize client
         let client: any LLMClient
         switch backend {
         case .llama:
             client = try await LocalLLMClient.llama(
-                url: modelURL,
+                url: getModel(for: model, backend: backend),
                 mmprojURL: mmproj.asyncMap { try await getModel(for: $0, backend: backend) },
                 parameter: .init(
                     temperature: temperature,
@@ -80,7 +82,7 @@ struct LocalLLMCommand: AsyncParsableCommand {
         case .mlx:
 #if canImport(LocalLLMClientMLX)
             client = try await LocalLLMClient.mlx(
-                url: modelURL,
+                url: getModel(for: model, backend: backend),
                 parameter: .init(
                     temperature: temperature,
                     topP: topP,
@@ -88,6 +90,18 @@ struct LocalLLMCommand: AsyncParsableCommand {
             )
 #else
             throw LocalLLMCommandError.invalidModel("MLX backend is not supported on this platform.")
+#endif
+        case .foundationModels:
+#if canImport(FoundationModels)
+            if #available(macOS 26.0, iOS 26.0, *) {
+                client = try await LocalLLMClient.foundationModels(
+                    parameter: .init(
+                        temperature: Double(temperature)
+                    )
+                )
+            }
+#else
+            throw LocalLLMCommandError.invalidModel("FoundationModels backend is not supported on this environment.")
 #endif
         }
 
@@ -118,6 +132,8 @@ struct LocalLLMCommand: AsyncParsableCommand {
             URL(filePath: model)
         } else if model.hasPrefix("https://"), let url = URL(string: model) {
             try await downloadModel(from: url, backend: backend)
+        } else if model.isEmpty {
+            throw LocalLLMCommandError.invalidModel("Error: Missing expected argument '--model <model>'")
         } else {
             throw LocalLLMCommandError.invalidModel(model)
         }
@@ -130,6 +146,7 @@ struct LocalLLMCommand: AsyncParsableCommand {
         let globs: Globs = switch backend {
         case .llama: .init(["*\(url.lastPathComponent)"])
         case .mlx: .mlx
+        case .foundationModels: []
         }
 
         let downloader = FileDownloader(source: .huggingFace(
@@ -142,6 +159,7 @@ struct LocalLLMCommand: AsyncParsableCommand {
         return switch backend {
         case .llama: downloader.destination.appendingPathComponent(url.lastPathComponent)
         case .mlx: downloader.destination
+        case .foundationModels: throw LocalLLMCommandError.invalidModel("Model downloading is not applicable for the FoundationModels backend.")
         }
         #else
         throw LocalLLMCommandError.invalidModel("Downloading models is not supported on this platform.")
