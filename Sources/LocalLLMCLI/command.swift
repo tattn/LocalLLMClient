@@ -99,6 +99,8 @@ struct LocalLLMCommand: AsyncParsableCommand {
                         temperature: Double(temperature)
                     )
                 )
+            } else {
+                throw LocalLLMCommandError.invalidModel("FoundationModels backend is not supported on this environment.")
             }
 #else
             throw LocalLLMCommandError.invalidModel("FoundationModels backend is not supported on this environment.")

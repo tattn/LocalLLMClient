@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		06000A1F2DD2640900FE5313 /* LocalLLMClient in Frameworks */ = {isa = PBXBuildFile; productRef = 06000A1E2DD2640900FE5313 /* LocalLLMClient */; };
 		06000A212DD2640900FE5313 /* LocalLLMClientMLX in Frameworks */ = {isa = PBXBuildFile; productRef = 06000A202DD2640900FE5313 /* LocalLLMClientMLX */; };
-		06000A232DD2640900FE5313 /* LocalLLMClientUtility in Frameworks */ = {isa = PBXBuildFile; productRef = 06000A222DD2640900FE5313 /* LocalLLMClientUtility */; };
 		06000A252DD2642D00FE5313 /* LocalLLMClientLlama in Frameworks */ = {isa = PBXBuildFile; productRef = 06000A242DD2642D00FE5313 /* LocalLLMClientLlama */; };
 /* End PBXBuildFile section */
 
@@ -34,7 +33,6 @@
 				06000A1F2DD2640900FE5313 /* LocalLLMClient in Frameworks */,
 				06000A252DD2642D00FE5313 /* LocalLLMClientLlama in Frameworks */,
 				06000A212DD2640900FE5313 /* LocalLLMClientMLX in Frameworks */,
-				06000A232DD2640900FE5313 /* LocalLLMClientUtility in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -88,7 +86,6 @@
 			packageProductDependencies = (
 				06000A1E2DD2640900FE5313 /* LocalLLMClient */,
 				06000A202DD2640900FE5313 /* LocalLLMClientMLX */,
-				06000A222DD2640900FE5313 /* LocalLLMClientUtility */,
 				06000A242DD2642D00FE5313 /* LocalLLMClientLlama */,
 			);
 			productName = LocalLLMClientExample;
@@ -383,10 +380,6 @@
 		06000A202DD2640900FE5313 /* LocalLLMClientMLX */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = LocalLLMClientMLX;
-		};
-		06000A222DD2640900FE5313 /* LocalLLMClientUtility */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = LocalLLMClientUtility;
 		};
 		06000A242DD2642D00FE5313 /* LocalLLMClientLlama */ = {
 			isa = XCSwiftPackageProductDependency;

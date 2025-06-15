@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.1
 
 import PackageDescription
 
@@ -31,7 +31,6 @@ packageProducts.append(contentsOf: [
     .library(name: "LocalLLMClientLlama", targets: ["LocalLLMClientLlama"]),
     .library(name: "LocalLLMClientMLX", targets: ["LocalLLMClientMLX"]),
     .library(name: "LocalLLMClientFoundationModels", targets: ["LocalLLMClientFoundationModels"]),
-    .library(name: "LocalLLMClientUtility", targets: ["LocalLLMClientUtility"])
 ])
 #elseif os(Linux)
 packageProducts.append(contentsOf: [
@@ -43,7 +42,8 @@ packageProducts.append(contentsOf: [
 // MARK: - Package Targets
 
 var packageTargets: [Target] = [
-    .target(name: "LocalLLMClient")
+    .target(name: "LocalLLMClient", dependencies: ["LocalLLMClientUtility"]),
+    .target(name: "LocalLLMClientUtility"),
 ]
 
 #if os(iOS) || os(macOS)
@@ -54,7 +54,6 @@ packageTargets.append(contentsOf: [
             "LocalLLMClientLlama",
             "LocalLLMClientMLX",
             "LocalLLMClientFoundationModels",
-            "LocalLLMClientUtility",
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
         ],
         linkerSettings: [
@@ -76,7 +75,7 @@ packageTargets.append(contentsOf: [
     ),
     .testTarget(
         name: "LocalLLMClientLlamaTests",
-        dependencies: ["LocalLLMClientLlama", "LocalLLMClientUtility"]
+        dependencies: ["LocalLLMClientLlama"]
     ),
 
     .target(
@@ -89,7 +88,7 @@ packageTargets.append(contentsOf: [
     ),
     .testTarget(
         name: "LocalLLMClientMLXTests",
-        dependencies: ["LocalLLMClientMLX", "LocalLLMClientUtility"]
+        dependencies: ["LocalLLMClientMLX"]
     ),
     .target(
         name: "LocalLLMClientFoundationModels",
@@ -111,15 +110,12 @@ packageTargets.append(contentsOf: [
         ],
     ),
 
-    .target(
-        name: "LocalLLMClientUtility",
-        dependencies: [
-            .product(name: "MLXLMCommon", package: "mlx-swift-examples"),
-        ],
-    ),
     .testTarget(
         name: "LocalLLMClientUtilityTests",
-        dependencies: ["LocalLLMClientUtility"]
+        dependencies: [
+            "LocalLLMClientUtility",
+            .product(name: "MLXLMCommon", package: "mlx-swift-examples")
+        ]
     )
 ])
 #elseif os(Linux)
@@ -128,7 +124,6 @@ packageTargets.append(contentsOf: [
         name: "LocalLLMCLI",
         dependencies: [
             "LocalLLMClientLlama",
-            "LocalLLMClientUtility",
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
         ],
         linkerSettings: [
@@ -170,9 +165,6 @@ packageTargets.append(contentsOf: [
         ]
     ),
 
-    .target(
-        name: "LocalLLMClientUtility"
-    ),
     .testTarget(
         name: "LocalLLMClientUtilityTests",
         dependencies: ["LocalLLMClientUtility"]
