@@ -52,6 +52,23 @@ dependencies: [
 
 The API documentation is available [here](https://tattn.github.io/LocalLLMClient/documentation/).
 
+### Quick Start
+
+```swift
+import LocalLLMClient
+import LocalLLMClientLlama
+
+let session = LLMSession(model: .llama(
+    id: "lmstudio-community/gemma-3-4B-it-qat-GGUF",
+    model: "gemma-3-4B-it-QAT-Q4_0.gguf"
+))
+print(try await session.respond(to: "Tell me a joke."))
+
+for try await text in session.streamResponse(to: "Write a story about cats.") {
+    print(text, terminator: "")
+}
+```
+
 ### Basic Usage
 
 <details open>
