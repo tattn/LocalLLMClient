@@ -51,7 +51,7 @@ public struct FileDownloader: FileDownloadable {
         ///   - globs: A set of glob patterns to filter which files are downloaded from the repository.
         case huggingFace(id: String, globs: Globs)
 
-        func destination(for rootDestination: URL) -> URL {
+        package func destination(for rootDestination: URL) -> URL {
             switch self {
             case let .huggingFace(id, _):
                 let client = HuggingFaceAPI(repo: .init(id: id))

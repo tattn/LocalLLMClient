@@ -1,6 +1,6 @@
 /// A struct representing a collection of glob patterns used to filter files.
 public struct Globs: Sendable, Equatable {
-    public let rawValue: [String]
+    public var rawValue: [String]
 
     /// Initializes a new set of glob patterns.
     ///
@@ -11,6 +11,12 @@ public struct Globs: Sendable, Equatable {
 
     /// Default glob patterns for MLX models, typically including "*.safetensors" and "*.json".
     public static let mlx = Globs(["*.safetensors", "*.json"])
+
+    /// Appends a new glob pattern to the set.
+    /// - Parameter glob: A string representing a glob pattern to be added.
+    public mutating func append(_ glob: String) {
+        rawValue.append(glob)
+    }
 }
 
 extension Globs: ExpressibleByArrayLiteral {

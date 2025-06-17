@@ -94,6 +94,10 @@ packageTargets.append(contentsOf: [
         name: "LocalLLMClientFoundationModels",
         dependencies: ["LocalLLMClient"]
     ),
+    .testTarget(
+        name: "LocalLLMClientFoundationModelsTests",
+        dependencies: ["LocalLLMClientFoundationModels"]
+    ),
 
     .binaryTarget(
         name: "LocalLLMClientLlamaFramework",

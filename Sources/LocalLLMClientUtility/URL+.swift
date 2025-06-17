@@ -1,6 +1,6 @@
 import Foundation
 
-extension URL {
+package extension URL {
 #if os(macOS) || os(Linux)
     static let defaultRootDirectory = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".localllmclient").excludedFromBackup
 #else
