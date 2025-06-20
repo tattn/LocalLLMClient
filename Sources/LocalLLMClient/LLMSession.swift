@@ -12,12 +12,12 @@ public final class LLMSession {
         try await generator.prewarm()
     }
 
-    public func respond(to prompt: String) async throws -> String {
-        try await streamResponse(to: prompt).reduce("", +)
+    public func respond(to prompt: String, attachments: [LLMAttachment] = []) async throws -> String {
+        try await streamResponse(to: prompt, attachments: attachments).reduce("", +)
     }
 
-    public func streamResponse(to prompt: String) -> AsyncThrowingStream<String, any Error> {
-        generator.streamResponse(to: prompt)
+    public func streamResponse(to prompt: String, attachments: [LLMAttachment] = []) -> AsyncThrowingStream<String, any Error> {
+        generator.streamResponse(to: prompt, attachments: attachments)
     }
 }
 
@@ -59,12 +59,12 @@ extension LLMSession {
             return client
         }
 
-        nonisolated func streamResponse(to prompt: String) -> AsyncThrowingStream<String, any Error> {
+        nonisolated func streamResponse(to prompt: String, attachments: [LLMAttachment]) -> AsyncThrowingStream<String, any Error> {
             return AsyncThrowingStream { continuation in
                 let task = Task { @MainActor in
                     do {
                         let client = try await loadClient()
-                        await addMessage(.user(prompt))
+                        await addMessage(.user(prompt, attachments: attachments))
 
                         var collectedResponse = ""
                         let stream = try await client.textStream(from: .chat(messages))
@@ -87,17 +87,6 @@ extension LLMSession {
 
         private func addMessage(_ message: LLMInput.Message) {
             messages.append(message)
-        }
-    }
-}
-
-extension FileDownloader.Source {
-    var id: String {
-        switch self {
-        case .huggingFace(let id, _):
-            return id
-        @unknown default:
-            fatalError("Unknown source type: \(self)")
         }
     }
 }
@@ -134,9 +123,13 @@ public extension LLMSession {
         package init(source: FileDownloader.Source, makeClient: @Sendable @escaping () async throws -> AnyLLMClient) {
             self.source = source
 #if os(iOS)
+            let identifier = switch source {
+            case .huggingFace(let id, _):
+                "localllmclient.llmsession.\(id)"
+            }
             downloader = FileDownloader(
                 source: source,
-                configuration: .background(withIdentifier: "localllmclient.llmsession.\(source.id)")
+                configuration: .background(withIdentifier: identifier)
             )
 #else
             downloader = FileDownloader(source: source)

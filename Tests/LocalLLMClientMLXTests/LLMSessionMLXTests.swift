@@ -35,4 +35,13 @@ extension ModelTests.LLMSessionMLXTests {
             print(text, terminator: "")
         }
     }
+
+    @Test(.timeLimit(.minutes(5)))
+    func respondWithImage() async throws {
+        let model = makeModel()
+        let session = LLMSession(model: model)
+        print(try await session.respond(to: "What's in this image", attachments: [
+            .image(.init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.jpeg")!)!)
+        ]))
+    }
 }
