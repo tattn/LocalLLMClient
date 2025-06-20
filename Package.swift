@@ -57,7 +57,7 @@ packageTargets.append(contentsOf: [
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
         ],
         linkerSettings: [
-            .unsafeFlags(["-rpath", "@executable_path"])
+            .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path"])
         ]
     ),
 
