@@ -91,6 +91,17 @@ extension LLMSession {
     }
 }
 
+extension FileDownloader.Source {
+    var id: String {
+        switch self {
+        case .huggingFace(let id, _):
+            return id
+        @unknown default:
+            fatalError("Unknown source type: \(self)")
+        }
+    }
+}
+
 public extension LLMSession {
     protocol Model: Sendable {
         var makeClient: @Sendable () async throws -> AnyLLMClient { get }
@@ -125,7 +136,7 @@ public extension LLMSession {
 #if os(iOS)
             downloader = FileDownloader(
                 source: source,
-                configuration: .background(withIdentifier: "localllmclient.llmsession.\(model.id)")
+                configuration: .background(withIdentifier: "localllmclient.llmsession.\(source.id)")
             )
 #else
             downloader = FileDownloader(source: source)
