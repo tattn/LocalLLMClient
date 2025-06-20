@@ -9,6 +9,7 @@ on:
       - "Tests/**"
       - "Package.swift"
       - "Example/**"
+      - ".github/workflows/test.yml"
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
     branches: ["main"]
@@ -17,16 +18,20 @@ on:
       - "Tests/**"
       - "Package.swift"
       - "Example/**"
+      - ".github/workflows/test.yml"
+
+env:
+  DEVELOPER_DIR: "/Applications/Xcode_16.4.app/Contents/Developer"
 
 jobs:
-  test:
-    name: ${{ matrix.test-type }} Tests
+  test-macos:
+    name: Test on macOS (${{ matrix.test-type }})
     runs-on: macos-15
     strategy:
+      fail-fast: false
       matrix:
         test-type: [Llama, MLX]
     env:
-      DEVELOPER_DIR: "/Applications/Xcode_16.4.app/Contents/Developer"
       TEST_RUNNER_GITHUB_MODEL_CACHE: "${{ github.workspace }}/model_cache"
     steps:
       - uses: actions/checkout@v4
@@ -43,24 +48,33 @@ jobs:
       - name: Run ${{ matrix.test-type }} tests
         run: TEST_RUNNER_GITHUB_ACTIONS_TEST="${{ matrix.test-type }}" xcodebuild test -scheme LocalLLMClient-Package -destination 'platform=macOS'
 
-  build-example:
+  build-example-macos:
     runs-on: macos-15
-    needs: test
-    env:
-      DEVELOPER_DIR: "/Applications/Xcode_16.4.app/Contents/Developer"
+    needs: test-macos
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
       - name: Build Example app for macOS
-        run: |
-          cd Example
-          xcodebuild build -project LocalLLMClientExample.xcodeproj -scheme LocalLLMClientExample -destination 'platform=macOS' CODE_SIGN_IDENTITY="-"
+        working-directory: Example
+        run: xcodebuild build -project LocalLLMClientExample.xcodeproj -scheme LocalLLMClientExample -destination 'platform=macOS' CODE_SIGN_IDENTITY="-"
 
-  build-ubuntu-x86_64:
+  build-example-ios:
+    runs-on: macos-15
+    needs: test-macos
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build Example app for iOS
+        working-directory: Example
+        run: xcodebuild build -project LocalLLMClientExample.xcodeproj -scheme LocalLLMClientExample -destination 'platform=iOS Simulator,name=iPhone 16 Pro' CODE_SIGN_IDENTITY="-"
+
+  test-ubuntu-x86_64:
     runs-on: ubuntu-latest
-    needs: test
+    needs: test-macos
     env:
       GITHUB_MODEL_CACHE: "${{ github.workspace }}/model_cache"
     steps:
@@ -68,7 +82,7 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Cache model file
+      - name: Cache model files
         id: cache-model
         uses: actions/cache@v4
         with:
@@ -93,7 +107,8 @@ jobs:
           echo "SWIFTLY_BIN_DIR=${SWIFTLY_BIN_DIR}" >>"${GITHUB_ENV}"
           echo "${SWIFTLY_BIN_DIR}" >>"${GITHUB_PATH}"
 
-      - name: Download and extract llama.cpp binaries
+      - name: Setup llama.cpp binaries
+        id: setup-llama
         run: |
           LLAMA_VERSION=$(./scripts/get_llama_version.sh)
           mkdir -p ${{ github.workspace }}/lib
