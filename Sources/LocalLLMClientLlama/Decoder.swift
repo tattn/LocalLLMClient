@@ -31,6 +31,9 @@ public extension Context {
         let tokens = [llama_token](text, addBos: false, special: true, vocab: vocab)
         for (index, token) in tokens.enumerated() {
             batch.add(id: token, pos: llama_pos(index) + position, seq_ids: [0], logits: false)
+            if batch.n_tokens == parameter.batch {
+                try decode()
+            }
         }
         try decode()
     }
