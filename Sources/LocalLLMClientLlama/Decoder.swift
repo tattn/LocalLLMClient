@@ -27,14 +27,21 @@ public extension Context {
     }
 
     func decode(text: String) throws(LLMError) {
-        let position = position
+        let startPosition = position
         let tokens = [llama_token](text, addBos: false, special: true, vocab: vocab)
-        for (index, token) in tokens.enumerated() {
-            batch.add(id: token, pos: llama_pos(index) + position, seq_ids: [0], logits: false)
-            if batch.n_tokens == parameter.batch {
-                try decode()
-            }
+
+        // Split tokens into chunks based on parameter.batch to avoid buffer overflow
+        let chunkSize = parameter.batch
+        let chunks = stride(from: 0, to: tokens.count, by: chunkSize).map {
+            tokens[$0..<min($0 + chunkSize, tokens.count)]
         }
-        try decode()
+
+        for (chunkIndex, chunk) in chunks.enumerated() {
+            let chunkOffset = startPosition + llama_pos(chunkIndex * chunkSize)
+            for (index, token) in chunk.enumerated() {
+                batch.add(id: token, pos: chunkOffset + llama_pos(index), seq_ids: [0], logits: false)
+            }
+            try decode()
+        }
     }
 }
