@@ -92,4 +92,10 @@ extension ModelTests.LocalLLMClientLlamaTests {
 
         Issue.record()
     }
+
+    @Test
+    func overflowBatchSize() async throws {
+        let result = try await LocalLLMClient.llama(parameter: .init(batch: 2)).generateText(from: "Hello, world!")
+        #expect(!result.isEmpty)
+    }
 }
