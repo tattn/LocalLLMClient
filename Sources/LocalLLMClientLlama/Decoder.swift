@@ -32,12 +32,10 @@ public extension Context {
 
         // Split tokens into chunks based on parameter.batch to avoid buffer overflow
         let chunkSize = parameter.batch
-        let chunks = stride(from: 0, to: tokens.count, by: chunkSize).map {
-            tokens[$0..<min($0 + chunkSize, tokens.count)]
-        }
+        for chunkStart in stride(from: 0, to: tokens.count, by: chunkSize) {
+            let chunk = tokens[chunkStart..<min(chunkStart + chunkSize, tokens.count)]
 
-        for (chunkIndex, chunk) in chunks.enumerated() {
-            let chunkOffset = startPosition + llama_pos(chunkIndex * chunkSize)
+            let chunkOffset = startPosition + llama_pos(chunkStart)
             for (index, token) in chunk.enumerated() {
                 batch.add(id: token, pos: chunkOffset + llama_pos(index), seq_ids: [0], logits: false)
             }
