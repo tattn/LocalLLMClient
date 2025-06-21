@@ -48,6 +48,39 @@ jobs:
       - name: Run ${{ matrix.test-type }} tests
         run: TEST_RUNNER_GITHUB_ACTIONS_TEST="${{ matrix.test-type }}" xcodebuild test -scheme LocalLLMClient-Package -destination 'platform=macOS'
 
+  test-macos-xcode-26:
+    name: Test on macOS with Xcode 26 (${{ matrix.test-type }})
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        test-type: [Llama, MLX, FoundationModels]
+    env:
+      DEVELOPER_DIR: "/Applications/Xcode_26_beta.app/Contents/Developer"
+      TEST_RUNNER_GITHUB_MODEL_CACHE: "${{ github.workspace }}/model_cache"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache model file
+        id: cache-model
+        uses: actions/cache@v4
+        with:
+          path: model_cache
+          key: model_cache
+
+      # https://developer.apple.com/documentation/xcode-release-notes/xcode-26-release-notes
+      - name: "Workaround: Xcode 26 Beta (17A5241e)"
+        continue-on-error: true
+        run: |
+          xcodebuild -downloadComponent metalToolchain -exportPath /tmp/MyMetalExport/
+          sed -i '' -e 's/17A5241c/17A5241e/g' /tmp/MyMetalExport/MetalToolchain-17A5241c.exportedBundle/ExportMetadata.plist
+          xcodebuild -importComponent metalToolchain -importPath /tmp/MyMetalExport/MetalToolchain-17A5241c.exportedBundle
+
+      - name: Run ${{ matrix.test-type }} tests with Xcode 26
+        run: TEST_RUNNER_GITHUB_ACTIONS_TEST="${{ matrix.test-type }}" xcodebuild test -scheme LocalLLMClient-Package -destination 'platform=macOS'
+
   build-example-macos:
     runs-on: macos-15
     needs: test-macos
