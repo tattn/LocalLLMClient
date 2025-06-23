@@ -6,6 +6,7 @@ import LocalLLMClientLlama
 import UIKit
 #endif
 
+// TODO: Convert to struct
 enum LLMModel: Sendable, CaseIterable, Identifiable {
     case qwen3
     case qwen3_4b
@@ -45,7 +46,7 @@ enum LLMModel: Sendable, CaseIterable, Identifiable {
         }
     }
 
-    var clipFilename: String? {
+    var mmprojFilename: String? {
         switch self {
         case .qwen3, .qwen3_4b, .qwen2_5VL_3b, .gemma3: nil
 #if os(macOS)
@@ -58,10 +59,7 @@ enum LLMModel: Sendable, CaseIterable, Identifiable {
     }
 
     var isMLX: Bool {
-        switch self {
-        case .qwen3, .qwen3_4b, .qwen2_5VL_3b: true
-        case .gemma3, .gemma3_4b, .mobileVLM_3b: false
-        }
+        filename == nil
     }
 
     var supportsVision: Bool {
@@ -104,7 +102,7 @@ final class AI {
                 .llama(
                     id: model.id,
                     model: model.filename!,
-                    mmproj: model.clipFilename,
+                    mmproj: model.mmprojFilename,
                     parameter: .init(options: .init(verbose: true))
                 )
             }

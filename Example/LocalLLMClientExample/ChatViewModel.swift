@@ -4,10 +4,14 @@ import LocalLLMClient
 
 @Observable @MainActor
 final class ChatViewModel {
+    init(ai: AI) {
+        self.ai = ai
+    }
+
     var inputText = ""
     var inputAttachments: [LLMAttachment] = []
 
-    private var ai = AI()
+    private var ai: AI
     private var generateTask: Task<Void, Never>?
     private var generatingText = ""
 
@@ -32,7 +36,7 @@ final class ChatViewModel {
 
         generateTask = Task {
             generatingText = ""
-            
+
             do {
                 for try await token in try await ai.ask(currentInput.text, attachments: currentInput.images) {
                     generatingText += token
@@ -50,9 +54,5 @@ final class ChatViewModel {
     func cancelGeneration() {
         generateTask?.cancel()
         generateTask = nil
-    }
-
-    func setAI(_ ai: AI) {
-        self.ai = ai
     }
 }

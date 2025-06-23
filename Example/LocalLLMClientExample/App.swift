@@ -15,7 +15,7 @@ struct RootView: View {
 
     var body: some View {
         NavigationStack {
-            ChatView()
+            ChatView(viewModel: .init(ai: ai))
         }
         .disabled(ai.isLoading)
         .overlay {

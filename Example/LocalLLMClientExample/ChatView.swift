@@ -3,7 +3,7 @@ import LocalLLMClient
 import LocalLLMClientMLX
 
 struct ChatView: View {
-    @State var viewModel = ChatViewModel()
+    @State var viewModel: ChatViewModel
     @State private var position = ScrollPosition(idType: LLMInput.Message.ID.self)
 
     @Environment(AI.self) private var ai
@@ -35,8 +35,7 @@ struct ChatView: View {
                 }
             }
         }
-        .onChange(of: ai.model, initial: true) { _, _ in
-            viewModel.setAI(ai)
+        .onChange(of: ai.model) { _, _ in
             ai.messages = []
         }
     }
@@ -109,7 +108,7 @@ struct ChatBubbleView: View {
     }()
 
     NavigationStack {
-        ChatView()
+        ChatView(viewModel: .init(ai: ai))
     }
     .environment(ai)
 }

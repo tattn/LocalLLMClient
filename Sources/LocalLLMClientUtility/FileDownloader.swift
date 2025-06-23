@@ -66,13 +66,15 @@ public struct FileDownloader: FileDownloadable {
             }
 
             // Check if all files in metadata exist in the destination directory
+            let fileURLs = FileManager.default.enumerator(at: destination, includingPropertiesForKeys: nil)?
+                .compactMap { $0 as? URL } ?? []
+            let filesOnDisk = Dictionary(uniqueKeysWithValues: fileURLs.map { ($0.lastPathComponent, $0) })
+
             return meta.files.allSatisfy { file in
-                guard let fileURL = FileManager.default.enumerator(at: destination, includingPropertiesForKeys: nil)?
-                    .compactMap({ $0 as? URL })
-                    .first(where: { $0.lastPathComponent == file.name }) else {
+                guard let fileURL = filesOnDisk[file.name] else {
                     return false
                 }
-                
+
                 // Check if it matches the file size
                 do {
                     let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)

@@ -2,7 +2,9 @@ import Foundation
 import LocalLLMClientUtility
 
 @available(macOS 14.0, iOS 17.0, watchOS 10.0, tvOS 17.0, *)
+#if !os(Linux)
 @Observable
+#endif
 public final class LLMSession {
     public init<T: Model>(model: T, messages: [LLMInput.Message] = []) {
         generator = Generator(model: model, messages: messages)
@@ -43,7 +45,9 @@ extension LLMSession {
 
 @available(macOS 14.0, iOS 17.0, watchOS 10.0, tvOS 17.0, *)
 extension LLMSession {
+#if !os(Linux)
     @Observable
+#endif
     final class Generator: Sendable {
         public nonisolated init(model: any Model, messages: [LLMInput.Message]) {
             self.model = model
@@ -54,6 +58,18 @@ extension LLMSession {
         private let client = Locked<AnyLLMClient?>(nil)
         private let _messages: Locked<[LLMInput.Message]>
 
+#if os(Linux)
+        var messages: [LLMInput.Message] {
+            get {
+                _messages.withLock(\.self)
+            }
+            set {
+                _messages.withLock { messages in
+                    messages = newValue
+                }
+            }
+        }
+#else
         @ObservationIgnored
         var messages: [LLMInput.Message] {
             get {
@@ -68,6 +84,7 @@ extension LLMSession {
                 }
             }
         }
+#endif
 
         public func prewarm() async throws {
             let client = try await loadClient()
