@@ -139,8 +139,7 @@ extension Downloader.ChildDownloader {
 #endif
 
             // Move the downloaded file to the permanent location
-            guard let taskDescription = downloadTask.taskDescription,
-                  let destinationURL = URL(string: taskDescription) else {
+            guard let destinationURL = downloadTask.destinationURL else {
                 return
             }
             try? FileManager.default.removeItem(at: destinationURL)
@@ -158,11 +157,15 @@ extension Downloader.ChildDownloader {
         func urlSession(
             _ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?
         ) {
-#if DEBUG
             if let error {
+#if DEBUG
                 print("Download failed with error: \(error.localizedDescription)")
-            }
 #endif
+                if let url = task.destinationURL {
+                    // Attempt to remove the file if it exists
+                    try? FileManager.default.removeItem(at: url)
+                }
+            }
             isDownloading.withLock { $0 = false }
         }
 
@@ -176,5 +179,12 @@ extension Downloader.ChildDownloader {
             }
             progress.completedUnitCount = totalBytesWritten
         }
+    }
+}
+
+private extension URLSessionTask {
+    var destinationURL: URL? {
+        guard let taskDescription else { return nil }
+        return URL(string: taskDescription)
     }
 }

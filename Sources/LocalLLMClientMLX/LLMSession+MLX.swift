@@ -2,7 +2,8 @@ import LocalLLMClient
 import LocalLLMClientUtility
 import Foundation
 
-public extension LLMSession.Model {
+@available(macOS 14.0, iOS 17.0, watchOS 10.0, tvOS 17.0, *)
+public extension LLMSession.DownloadModel {
     static func mlx(
         id: String,
         parameter: MLXClient.Parameter = .default

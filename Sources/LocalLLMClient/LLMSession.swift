@@ -1,12 +1,21 @@
 import Foundation
 import LocalLLMClientUtility
 
+@available(macOS 14.0, iOS 17.0, watchOS 10.0, tvOS 17.0, *)
+#if !os(Linux)
+@Observable
+#endif
 public final class LLMSession {
-    public init<T: Model>(model: T) {
-        generator = Generator(model: model)
+    public init<T: Model>(model: T, messages: [LLMInput.Message] = []) {
+        generator = Generator(model: model, messages: messages)
     }
 
     let generator: Generator
+
+    public var messages: [LLMInput.Message] {
+        get { generator.messages }
+        set { generator.messages = newValue }
+    }
 
     public func prewarm() async throws {
         try await generator.prewarm()
@@ -21,50 +30,85 @@ public final class LLMSession {
     }
 }
 
+@available(macOS 14.0, iOS 17.0, watchOS 10.0, tvOS 17.0, *)
 extension LLMSession {
     @_disfavoredOverload
-    public convenience init(model: LLMSession.DownloadModel) {
-        self.init(model: model)
+    public convenience init(model: LLMSession.DownloadModel, messages: [LLMInput.Message] = []) {
+        self.init(model: model, messages: messages)
     }
 
     @_disfavoredOverload
-    public convenience init(model: LLMSession.SystemModel) {
-        self.init(model: model)
+    public convenience init(model: LLMSession.SystemModel, messages: [LLMInput.Message] = []) {
+        self.init(model: model, messages: messages)
     }
 }
 
+@available(macOS 14.0, iOS 17.0, watchOS 10.0, tvOS 17.0, *)
 extension LLMSession {
-    final actor Generator {
-        public init(model: Model) {
+#if !os(Linux)
+    @Observable
+#endif
+    final class Generator: Sendable {
+        public nonisolated init(model: any Model, messages: [LLMInput.Message]) {
             self.model = model
+            self._messages = Locked(messages)
         }
 
-        let model: Model
-        private var client: AnyLLMClient?
-        var messages: [LLMInput.Message] = []
+        let model: any Model
+        private let client = Locked<AnyLLMClient?>(nil)
+        private let _messages: Locked<[LLMInput.Message]>
+
+#if os(Linux)
+        var messages: [LLMInput.Message] {
+            get {
+                _messages.withLock(\.self)
+            }
+            set {
+                _messages.withLock { messages in
+                    messages = newValue
+                }
+            }
+        }
+#else
+        @ObservationIgnored
+        var messages: [LLMInput.Message] {
+            get {
+                access(keyPath: \.messages)
+                return _messages.withLock(\.self)
+            }
+            set {
+                withMutation(keyPath: \.messages) {
+                    _messages.withLock { message in
+                        message = newValue
+                    }
+                }
+            }
+        }
+#endif
 
         public func prewarm() async throws {
-            client = try await loadClient()
+            let client = try await loadClient()
+            self.client.withLock { $0 = client }
         }
 
         private func loadClient() async throws -> AnyLLMClient {
-            if let client {
+            if let client = client.withLock(\.self) {
                 return client
             }
 
             try await model.prewarm()
 
             let client = try await model.makeClient()
-            self.client = client
+            self.client.withLock { $0 = client }
             return client
         }
 
         nonisolated func streamResponse(to prompt: String, attachments: [LLMAttachment]) -> AsyncThrowingStream<String, any Error> {
             return AsyncThrowingStream { continuation in
-                let task = Task { @MainActor in
+                let task = Task {
                     do {
                         let client = try await loadClient()
-                        await addMessage(.user(prompt, attachments: attachments))
+                        messages.append(.user(prompt, attachments: attachments))
 
                         var collectedResponse = ""
                         let stream = try await client.textStream(from: .chat(messages))
@@ -73,7 +117,7 @@ extension LLMSession {
                             continuation.yield(chunk)
                         }
                         // Add the complete response as an assistant message
-                        await addMessage(.assistant(collectedResponse))
+                        messages.append(.assistant(collectedResponse))
                         continuation.finish()
                     } catch {
                         continuation.finish(throwing: error)
@@ -84,13 +128,10 @@ extension LLMSession {
                 }
             }
         }
-
-        private func addMessage(_ message: LLMInput.Message) {
-            messages.append(message)
-        }
     }
 }
 
+@available(macOS 14.0, iOS 17.0, watchOS 10.0, tvOS 17.0, *)
 public extension LLMSession {
     protocol Model: Sendable {
         var makeClient: @Sendable () async throws -> AnyLLMClient { get }

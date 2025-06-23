@@ -43,7 +43,9 @@ final class MockURLProtocol: URLProtocol {
     }
 
     override func startLoading() {
-        guard let url = request.url, let client else {
+        guard
+            let url = request.url?.absoluteString.removingPercentEncoding.flatMap(URL.init),
+            let client else {
             client?.urlProtocolDidFinishLoading(self)
             return
         }

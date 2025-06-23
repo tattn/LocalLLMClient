@@ -17,18 +17,16 @@ public final class LlamaClient: LLMClient {
     ///   - mmprojURL: The URL of the multimodal projector file (optional).
     ///   - parameter: The parameters for the Llama model.
     ///   - messageDecoder: The message decoder to use for chat messages (optional).
-    ///   - verbose: A Boolean value indicating whether to enable verbose logging.
     /// - Throws: An error if the client fails to initialize.
     public init(
         url: URL,
         mmprojURL: URL?,
         parameter: Parameter,
-        messageDecoder: (any LlamaChatMessageDecoder)?,
-        verbose: Bool
+        messageDecoder: (any LlamaChatMessageDecoder)?
     ) throws {
         context = try Context(url: url, parameter: parameter)
         if let mmprojURL {
-            multimodal = try MultimodalContext(url: mmprojURL, context: context, parameter: parameter, verbose: verbose)
+            multimodal = try MultimodalContext(url: mmprojURL, context: context, parameter: parameter)
         } else {
             multimodal = nil
         }
@@ -77,16 +75,14 @@ public extension LocalLLMClient {
         url: URL,
         mmprojURL: URL? = nil,
         parameter: LlamaClient.Parameter = .default,
-        messageDecoder: (any LlamaChatMessageDecoder)? = nil,
-        verbose: Bool = false
+        messageDecoder: (any LlamaChatMessageDecoder)? = nil
     ) async throws -> LlamaClient {
-        setLlamaVerbose(verbose)
+        setLlamaVerbose(parameter.options.verbose)
         return try LlamaClient(
             url: url,
             mmprojURL: mmprojURL,
             parameter: parameter,
-            messageDecoder: messageDecoder,
-            verbose: verbose
+            messageDecoder: messageDecoder
         )
     }
 }

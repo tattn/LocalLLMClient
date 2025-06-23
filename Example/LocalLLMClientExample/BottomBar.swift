@@ -4,7 +4,7 @@ import LocalLLMClient
 
 struct BottomBar: View {
     @Binding var text: String
-    @Binding var images: [ChatMessage.Image]
+    @Binding var attachments: [LLMAttachment]
     let isGenerating: Bool
     let onSubmit: (String) -> Void
     let onCancel: () -> Void
@@ -45,29 +45,37 @@ struct BottomBar: View {
             }
         }
         .safeAreaInset(edge: .top) {
-            if !images.isEmpty {
-                ScrollView(.horizontal) {
-                    HStack {
-                        ForEach(images) { image in
-                            Image(llm: image.value)
-                                .resizable()
-                                .aspectRatio(1, contentMode: .fill)
-                                .cornerRadius(8)
-                                .contextMenu {
-                                    Button {
-                                        images.removeAll { $0.id == image.id }
-                                    } label: {
-                                        Text("Remove")
-                                    }
-                                }
-                        }
-                    }
-                    .frame(height: 60)
-                }
+            if !attachments.isEmpty {
+                attachmentList
             }
         }
         .animation(.default, value: text.isEmpty)
-        .animation(.default, value: images.count)
+        .animation(.default, value: attachments.count)
+    }
+
+    @ViewBuilder
+    private var attachmentList: some View {
+        ScrollView(.horizontal) {
+            HStack {
+                ForEach(attachments) { attachment in
+                    switch attachment.content {
+                    case let .image(image):
+                        Image(llm: image)
+                            .resizable()
+                            .aspectRatio(1, contentMode: .fill)
+                            .cornerRadius(8)
+                            .contextMenu {
+                                Button {
+                                    attachments.removeAll { $0.id == attachment.id }
+                                } label: {
+                                    Text("Remove")
+                                }
+                            }
+                    }
+                }
+            }
+            .frame(height: 60)
+        }
     }
 
     @ViewBuilder
@@ -129,7 +137,7 @@ struct BottomBar: View {
             Task {
                 let data = try await item.loadTransferable(type: Data.self)
                 guard let data, let image = LLMInputImage(data: data) else { return }
-                images.append(.init(value: image))
+                attachments.append(.image(image))
             }
         }
     }
@@ -137,10 +145,10 @@ struct BottomBar: View {
 
 #Preview(traits: .sizeThatFitsLayout) {
     @Previewable @State var text = ""
-    @Previewable @State var images: [ChatMessage.Image] = [
-        .preview, .preview2
+    @Previewable @State var attachments: [LLMAttachment] = [
+        .imagePreview, .imagePreview2
     ]
 
-    BottomBar(text: $text, images: $images, isGenerating: false, onSubmit: { _ in }, onCancel: {})
+    BottomBar(text: $text, attachments: $attachments, isGenerating: false, onSubmit: { _ in }, onCancel: {})
         .environment(AI())
 }

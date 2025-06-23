@@ -20,9 +20,8 @@ extension LocalLLMClient {
         return try await LocalLLMClient.llama(
             url: url.appending(component: model),
             mmprojURL: url.appending(component: clip),
-            parameter: parameter ?? .init(context: 512),
-            messageDecoder: messageDecoder,
-            verbose: true
+            parameter: parameter ?? .init(context: 512, options: .init(verbose: true)),
+            messageDecoder: messageDecoder
         )
     }
 

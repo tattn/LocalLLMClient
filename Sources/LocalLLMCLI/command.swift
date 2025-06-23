@@ -76,8 +76,8 @@ struct LocalLLMCommand: AsyncParsableCommand {
                     temperature: temperature,
                     topK: topK,
                     topP: topP,
-                ),
-                verbose: verbose
+                    options: .init(verbose: verbose)
+                )
             )
         case .mlx:
 #if canImport(LocalLLMClientMLX)
