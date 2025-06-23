@@ -87,7 +87,7 @@ public final actor MLXClient: LLMClient {
 private extension [LLMAttachment] {
     var images: [UserInput.Image] {
         compactMap {
-            switch $0 {
+            switch $0.content {
             case let .image(image):
                 return try? UserInput.Image.ciImage(llmInputImageToCIImage(image))
             }

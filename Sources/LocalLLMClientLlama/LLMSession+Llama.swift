@@ -2,6 +2,7 @@ import LocalLLMClient
 import LocalLLMClientUtility
 import Foundation
 
+@available(macOS 14.0, iOS 17.0, watchOS 10.0, tvOS 17.0, *)
 public extension LLMSession.DownloadModel {
     static func llama(
         id: String,
@@ -22,8 +23,7 @@ public extension LLMSession.DownloadModel {
                     LocalLLMClient.llama(
                         url: destination.appending(component: model),
                         mmprojURL: mmproj.map { destination.appending(component: $0) },
-                        parameter: parameter,
-                        verbose: false
+                        parameter: parameter
                     )
                 )
             }

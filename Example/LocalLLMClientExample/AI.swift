@@ -83,46 +83,55 @@ final class AI {
     private(set) var isLoading = false
     private(set) var downloadProgress: Double = 0
 
-    private var client: AnyLLMClient?
+    private var session: LLMSession?
+
+    var messages: [LLMInput.Message] {
+        get { session?.messages ?? [] }
+        set { session?.messages = newValue }
+    }
 
     func loadLLM() async {
         isLoading = true
         defer { isLoading = false }
 
         // Release memory first if a previous model was loaded
-        client = nil
+        session = nil
 
         do {
-            let downloader = Downloader(model: model)
-            if downloader.isDownloaded {
-                downloadProgress = 1
+            let downloadModel: LLMSession.DownloadModel = if model.isMLX {
+                .mlx(id: model.id)
             } else {
-                downloadProgress = 0
-                try await downloader.download { @MainActor [weak self] progress in
-                    self?.downloadProgress = progress
-                }
+                .llama(
+                    id: model.id,
+                    model: model.filename!,
+                    mmproj: model.clipFilename,
+                    parameter: .init(options: .init(verbose: true))
+                )
             }
 
-            #if os(iOS)
-            while downloadProgress < 1 || UIApplication.shared.applicationState != .active {
-                try await Task.sleep(for: .seconds(2))
+            try await downloadModel.downloadModel { @MainActor [weak self] progress in
+                self?.downloadProgress = progress
+                print("Download progress: \(progress)")
             }
-            #endif
 
-            if model.isMLX {
-                client = try await AnyLLMClient(LocalLLMClient.mlx(url: downloader.url))
-            } else {
-                client = try await AnyLLMClient(LocalLLMClient.llama(url: downloader.url, mmprojURL: downloader.clipURL, verbose: true))
-            }
+            session = LLMSession(model: downloadModel)
         } catch {
             print("Failed to load LLM: \(error)")
         }
     }
 
-    func ask(_ messages: [LLMInput.Message]) async throws -> AsyncThrowingStream<String, any Error> {
-        guard let client else {
+    func ask(_ message: String, attachments: [LLMAttachment]) async throws -> AsyncThrowingStream<String, any Error> {
+        guard let session else {
             throw LLMError.failedToLoad(reason: "LLM not loaded")
         }
-        return try await client.textStream(from: .chat(messages))
+        return session.streamResponse(to: message, attachments: attachments)
     }
 }
+
+#if DEBUG
+extension AI {
+    func setSession(_ session: LLMSession) {
+        self.session = session
+    }
+}
+#endif

@@ -218,7 +218,7 @@ private extension [LLMInput.ChatTemplateMessage] {
 private extension [LLMAttachment] {
     func images() -> [LLMInputImage] {
         return compactMap { attachment -> LLMInputImage? in
-            if case let .image(image) = attachment {
+            if case let .image(image) = attachment.content {
                 return image
             }
             return nil

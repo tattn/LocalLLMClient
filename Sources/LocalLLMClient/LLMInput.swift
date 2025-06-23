@@ -81,9 +81,22 @@ extension LLMInput: ExpressibleByStringLiteral {
 }
 
 /// Represents different types of attachments that can be included with messages.
-public enum LLMAttachment: @unchecked Sendable, Hashable {
-    /// An image attachment.
-    case image(LLMInputImage)
+public struct LLMAttachment: Sendable, Hashable, Equatable, Identifiable {
+    public let id = UUID()
+
+    /// Content of the attachment.
+    public var content: Content
+
+    public enum Content: @unchecked Sendable, Hashable {
+        /// An image attachment.
+        case image(LLMInputImage)
+    }
+
+    /// Initializes an attachment with the specified content.
+    /// - Parameter image: The image of the attachment.
+    public static func image(_ image: LLMInputImage) -> LLMAttachment {
+        LLMAttachment(content: .image(image))
+    }
 }
 
 public extension LLMInput {
@@ -116,7 +129,7 @@ public extension LLMInput {
     ///
     /// Each message has a role (system, user, assistant, or custom), content text,
     /// and optional attachments such as images.
-    struct Message: Sendable, Hashable {
+    struct Message: Sendable, Hashable, Equatable, Identifiable {
         /// Initializes a message with the specified role and content.
         ///
         /// - Parameters:
@@ -166,6 +179,9 @@ public extension LLMInput {
         public static func assistant(_ content: String, attachments: [LLMAttachment] = []) -> Message {
             .init(role: .assistant, content: content, attachments: attachments)
         }
+
+        /// ID of the message
+        public var id: UUID = UUID()
 
         /// The role of the message sender.
         public var role: Role
