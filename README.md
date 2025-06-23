@@ -79,8 +79,8 @@ for try await text in session.streamResponse(to: "Write a story about cats.") {
 import LocalLLMClient
 import LocalLLMClientLlama
 
-// Create a session with automatic model downloading
-let session = LLMSession(model: .llama(
+// Create a model
+let model = LLMSession.DownloadModel.llama(
     id: "lmstudio-community/gemma-3-4B-it-qat-GGUF",
     model: "gemma-3-4B-it-QAT-Q4_0.gguf",
     parameter: .init(
@@ -89,12 +89,15 @@ let session = LLMSession(model: .llama(
         topP: 0.9,          // Top-P (nucleus) sampling
         options: .init(responseFormat: .json) // Response format
     )
-))
+)
 
 // You can track download progress
-try await session.model.downloadModel { progress in 
+try await model.downloadModel { progress in 
     print("Download progress: \(progress)")
 }
+
+// Create a session with the downloaded model
+let session = LLMSession(model: model)
 
 // Generate a response with a specific prompt
 let response = try await session.respond(to: """
@@ -119,14 +122,22 @@ session.messages = [.system("You are a helpful assistant.")]
 import LocalLLMClient
 import LocalLLMClientMLX
 
-// Create a session with automatic model downloading
-let session = LLMSession(model: .mlx(
+// Create a model
+let model = LLMSession.DownloadModel.mlx(
     id: "mlx-community/Qwen3-1.7B-4bit",
     parameter: .init(
         temperature: 0.7,    // Randomness (0.0 to 1.0)
         topP: 0.9            // Top-P (nucleus) sampling
     )
-))
+)
+
+// You can track download progress
+try await model.downloadModel { progress in 
+    print("Download progress: \(progress)")
+}
+
+// Create a session with the downloaded model
+let session = LLMSession(model: model)
 
 // Generate text with system and user messages
 session.messages = [.system("You are a helpful assistant.")]
