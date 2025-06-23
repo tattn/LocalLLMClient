@@ -34,7 +34,7 @@ A Swift package to interact with local Large Language Models (LLMs) on Apple pla
 ## Features
 
 - Support for [GGUF](https://github.com/ggml-org/ggml/blob/master/docs/gguf.md) / [MLX models](https://opensource.apple.com/projects/mlx/) / [FoundationModels framework](https://developer.apple.com/documentation/foundationmodels)
-- Support for iOS and macOS
+- Support for iOS, macOS and Linux
 - Streaming API
 - Multimodal (experimental)
 
@@ -62,6 +62,7 @@ let session = LLMSession(model: .llama(
     id: "lmstudio-community/gemma-3-4B-it-qat-GGUF",
     model: "gemma-3-4B-it-QAT-Q4_0.gguf"
 ))
+
 print(try await session.respond(to: "Tell me a joke."))
 
 for try await text in session.streamResponse(to: "Write a story about cats.") {
@@ -69,9 +70,156 @@ for try await text in session.streamResponse(to: "Write a story about cats.") {
 }
 ```
 
-### Basic Usage
+### Using with Each Backend
 
 <details open>
+<summary>Using llama.cpp</summary>
+
+```swift
+import LocalLLMClient
+import LocalLLMClientLlama
+
+// Create a session with automatic model downloading
+let session = LLMSession(model: .llama(
+    id: "lmstudio-community/gemma-3-4B-it-qat-GGUF",
+    model: "gemma-3-4B-it-QAT-Q4_0.gguf",
+    parameter: .init(
+        temperature: 0.7,   // Randomness (0.0〜1.0)
+        topK: 40,           // Top-K sampling
+        topP: 0.9,          // Top-P (nucleus) sampling
+        options: .init(responseFormat: .json) // Response format
+    )
+))
+
+// You can track download progress
+try await session.model.downloadModel { progress in 
+    print("Download progress: \(progress)")
+}
+
+// Generate a response with a specific prompt
+let response = try await session.respond(to: """
+Create the beginning of a synopsis for an epic story with a cat as the main character.
+Format it in JSON, as shown below.
+{
+    "title": "<title>",
+    "content": "<content>",
+}
+""")
+print(response)
+
+// You can also add system messages before asking questions
+session.messages = [.system("You are a helpful assistant.")]
+```
+</details>
+
+<details>
+<summary>Using Apple MLX</summary>
+
+```swift
+import LocalLLMClient
+import LocalLLMClientMLX
+
+// Create a session with automatic model downloading
+let session = LLMSession(model: .mlx(
+    id: "mlx-community/Qwen3-1.7B-4bit",
+    parameter: .init(
+        temperature: 0.7,    // Randomness (0.0 to 1.0)
+        topP: 0.9            // Top-P (nucleus) sampling
+    )
+))
+
+// Generate text with system and user messages
+session.messages = [.system("You are a helpful assistant.")]
+let response = try await session.respond(to: "Tell me a story about a cat.")
+print(response)
+```
+</details>
+
+<details>
+<summary>Using Apple FoundationModels</summary>
+
+```swift
+import LocalLLMClient
+import LocalLLMClientFoundationModels
+
+// Available on iOS 26.0+ / macOS 26.0+ and requires Apple Intelligence 
+let session = LLMSession(model: .foundationModels(
+    // Use system's default model
+    model: .default,
+    // Configure generation options
+    parameter: .init(
+        temperature: 0.7,
+    )
+))
+
+// Generate a response with a specific prompt
+let response = try await session.respond(to: "Tell me a short story about a clever fox.")
+print(response)
+```
+</details>
+
+### Multimodal for Image Processing
+
+LocalLLMClient also supports multimodal models for processing images.
+
+<details open>
+<summary>Using with llama.cpp</summary>
+
+```swift
+import LocalLLMClient
+import LocalLLMClientLlama
+
+// Create a session with a multimodal model
+let session = LLMSession(model: .llama(
+    id: "ggml-org/gemma-3-4b-it-GGUF",
+    model: "gemma-3-4b-it-Q8_0.gguf",
+    mmproj: "mmproj-model-f16.gguf"
+))
+
+// Ask a question about an image
+let response = try await session.respond(
+    to: "What's in this image?", 
+    attachments: [.image(.init(resource: .yourImage))]
+)
+print(response)
+
+// You can also stream the response
+for try await text in session.streamResponse(
+    to: "Describe this image in detail", 
+    attachments: [.image(.init(resource: .yourImage))]
+) {
+    print(text, terminator: "")
+}
+```
+</details>
+
+<details>
+<summary>Using with Apple MLX</summary>
+
+```swift
+import LocalLLMClient
+import LocalLLMClientMLX
+
+// Create a session with a multimodal model
+let session = LLMSession(model: .mlx(
+    id: "mlx-community/Qwen2.5-VL-3B-Instruct-abliterated-4bit"
+))
+
+// Ask a question about an image
+let response = try await session.respond(
+    to: "What's in this image?", 
+    attachments: [.image(.init(resource: .yourImage))]
+)
+print(response)
+```
+</details>
+
+<details>
+<summary><h3>Advanced Usage: Low Level API</h3></summary>
+
+For more advanced control over model loading and inference, you can use the `LocalLLMClient` APIs directly.
+
+<details>
 <summary>Using with llama.cpp</summary>
 
 ```swift
@@ -180,12 +328,8 @@ for try await text in try await client.textStream(from: input) {
 ```
 </details>
 
-### Multimodal for Image
-
-LocalLLMClient supports multimodal models like LLaVA for processing images along with text prompts.
-
-<details open>
-<summary>Using with llama.cpp</summary>
+<details>
+<summary>Advanced Multimodal with llama.cpp</summary>
 
 ```swift
 import LocalLLMClient
@@ -217,7 +361,7 @@ print(try await client.generateText(from: input))
 </details>
 
 <details>
-<summary>Using with Apple MLX</summary>
+<summary>Advanced Multimodal with Apple MLX</summary>
 
 ```swift
 import LocalLLMClient
@@ -241,12 +385,9 @@ let input = LLMInput.chat([
 print(try await client.generateText(from: input))
 ```
 </details>
+</details>
 
-### Utility
-
-- `FileDownloader`: A utility to download models with progress tracking.
-
-### CLI tool
+### CLI Tool
 
 You can use LocalLLMClient directly from the terminal using the command line tool:
 
@@ -258,7 +399,7 @@ swift run localllm --model /path/to/your/model.gguf "Your prompt here"
 ./scripts/run_mlx.sh --model https://huggingface.co/mlx-community/Qwen3-1.7B-4bit "Your prompt here"
 ```
 
-## Tested models
+## Tested Models
 
 - LLaMA 3
 - Gemma 3 / 2
@@ -278,7 +419,7 @@ swift run localllm --model /path/to/your/model.gguf "Your prompt here"
 
 ## Acknowledgements
 
-This package uses [llama.cpp](https://github.com/ggml-org/llama.cpp) and [Apple's MLX](https://opensource.apple.com/projects/mlx/) for model inference.
+This package uses [llama.cpp](https://github.com/ggml-org/llama.cpp), [Apple's MLX](https://opensource.apple.com/projects/mlx/) and [Foundation Models framework](https://developer.apple.com/documentation/foundationmodels) for model inference.
 
 ---
 
