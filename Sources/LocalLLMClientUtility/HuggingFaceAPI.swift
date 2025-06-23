@@ -88,37 +88,38 @@ public struct HuggingFaceAPI: Sendable {
             .appending(component: repo.type.rawValue)
             .appending(component: repo.id)
     }
-
-    /// Retrieves filenames from a Hugging Face repository that match the given glob patterns
+    
+    /// Retrieves file information from a Hugging Face repository that match the given glob patterns
     /// - Parameters:
     ///   - globs: Array of glob patterns to match files (e.g., "*.json")
     ///   - revision: The repository revision (branch, tag, or commit hash), defaults to "main"
-    /// - Returns: Array of matching filenames
-    public func getFilenames(
+    /// - Returns: Array of matching file information
+    public func getFileInfo(
         matching globs: Globs,
         revision: String = "main",
         configuration: URLSessionConfiguration = .default
-    ) async throws -> [String] {
+    ) async throws -> [FileInfo] {
         // Read repo info and only parse "siblings" (files in the repository)
         let (data, _) = try await get(
-            for: endpoint.appending(path: "api/\(repo.type.rawValue)/\(repo.id)/revision/\(revision)"),
+            for: endpoint.appending(path: "api/\(repo.type.rawValue)/\(repo.id)/revision/\(revision)")
+                .appending(queryItems: [.init(name: "blobs", value: "true")]),
             configuration: configuration
         )
 
         // Decode the JSON response
         let response = try JSONDecoder().decode(SiblingsResponse.self, from: data)
-        let filenames = response.siblings.map(\.rfilename)
+        let fileInfos = response.siblings.map { FileInfo(filename: $0.rfilename, size: $0.size) }
 
-        // If no globs are provided, return all filenames
-        guard !globs.rawValue.isEmpty else { return filenames }
+        // If no globs are provided, return all file info
+        guard !globs.rawValue.isEmpty else { return fileInfos }
         
-        // Filter filenames based on glob patterns
-        var selected: Set<String> = []
+        // Filter files based on glob patterns
+        var selected: [FileInfo] = []
         for glob in globs.rawValue {
-            selected = selected.union(filenames.matching(glob: glob))
+            selected.append(contentsOf: fileInfos.filter { fnmatch(glob, $0.filename, 0) == 0 })
         }
         
-        return Array(selected)
+        return Array(Set(selected))
     }
 
     /// Downloads files from a Hugging Face repository that match the given glob patterns
@@ -142,19 +143,19 @@ public struct HuggingFaceAPI: Sendable {
         // Create the directory structure
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
 
-        // Get filenames to download
-        let filenames = try await getFilenames(matching: globs, revision: revision, configuration: configuration.makeURLSessionConfiguration())
+        // Get files to download
+        let fileInfos = try await getFileInfo(matching: globs, revision: revision, configuration: configuration.makeURLSessionConfiguration())
 
         let downloader = Downloader()
-        for filename in filenames {
+        for fileInfo in fileInfos {
             let type = repo.type == .models ? "" : "\(repo.type.rawValue)/"
             downloader.add(.init(
-                url: endpoint.appending(path: "\(type)\(repo.id)/resolve/\(revision)/\(filename)"),
-                destinationURL: destination.appendingPathComponent(filename),
+                url: endpoint.appending(path: "\(type)\(repo.id)/resolve/\(revision)/\(fileInfo.filename)"),
+                destinationURL: destination.appendingPathComponent(fileInfo.filename),
                 configuration: {
                     if let identifier = configuration.identifier {
                         var configuration = configuration
-                        configuration.identifier = "\(identifier)_\(filename)"
+                        configuration.identifier = "\(identifier)_\(fileInfo.filename)"
                         return configuration.makeURLSessionConfiguration()
                     } else {
                         return configuration.makeURLSessionConfiguration()
@@ -200,18 +201,27 @@ public struct HuggingFaceAPI: Sendable {
     ///   - revision: The repository revision (branch, tag, or commit hash), defaults to "main"
     /// - Returns: Array of file metadata
     public func getFileMetadata(matching globs: Globs, revision: String = "main") async throws -> [FileMetadata] {
-        let files = try await getFilenames(matching: globs, revision: revision)
+        let fileInfos = try await getFileInfo(matching: globs, revision: revision)
         let baseURL = URL(string: "\(endpoint)/\(repo.type.rawValue)/\(repo.id)/resolve/\(revision)")!
         
         var metadata: [FileMetadata] = []
-        for file in files {
-            let fileURL = baseURL.appendingPathComponent(file)
+        for fileInfo in fileInfos {
+            let fileURL = baseURL.appendingPathComponent(fileInfo.filename)
             try await metadata.append(getFileMetadata(url: fileURL))
         }
         
         return metadata
     }
-    
+
+    /// File information representing a file in a Hugging Face repository
+    public struct FileInfo: Sendable, Equatable, Hashable {
+        /// The filename
+        public let filename: String
+
+        /// The size of the file in bytes
+        public let size: Int
+    }
+
     /// Data structure containing information about a file versioned on the Hub
     public struct FileMetadata {
         /// The commit hash related to the file
@@ -237,6 +247,7 @@ extension HuggingFaceAPI {
         /// Model data for parsed filenames
         struct Sibling: Codable {
             let rfilename: String
+            let size: Int
         }
     }
     

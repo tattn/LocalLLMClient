@@ -10,8 +10,8 @@ struct FilesMetadataTests {
         try? FileManager.default.createDirectory(at: testDirectory, withIntermediateDirectories: true)
         
         // Create test metadata
-        let fileMetadata1 = FilesMetadata.FileMetadata(name: "test1.json")
-        let fileMetadata2 = FilesMetadata.FileMetadata(name: "test2.safetensors")
+        let fileMetadata1 = FilesMetadata.FileMetadata(name: "test1.json", size: 1024)
+        let fileMetadata2 = FilesMetadata.FileMetadata(name: "test2.safetensors", size: 2048)
         let metadata = FilesMetadata(files: [fileMetadata1, fileMetadata2])
         
         // Save metadata to the test directory
@@ -30,7 +30,9 @@ struct FilesMetadataTests {
         // Verify loaded metadata matches what was saved
         #expect(loadedMetadata.files.count == 2)
         #expect(loadedMetadata.files[0].name == "test1.json")
+        #expect(loadedMetadata.files[0].size == 1024)
         #expect(loadedMetadata.files[1].name == "test2.safetensors")
+        #expect(loadedMetadata.files[1].size == 2048)
     }
     
     @Test

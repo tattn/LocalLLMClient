@@ -65,11 +65,21 @@ public struct FileDownloader: FileDownloadable {
                 return false
             }
 
-            let fileURLs = FileManager.default.enumerator(at: destination, includingPropertiesForKeys: nil)?
-                .compactMap { $0 as? URL } ?? []
+            // Check if all files in metadata exist in the destination directory
             return meta.files.allSatisfy { file in
-                fileURLs.contains { url in
-                    file.name == url.lastPathComponent
+                guard let fileURL = FileManager.default.enumerator(at: destination, includingPropertiesForKeys: nil)?
+                    .compactMap({ $0 as? URL })
+                    .first(where: { $0.lastPathComponent == file.name }) else {
+                    return false
+                }
+                
+                // Check if it matches the file size
+                do {
+                    let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
+                    let fileSize = attributes[.size] as? Int ?? 0
+                    return fileSize == file.size
+                } catch {
+                    return false
                 }
             }
         }
@@ -91,8 +101,8 @@ public struct FileDownloader: FileDownloadable {
             switch self {
             case let .huggingFace(id, globs):
                 let client = HuggingFaceAPI(repo: .init(id: id))
-                let filenames = try await client.getFilenames(matching: globs)
-                let metadata = FilesMetadata(files: filenames.map { FilesMetadata.FileMetadata(name: $0) })
+                let fileInfos = try await client.getFileInfo(matching: globs)
+                let metadata = FilesMetadata(files: fileInfos.map { FilesMetadata.FileMetadata(name: $0.filename, size: $0.size) })
                 try metadata.save(to: destination)
                 return metadata
             }
@@ -178,6 +188,7 @@ struct FilesMetadata: Codable, Sendable {
 
     struct FileMetadata: Codable, Sendable {
         let name: String
+        let size: Int
     }
 
     static func load(from url: URL) throws -> FilesMetadata {
