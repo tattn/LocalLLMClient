@@ -5,7 +5,7 @@ struct Downloader: Sendable {
     init(model: LLMModel) {
         self.model = model
         let globs: Globs = switch model {
-        case .qwen3, .qwen3_4b, .qwen2_5VL_3b: .mlx
+        case .qwen3, .qwen3_4b, .qwen2_5VL_3b, .gemma3_4b_mlx: .mlx
         case .gemma3, .gemma3_4b, .mobileVLM_3b: .init(
             (model.filename.map { [$0] } ?? []) + (model.mmprojFilename.map { [$0] } ?? [])
         )}
