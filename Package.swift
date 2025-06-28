@@ -56,6 +56,9 @@ packageTargets.append(contentsOf: [
             "LocalLLMClientFoundationModels",
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
         ],
+        swiftSettings: [
+            .interoperabilityMode(.Cxx)
+        ],
         linkerSettings: [
             .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path"])
         ]
@@ -69,13 +72,18 @@ packageTargets.append(contentsOf: [
             .product(name: "Jinja", package: "Jinja")
         ],
         resources: [.process("Resources")],
-        swiftSettings: Context.environment["BUILD_DOCC"] == nil ? [] : [
+        swiftSettings: (Context.environment["BUILD_DOCC"] == nil ? [] : [
             .define("BUILD_DOCC")
+        ]) + [
+            .interoperabilityMode(.Cxx)
         ]
     ),
     .testTarget(
         name: "LocalLLMClientLlamaTests",
-        dependencies: ["LocalLLMClientLlama"]
+        dependencies: ["LocalLLMClientLlama"],
+        swiftSettings: [
+            .interoperabilityMode(.Cxx)
+        ]
     ),
 
     .target(
@@ -112,6 +120,9 @@ packageTargets.append(contentsOf: [
         cSettings: [
             .unsafeFlags(["-w"])
         ],
+        swiftSettings: [
+            .interoperabilityMode(.Cxx)
+        ]
     ),
 
     .testTarget(
@@ -130,6 +141,9 @@ packageTargets.append(contentsOf: [
             "LocalLLMClientLlama",
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
         ],
+        swiftSettings: [
+            .interoperabilityMode(.Cxx)
+        ],
         linkerSettings: [
             .unsafeFlags([
                 Context.environment["LDFLAGS", default: ""],
@@ -144,11 +158,17 @@ packageTargets.append(contentsOf: [
             "LocalLLMClientLlamaC",
             .product(name: "Jinja", package: "Jinja")
         ],
-        resources: [.process("Resources")]
+        resources: [.process("Resources")],
+        swiftSettings: [
+            .interoperabilityMode(.Cxx)
+        ]
     ),
     .testTarget(
         name: "LocalLLMClientLlamaTests",
         dependencies: ["LocalLLMClientLlama"],
+        swiftSettings: [
+            .interoperabilityMode(.Cxx)
+        ],
         linkerSettings: [
             .unsafeFlags([
                 Context.environment["LDFLAGS", default: ""],
@@ -161,6 +181,9 @@ packageTargets.append(contentsOf: [
         exclude: ["exclude"],
         cSettings: [
             .unsafeFlags(["-w"])
+        ],
+        swiftSettings: [
+            .interoperabilityMode(.Cxx)
         ],
         linkerSettings: [
             .unsafeFlags([
@@ -184,5 +207,5 @@ let package = Package(
     products: packageProducts,
     dependencies: packageDependencies,
     targets: packageTargets,
-    cxxLanguageStandard: .cxx20
+    cxxLanguageStandard: .cxx17
 )
