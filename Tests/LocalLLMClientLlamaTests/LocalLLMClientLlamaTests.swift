@@ -95,7 +95,7 @@ extension ModelTests.LocalLLMClientLlamaTests {
 
     @Test
     func overflowBatchSize() async throws {
-        let result = try await LocalLLMClient.llama(parameter: .init(batch: 2)).generateText(from: "Hello, world!")
+        let result = try await LocalLLMClient.llama(parameter: .init(context: 512, batch: 2, options: .init(verbose: true))).generateText(from: "Hello, world!")
         #expect(!result.isEmpty)
     }
 }
