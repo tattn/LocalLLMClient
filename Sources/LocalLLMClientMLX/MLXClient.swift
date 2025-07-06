@@ -1,4 +1,4 @@
-import LocalLLMClient
+import LocalLLMClientCore
 import MLX
 import MLXLMCommon
 import Foundation
@@ -8,18 +8,21 @@ import Foundation
 /// This actor-based class provides methods for generating text streams from various inputs,
 /// and handles the communication with the underlying MLX model via the `MLX` and `MLXLMCommon` frameworks.
 public final actor MLXClient: LLMClient {
-    private let context: Context
-    private let parameter: MLXClient.Parameter
+    let context: Context
+    let parameter: MLXClient.Parameter
+    let tools: [AnyLLMTool]
 
     /// Initializes a new MLX client.
     ///
     /// - Parameters:
     ///   - url: The URL of the MLX model directory. This directory should contain the model weights, tokenizer configuration, and any other necessary model files.
     ///   - parameter: The parameters for the MLX model. Defaults to `.default`.
+    ///   - tools: Optional array of tools that can be used by the model for function calling.
     /// - Throws: An error if the client fails to initialize, for example, if the model files cannot be loaded.
-    nonisolated public init(url: URL, parameter: Parameter = .default) async throws {
+    nonisolated public init(url: URL, parameter: Parameter = .default, tools: [any LLMTool] = []) async throws {
         context = try await Context(url: url, parameter: parameter)
         self.parameter = parameter
+        self.tools = tools.map { AnyLLMTool($0) }
     }
 
     /// Generates a text stream from the given input.
@@ -32,26 +35,7 @@ public final actor MLXClient: LLMClient {
     /// - Throws: An `LLMError.visionUnsupported` error if the input contains images and the loaded model does not support vision.
     ///           It can also throw errors related to model processing or input preparation.
     public func textStream(from input: LLMInput) async throws -> AsyncStream<String> {
-        let chat: [Chat.Message] = switch input.value {
-        case .plain(let text):
-            [.user(text)]
-        case .chatTemplate(let messages):
-            messages.map {
-                Chat.Message(
-                    role: .init(rawValue: $0.value["role"] as? String ?? "") ?? .user,
-                    content: $0.value["content"] as? String ?? "",
-                    images: $0.attachments.images
-                )
-            }
-        case .chat(let messages):
-            messages.map {
-                Chat.Message(
-                    role: .init(rawValue: $0.role.rawValue) ?? .user,
-                    content: $0.content,
-                    images: $0.attachments.images
-                )
-            }
-        }
+        let chat = input.chatMessages
 
         var userInput = UserInput(chat: chat, additionalContext: ["enable_thinking": false]) // TODO: public API
         userInput.processing.resize = .init(width: 448, height: 448)
@@ -84,16 +68,6 @@ public final actor MLXClient: LLMClient {
     }
 }
 
-private extension [LLMAttachment] {
-    var images: [UserInput.Image] {
-        compactMap {
-            switch $0.content {
-            case let .image(image):
-                return try? UserInput.Image.ciImage(llmInputImageToCIImage(image))
-            }
-        }
-    }
-}
 
 public extension LocalLLMClient {
     /// Creates a new MLX client.
@@ -103,9 +77,10 @@ public extension LocalLLMClient {
     /// - Parameters:
     ///   - url: The URL of the MLX model directory. This directory should contain the model weights, tokenizer configuration, and any other necessary model files.
     ///   - parameter: The parameters for the MLX model. Defaults to `.default`.
+    ///   - tools: Optional array of tools that can be used by the model for function calling.
     /// - Returns: A new `MLXClient` instance.
     /// - Throws: An error if the client fails to initialize, for example, if the model files cannot be loaded.
-    static func mlx(url: URL, parameter: MLXClient.Parameter = .default) async throws -> MLXClient {
-        try await MLXClient(url: url, parameter: parameter)
+    static func mlx(url: URL, parameter: MLXClient.Parameter = .default, tools: [any LLMTool] = []) async throws -> MLXClient {
+        try await MLXClient(url: url, parameter: parameter, tools: tools)
     }
 }

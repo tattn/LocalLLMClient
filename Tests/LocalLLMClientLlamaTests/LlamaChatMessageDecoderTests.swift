@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-import LocalLLMClient
+import LocalLLMClientCore
 @testable import LocalLLMClientLlama
 
 private let systemMarker = "$$SYSTEM$$"

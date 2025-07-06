@@ -180,6 +180,20 @@ public extension LLMInput {
             .init(role: .assistant, content: content, attachments: attachments)
         }
 
+        /// Creates a tool message.
+        ///
+        /// Tool messages represent the results of tool calls made by the language model.
+        ///
+        /// - Parameters:
+        ///   - content: The result content from the tool execution.
+        ///   - toolCallID: The ID of the tool call this result is associated with.
+        /// - Returns: A new `Message` instance with tool role.
+        public static func tool(_ content: String, toolCallID: String) -> LLMInput.Message {
+            var message = LLMInput.Message(role: .tool, content: content)
+            message.metadata["tool_call_id"] = toolCallID
+            return message
+        }
+
         /// ID of the message
         public var id: UUID = UUID()
 
@@ -192,6 +206,11 @@ public extension LLMInput {
         /// Attachments associated with this message.
         public var attachments: [LLMAttachment]
 
+        /// Metadata associated with this message.
+        /// This can be used to store additional information about the message,
+        /// such as tool call IDs for tool messages.
+        public var metadata: [String: String] = [:]
+
         /// Enumeration representing the role of a message sender in a conversation.
         public enum Role: Sendable, Hashable {
             /// System role, typically used for instructions or context.
@@ -203,6 +222,9 @@ public extension LLMInput {
             /// Assistant role, representing language model responses.
             case assistant
             
+            /// Tool role, representing results from tool execution.
+            case tool
+            
             /// Custom role with a specified name.
             case custom(String)
 
@@ -212,12 +234,14 @@ public extension LLMInput {
                 case .system: "system"
                 case .user: "user"
                 case .assistant: "assistant"
+                case .tool: "tool"
                 case .custom(let value): value
                 }
             }
         }
     }
 }
+
 
 #if os(macOS)
 import class CoreImage.CIImage

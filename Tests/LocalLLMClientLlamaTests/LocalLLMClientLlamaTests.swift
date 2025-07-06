@@ -3,7 +3,7 @@ import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
-import LocalLLMClient
+import LocalLLMClientCore
 import LocalLLMClientLlama
 
 private let prompt = "<|im_start|>user\nWhat is the answer to one plus two?<|im_end|>\n<|im_start|>assistant\n"

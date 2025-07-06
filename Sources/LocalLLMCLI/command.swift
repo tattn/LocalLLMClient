@@ -7,7 +7,7 @@ import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
-import LocalLLMClient
+import LocalLLMClientCore
 import LocalLLMClientLlama
 #if canImport(LocalLLMClientMLX)
 import LocalLLMClientMLX

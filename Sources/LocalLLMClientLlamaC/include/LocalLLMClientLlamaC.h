@@ -12,5 +12,9 @@
 #include "ggml.h"
 #include "gguf.h"
 #include "llama.h"
-#include "mtmd.h"
 #include "mtmd-helper.h"
+#include "mtmd.h"
+
+#include "utils.h"
+
+#include "../common/chat.h"

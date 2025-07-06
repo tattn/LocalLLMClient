@@ -83,3 +83,35 @@ public struct AnyLLMClient: LLMClient {
         }
     }
 }
+
+// MARK: - LLMToolCallable conformance
+extension AnyLLMClient: LLMToolCallable {
+    
+    /// Generates text and potentially tool calls from the input
+    public func generateToolCalls(from input: LLMInput) async throws -> GeneratedContent {
+        if let toolCallableClient = client as? any LLMToolCallable {
+            return try await toolCallableClient.generateToolCalls(from: input)
+        } else {
+            // Fallback to regular text generation if tool calling not supported
+            let text = try await generateText(from: input)
+            return GeneratedContent(text: text)
+        }
+    }
+    
+    /// Resumes generation after tool calls have been executed
+    public func resume(
+        withToolCalls toolCalls: [LLMToolCall],
+        toolOutputs: [(String, String)],
+        originalInput: LLMInput
+    ) async throws -> String {
+        if let toolCallableClient = client as? any LLMToolCallable {
+            return try await toolCallableClient.resume(
+                withToolCalls: toolCalls,
+                toolOutputs: toolOutputs,
+                originalInput: originalInput
+            )
+        } else {
+            throw LLMError.invalidParameter(reason: "Tool calling is not supported by this client")
+        }
+    }
+}

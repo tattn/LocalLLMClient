@@ -1,4 +1,4 @@
-import LocalLLMClient
+import LocalLLMClientCore
 import Jinja
 
 public enum MessageChunk: Equatable, Hashable {
@@ -9,21 +9,28 @@ public enum MessageChunk: Equatable, Hashable {
 
 public protocol LlamaChatMessageDecoder: Sendable {
     func templateValue(from messages: [LLMInput.Message]) -> [LLMInput.ChatTemplateMessage]
-    func applyTemplate(_ messages: [LLMInput.ChatTemplateMessage], chatTemplate: String, additionalContext: [String: Any]?) throws(LLMError) -> String
+    func applyTemplate(_ messages: [LLMInput.ChatTemplateMessage], chatTemplate: String, additionalContext: [String: Any]?, tools: [AnyLLMTool]) throws(LLMError) -> String
     func extractChunks(prompt: String, imageChunks: [[LLMInputImage]]) throws -> [MessageChunk]
-    func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, multimodal: MultimodalContext?) throws
+    func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, multimodal: MultimodalContext?, tools: [AnyLLMTool]) throws
 }
 
 public extension LlamaChatMessageDecoder {
     func templateValue(from messages: [LLMInput.Message]) -> [LLMInput.ChatTemplateMessage] {
         messages.map { message in
-            LLMInput.ChatTemplateMessage(
-                value: [
-                    "role": message.role.rawValue,
-                    "content": (0..<message.attachments.images().count).map { _ in
-                        ["type": "image"]
-                    } + [["type": "text", "text": message.content]],
-                ],
+            var value: [String: any Sendable] = [
+                "role": message.role.rawValue,
+                "content": (0..<message.attachments.images().count).map { _ in
+                    ["type": "image"] as [String: String]
+                } + [["type": "text", "text": message.content] as [String: String]],
+            ]
+            
+            // Add tool_call_id if present in metadata for tool messages
+            if message.role == .tool, let toolCallID = message.metadata["tool_call_id"] {
+                value["tool_call_id"] = toolCallID
+            }
+            
+            return LLMInput.ChatTemplateMessage(
+                value: value,
                 attachments: message.attachments
             )
         }
@@ -32,7 +39,8 @@ public extension LlamaChatMessageDecoder {
     func applyTemplate(
         _ messages: [LLMInput.ChatTemplateMessage],
         chatTemplate: String,
-        additionalContext: [String: Any]? = nil
+        additionalContext: [String: Any]? = nil,
+        tools: [AnyLLMTool] = []
     ) throws(LLMError) -> String {
         do {
             let template = try Template(chatTemplate)
@@ -41,6 +49,12 @@ public extension LlamaChatMessageDecoder {
                 "messages": messages.map(\.value),
                 "add_generation_prompt": true,
             ]
+            
+            // Convert tools to the format expected by the template
+            if !tools.isEmpty {
+                let toolsArray = tools.map { $0.toOAICompatJSON() }
+                templateContext["tools"] = toolsArray
+            }
 
             if let additionalContext {
                 templateContext.merge(additionalContext) { _, new in new }
@@ -56,7 +70,7 @@ public extension LlamaChatMessageDecoder {
         [.text(prompt)]
     }
 
-    func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, multimodal: MultimodalContext?) throws {
+    func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, multimodal: MultimodalContext?, tools: [AnyLLMTool]) throws {
         let specialTokens: [String: String] = [
             "bos_token": String(utf8String: llama_vocab_get_text(context.model.vocab, max(0, llama_vocab_bos(context.model.vocab)))) ?? "",
             "eos_token": String(utf8String: llama_vocab_get_text(context.model.vocab, max(0, llama_vocab_eos(context.model.vocab)))) ?? "",
@@ -67,7 +81,7 @@ public extension LlamaChatMessageDecoder {
             "mask_token": ""
         ]
 
-        let prompt = try applyTemplate(messages, chatTemplate: context.model.chatTemplate, additionalContext: specialTokens)
+        let prompt = try applyTemplate(messages, chatTemplate: context.model.chatTemplate, additionalContext: specialTokens, tools: tools)
         let imagesChunks = messages.imageChunks()
         var chunks = try extractChunks(prompt: prompt, imageChunks: imagesChunks)
         context.removeCachedChunks(&chunks)
@@ -168,7 +182,7 @@ public struct LlamaLlama3_2VMessageDecoder: LlamaChatMessageDecoder {
     public func templateValue(from messages: [LLMInput.Message]) -> [LLMInput.ChatTemplateMessage] {
         messages.map { message in
             switch message.role {
-            case .system, .assistant, .custom:
+            case .system, .assistant, .custom, .tool:
                 LLMInput.ChatTemplateMessage(
                     value: ["role": message.role.rawValue, "content": message.content],
                     attachments: message.attachments

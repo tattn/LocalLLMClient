@@ -1,5 +1,5 @@
 import Foundation
-import LocalLLMClient
+import LocalLLMClientCore
 @_exported import LocalLLMClientLlamaC
 
 public class MultimodalContext: @unchecked Sendable {

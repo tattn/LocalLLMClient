@@ -6,8 +6,8 @@ import LocalLLMClientUtility
 @Observable
 #endif
 public final class LLMSession {
-    public init<T: Model>(model: T, messages: [LLMInput.Message] = []) {
-        generator = Generator(model: model, messages: messages)
+    public init<T: Model>(model: T, messages: [LLMInput.Message] = [], tools: [any LLMTool] = []) {
+        generator = Generator(model: model, messages: messages, tools: tools.map { AnyLLMTool($0) })
     }
 
     let generator: Generator
@@ -16,13 +16,18 @@ public final class LLMSession {
         get { generator.messages }
         set { generator.messages = newValue }
     }
+    
 
     public func prewarm() async throws {
         try await generator.prewarm()
     }
 
     public func respond(to prompt: String, attachments: [LLMAttachment] = []) async throws -> String {
-        try await streamResponse(to: prompt, attachments: attachments).reduce("", +)
+        if generator.tools.isEmpty {
+            return try await streamResponse(to: prompt, attachments: attachments).reduce("", +)
+        } else {
+            return try await generator.respondWithToolCalling(to: prompt, attachments: attachments)
+        }
     }
 
     public func streamResponse(to prompt: String, attachments: [LLMAttachment] = []) -> AsyncThrowingStream<String, any Error> {
@@ -33,13 +38,13 @@ public final class LLMSession {
 @available(macOS 14.0, iOS 17.0, watchOS 10.0, tvOS 17.0, *)
 extension LLMSession {
     @_disfavoredOverload
-    public convenience init(model: LLMSession.DownloadModel, messages: [LLMInput.Message] = []) {
-        self.init(model: model, messages: messages)
+    public convenience init(model: LLMSession.DownloadModel, messages: [LLMInput.Message] = [], tools: [any LLMTool] = []) {
+        self.init(model: model, messages: messages, tools: tools)
     }
 
     @_disfavoredOverload
-    public convenience init(model: LLMSession.SystemModel, messages: [LLMInput.Message] = []) {
-        self.init(model: model, messages: messages)
+    public convenience init(model: LLMSession.SystemModel, messages: [LLMInput.Message] = [], tools: [any LLMTool] = []) {
+        self.init(model: model, messages: messages, tools: tools)
     }
 }
 
@@ -49,12 +54,14 @@ extension LLMSession {
     @Observable
 #endif
     final class Generator: Sendable {
-        public nonisolated init(model: any Model, messages: [LLMInput.Message]) {
+        public nonisolated init(model: any Model, messages: [LLMInput.Message], tools: [AnyLLMTool]) {
             self.model = model
             self._messages = Locked(messages)
+            self.tools = tools
         }
 
         let model: any Model
+        let tools: [AnyLLMTool]
         private let client = Locked<AnyLLMClient?>(nil)
         private let _messages: Locked<[LLMInput.Message]>
 
@@ -98,7 +105,14 @@ extension LLMSession {
 
             try await model.prewarm()
 
-            let client = try await model.makeClient()
+            let client = try await model.makeClient(tools)
+            
+            // If the client supports tool calling and we have tools, ensure they're available
+            if !tools.isEmpty, client.client is any LLMToolCallable {
+                // The client should already have tools from its constructor,
+                // but we need to ensure consistency
+            }
+            
             self.client.withLock { $0 = client }
             return client
         }
@@ -128,24 +142,88 @@ extension LLMSession {
                 }
             }
         }
+        
+        func respondWithToolCalling(to prompt: String, attachments: [LLMAttachment]) async throws -> String {
+            let client = try await loadClient()
+            messages.append(.user(prompt, attachments: attachments))
+            
+            // Generate initial response with tool calls
+            let input = LLMInput.chat(messages)
+            let response = try await client.generateToolCalls(from: input)
+            
+            // If no tool calls, return the response directly
+            if response.toolCalls.isEmpty {
+                messages.append(.assistant(response.text))
+                return response.text
+            }
+            
+            // Execute tool calls
+            var toolCallResults: [String: Result<ToolOutput, Error>] = [:]
+            for toolCall in response.toolCalls {
+                do {
+                    let output = try await executeToolCall(toolCall)
+                    toolCallResults[toolCall.id] = .success(output)
+                } catch {
+                    toolCallResults[toolCall.id] = .failure(error)
+                    // Find the tool and wrap the error
+                    if let tool = tools.first(where: { $0.name == toolCall.name }) {
+                        throw ToolCallError(tool: tool.underlyingTool, underlyingError: error)
+                    } else {
+                        throw error
+                    }
+                }
+            }
+            
+            // Resume with tool results
+            let toolOutputs = response.toolCalls.compactMap { toolCall -> (String, String)? in
+                guard case .success(let output) = toolCallResults[toolCall.id] else { return nil }
+                let outputString = output.data.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
+                return (toolCall.id, outputString)
+            }
+            
+            let finalResponse = try await client.resume(
+                withToolCalls: response.toolCalls,
+                toolOutputs: toolOutputs,
+                originalInput: input
+            )
+            
+            messages.append(.assistant(finalResponse))
+            return finalResponse
+        }
+        
+        private func executeToolCall(_ toolCall: LLMToolCall) async throws -> ToolOutput {
+            guard let tool = tools.first(where: { $0.name == toolCall.name }) else {
+                throw LLMError.invalidParameter(reason: "Tool '\(toolCall.name)' not found")
+            }
+            
+            return try await tool.call(argumentsJSON: toolCall.arguments)
+        }
+    }
+
+    /// An error that occurs during tool calling.
+    public struct ToolCallError: Error {
+        /// The tool that caused the error.
+        public let tool: any LLMTool
+        /// The underlying error that occurred.
+        public let underlyingError: Error
     }
 }
 
 @available(macOS 14.0, iOS 17.0, watchOS 10.0, tvOS 17.0, *)
 public extension LLMSession {
     protocol Model: Sendable {
-        var makeClient: @Sendable () async throws -> AnyLLMClient { get }
+        var makeClient: @Sendable ([AnyLLMTool]) async throws -> AnyLLMClient { get }
 
         func prewarm() async throws
     }
 
     struct SystemModel: Model {
         public let prewarm: @Sendable () async throws -> Void
-        public let makeClient: @Sendable () async throws -> AnyLLMClient
+        public let makeClient: @Sendable ([AnyLLMTool]) async throws -> AnyLLMClient
 
         package init(
             prewarm: @Sendable @escaping () async throws -> Void,
-            makeClient: @Sendable @escaping () async throws -> AnyLLMClient
+            makeClient: @Sendable @escaping ([AnyLLMTool]) async throws -> AnyLLMClient
         ) {
             self.prewarm = prewarm
             self.makeClient = makeClient
@@ -159,9 +237,9 @@ public extension LLMSession {
     struct DownloadModel: Model {
         let source: FileDownloader.Source
         let downloader: FileDownloader
-        public let makeClient: @Sendable () async throws -> AnyLLMClient
+        public let makeClient: @Sendable ([AnyLLMTool]) async throws -> AnyLLMClient
 
-        package init(source: FileDownloader.Source, makeClient: @Sendable @escaping () async throws -> AnyLLMClient) {
+        package init(source: FileDownloader.Source, makeClient: @Sendable @escaping ([AnyLLMTool]) async throws -> AnyLLMClient) {
             self.source = source
 #if os(iOS)
             let identifier = switch source {

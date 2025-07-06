@@ -5,7 +5,7 @@
 #else
 @preconcurrency import LocalLLMClientLlamaC
 #endif
-import LocalLLMClient
+import LocalLLMClientCore
 
 public extension Context {
     @discardableResult
