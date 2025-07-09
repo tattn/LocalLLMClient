@@ -23,15 +23,16 @@ public final class LLMSession {
     }
 
     public func respond(to prompt: String, attachments: [LLMAttachment] = []) async throws -> String {
-        if generator.tools.isEmpty {
-            return try await streamResponse(to: prompt, attachments: attachments).reduce("", +)
-        } else {
-            return try await generator.respondWithToolCalling(to: prompt, attachments: attachments)
-        }
+        try await streamResponse(to: prompt, attachments: attachments).reduce("", +)
     }
 
     public func streamResponse(to prompt: String, attachments: [LLMAttachment] = []) -> AsyncThrowingStream<String, any Error> {
-        generator.streamResponse(to: prompt, attachments: attachments)
+        if generator.tools.isEmpty {
+            return generator.streamResponse(to: prompt, attachments: attachments)
+        } else {
+            // When tools are available, handle tool calls internally and only stream text
+            return generator.streamResponseWithAutomaticToolCalling(to: prompt, attachments: attachments)
+        }
     }
 }
 
@@ -107,12 +108,6 @@ extension LLMSession {
 
             let client = try await model.makeClient(tools)
             
-            // If the client supports tool calling and we have tools, ensure they're available
-            if !tools.isEmpty, client.client is any LLMToolCallable {
-                // The client should already have tools from its constructor,
-                // but we need to ensure consistency
-            }
-            
             self.client.withLock { $0 = client }
             return client
         }
@@ -143,53 +138,81 @@ extension LLMSession {
             }
         }
         
-        func respondWithToolCalling(to prompt: String, attachments: [LLMAttachment]) async throws -> String {
-            let client = try await loadClient()
-            messages.append(.user(prompt, attachments: attachments))
-            
-            // Generate initial response with tool calls
-            let input = LLMInput.chat(messages)
-            let response = try await client.generateToolCalls(from: input)
-            
-            // If no tool calls, return the response directly
-            if response.toolCalls.isEmpty {
-                messages.append(.assistant(response.text))
-                return response.text
-            }
-            
-            // Execute tool calls
-            var toolCallResults: [String: Result<ToolOutput, Error>] = [:]
-            for toolCall in response.toolCalls {
-                do {
-                    let output = try await executeToolCall(toolCall)
-                    toolCallResults[toolCall.id] = .success(output)
-                } catch {
-                    toolCallResults[toolCall.id] = .failure(error)
-                    // Find the tool and wrap the error
-                    if let tool = tools.first(where: { $0.name == toolCall.name }) {
-                        throw ToolCallError(tool: tool.underlyingTool, underlyingError: error)
-                    } else {
-                        throw error
+        // Stream response with automatic tool calling
+        nonisolated func streamResponseWithAutomaticToolCalling(to prompt: String, attachments: [LLMAttachment]) -> AsyncThrowingStream<String, any Error> {
+            return AsyncThrowingStream { continuation in
+                let task = Task {
+                    do {
+                        let client = try await loadClient()
+                        messages.append(.user(prompt, attachments: attachments))
+
+                        var collectedResponse = ""
+                        var collectedToolCalls: [LLMToolCall] = []
+                        
+                        let stream = try await client.responseStream(from: .chat(messages))
+                        for try await content in stream {
+                            switch content {
+                            case .text(let chunk):
+                                collectedResponse += chunk
+                                // Only yield text to the user
+                                continuation.yield(chunk)
+                            case .toolCall(let toolCall):
+                                // Collect tool calls but don't yield them to the user
+                                collectedToolCalls.append(toolCall)
+                            }
+                        }
+                        
+                        // If we have tool calls, execute them automatically
+                        if !collectedToolCalls.isEmpty {
+                            // Execute tool calls
+                            var toolCallResults: [String: Result<ToolOutput, Error>] = [:]
+                            for toolCall in collectedToolCalls {
+                                do {
+                                    let output = try await executeToolCall(toolCall)
+                                    toolCallResults[toolCall.id] = .success(output)
+                                } catch {
+                                    toolCallResults[toolCall.id] = .failure(error)
+                                    // Find the tool and wrap the error
+                                    if let tool = tools.first(where: { $0.name == toolCall.name }) {
+                                        throw ToolCallError(tool: tool.underlyingTool, underlyingError: error)
+                                    } else {
+                                        throw error
+                                    }
+                                }
+                            }
+                            
+                            // Resume with tool results
+                            let toolOutputs = collectedToolCalls.compactMap { toolCall -> (String, String)? in
+                                guard case .success(let output) = toolCallResults[toolCall.id] else { return nil }
+                                let outputString = output.data.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
+                                return (toolCall.id, outputString)
+                            }
+                            
+                            let finalResponse = try await client.resume(
+                                withToolCalls: collectedToolCalls,
+                                toolOutputs: toolOutputs,
+                                originalInput: .chat(messages)
+                            )
+                            
+                            messages.append(.assistant(finalResponse))
+                            // Stream the final response to the user
+                            continuation.yield(finalResponse)
+                        } else {
+                            // No tool calls, just add the response
+                            messages.append(.assistant(collectedResponse))
+                        }
+                        
+                        continuation.finish()
+                    } catch {
+                        continuation.finish(throwing: error)
                     }
                 }
+                continuation.onTermination = { @Sendable _ in
+                    task.cancel()
+                }
             }
-            
-            // Resume with tool results
-            let toolOutputs = response.toolCalls.compactMap { toolCall -> (String, String)? in
-                guard case .success(let output) = toolCallResults[toolCall.id] else { return nil }
-                let outputString = output.data.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
-                return (toolCall.id, outputString)
-            }
-            
-            let finalResponse = try await client.resume(
-                withToolCalls: response.toolCalls,
-                toolOutputs: toolOutputs,
-                originalInput: input
-            )
-            
-            messages.append(.assistant(finalResponse))
-            return finalResponse
         }
+        
         
         private func executeToolCall(_ toolCall: LLMToolCall) async throws -> ToolOutput {
             guard let tool = tools.first(where: { $0.name == toolCall.name }) else {

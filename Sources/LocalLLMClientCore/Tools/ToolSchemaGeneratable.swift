@@ -51,8 +51,8 @@ public indirect enum LLMToolArgumentType {
     }
     
     /// Type-specific sub-types for pattern matching in tests
-    public typealias StringType = (description: String, format: String?)
-    public typealias EnumType = (values: [any Sendable], description: String)
+    package typealias StringType = (description: String, format: String?)
+    package typealias EnumType = (values: [any Sendable], description: String)
     
     /// Converts to ToolArgument for schema generation
     var asToolArgument: any ToolArgumentConvertible {
@@ -334,7 +334,7 @@ public indirect enum LLMToolArgumentType {
 /// Generates a JSON Schema compatible tool schema from an arguments schema
 /// - Parameter schema: A dictionary of property names to tool argument types
 /// - Returns: A dictionary representing the JSON Schema
-public func generateToolSchema(from schema: LLMToolArgumentsSchema) -> [String: any Sendable] {
+package func generateToolSchema(from schema: LLMToolArgumentsSchema) -> [String: any Sendable] {
     var properties: [String: [String: any Sendable]] = [:]
     var required: [String] = []
     

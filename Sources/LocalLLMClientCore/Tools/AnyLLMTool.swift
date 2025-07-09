@@ -81,9 +81,7 @@ public struct AnyLLMTool: Sendable {
             throw ToolError.argumentDecodingFailed(toolName: name, underlyingError: error)
         }
         
-        guard let jsonString = String(data: jsonData, encoding: .utf8) else {
-            throw ToolError.invalidArgumentEncoding(toolName: name)
-        }
+        let jsonString = String(decoding: jsonData, as: UTF8.self)
         
         return try await call(argumentsJSON: jsonString)
     }

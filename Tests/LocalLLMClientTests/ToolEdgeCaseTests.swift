@@ -444,7 +444,7 @@ struct ToolEdgeCaseTests {
             "items": items
         ]
         let largeJSONData = try JSONSerialization.data(withJSONObject: jsonObject)
-        let largeJSONString = String(data: largeJSONData, encoding: .utf8)!
+        let largeJSONString = String(decoding: largeJSONData, as: UTF8.self)
         
         let result = try await anyTool.call(argumentsJSON: largeJSONString)
         

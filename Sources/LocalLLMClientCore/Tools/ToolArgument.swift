@@ -3,23 +3,23 @@ import Foundation
 // MARK: - Tool Argument Definition
 
 /// Represents a tool argument with its schema properties
-public struct ToolArgument<T: ToolArgumentType> {
+package struct ToolArgument<T: ToolArgumentType> {
     /// Description of the argument
-    public let description: String
+    package let description: String
     
     /// Optional enum values
-    public let `enum`: [any Sendable]?
+    package let `enum`: [any Sendable]?
     
     /// Optional format for string types (e.g., "byte" for base64 encoded data, "date-time" for dates)
-    public let format: String?
+    package let format: String?
     
     /// The JSON Schema type
-    public var type: String {
+    package var type: String {
         T.toolArgumentType
     }
     
     /// Whether this argument is optional
-    public var isOptional: Bool {
+    package var isOptional: Bool {
         T.self is any ExpressibleByNilLiteral.Type
     }
     
@@ -27,7 +27,7 @@ public struct ToolArgument<T: ToolArgumentType> {
     /// - Parameters:
     ///   - description: Description of the argument
     ///   - enum: Optional enum values
-    public init(description: String, enum: [any Sendable]? = nil) {
+    package init(description: String, enum: [any Sendable]? = nil) {
         self.description = description
         // Use provided enum values, or automatically get them from CaseIterable types
         self.enum = `enum` ?? T.enumValues
@@ -39,7 +39,7 @@ public struct ToolArgument<T: ToolArgumentType> {
     ///   - description: Description of the argument
     ///   - enum: Optional enum values
     ///   - format: Optional format for string types
-    public init(description: String, enum: [any Sendable]? = nil, format: String?) {
+    package init(description: String, enum: [any Sendable]? = nil, format: String?) {
         self.description = description
         // Use provided enum values, or automatically get them from CaseIterable types
         self.enum = `enum` ?? T.enumValues
@@ -50,26 +50,26 @@ public struct ToolArgument<T: ToolArgumentType> {
 // MARK: - Specialized Initializers
 
 // Protocol to identify types that have default formats
-public protocol DefaultFormattedType {
+package protocol DefaultFormattedType {
     static var defaultFormat: String { get }
 }
 
 extension Data: DefaultFormattedType {
-    public static var defaultFormat: String { "byte" }
+    package static var defaultFormat: String { "byte" }
 }
 
 extension Date: DefaultFormattedType {
-    public static var defaultFormat: String { "date-time" }
+    package static var defaultFormat: String { "date-time" }
 }
 
 extension URL: DefaultFormattedType {
-    public static var defaultFormat: String { "uri" }
+    package static var defaultFormat: String { "uri" }
 }
 
 extension ToolArgument {
     /// Creates a new tool argument with automatic format detection
     /// - Parameter description: Description of the argument
-    public init(description: String) where T: DefaultFormattedType {
+    package init(description: String) where T: DefaultFormattedType {
         self.description = description
         self.enum = nil
         self.format = T.defaultFormat
@@ -77,7 +77,7 @@ extension ToolArgument {
     
     /// Creates a new tool argument for optional Data type with base64 encoding
     /// - Parameter description: Description of the argument
-    public init(description: String) where T == Data? {
+    package init(description: String) where T == Data? {
         self.description = description
         self.enum = nil
         self.format = Data.defaultFormat
@@ -85,7 +85,7 @@ extension ToolArgument {
     
     /// Creates a new tool argument for optional Date type with date-time format
     /// - Parameter description: Description of the argument
-    public init(description: String) where T == Date? {
+    package init(description: String) where T == Date? {
         self.description = description
         self.enum = nil
         self.format = Date.defaultFormat
@@ -93,7 +93,7 @@ extension ToolArgument {
     
     /// Creates a new tool argument for optional URL type with uri format
     /// - Parameter description: Description of the argument
-    public init(description: String) where T == URL? {
+    package init(description: String) where T == URL? {
         self.description = description
         self.enum = nil
         self.format = URL.defaultFormat

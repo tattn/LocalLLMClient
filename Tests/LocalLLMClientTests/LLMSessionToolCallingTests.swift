@@ -8,13 +8,16 @@ import LocalLLMClientTestUtilities
 @Suite
 struct LLMSessionToolCallingTests {
     
+    
     // Mock LLM client for testing
-    actor MockToolCallingClient: LLMClient, LLMToolCallable {
+    actor MockToolCallingClient: LLMClient {
         let tools: [AnyLLMTool]
         var shouldGenerateToolCalls = true
         var mockToolCalls: [LLMToolCall] = []
         var generateTextCallCount = 0
         var generateToolCallsCallCount = 0
+        var responseStreamCallCount = 0
+        var resumeCallCount = 0
         
         init(tools: [AnyLLMTool] = []) {
             self.tools = tools
@@ -37,7 +40,7 @@ struct LLMSessionToolCallingTests {
             }
         }
         
-        // LLMToolCallable protocol methods
+        // Tool calling methods
         func generateToolCalls(from input: LLMInput) async throws -> GeneratedContent {
             generateToolCallsCallCount += 1
             return GeneratedContent(
@@ -46,11 +49,25 @@ struct LLMSessionToolCallingTests {
             )
         }
         
+        func responseStream(from input: LLMInput) async throws -> AsyncThrowingStream<StreamingChunk, Error> {
+            responseStreamCallCount += 1
+            return AsyncThrowingStream { continuation in
+                Task {
+                    continuation.yield(.text("I'll use the tools to help you. "))
+                    for toolCall in mockToolCalls {
+                        continuation.yield(.toolCall(toolCall))
+                    }
+                    continuation.finish()
+                }
+            }
+        }
+        
         func resume(
             withToolCalls toolCalls: [LLMToolCall],
             toolOutputs: [(String, String)],
             originalInput: LLMInput
         ) async throws -> String {
+            resumeCallCount += 1
             // Mock implementation - just return a success message
             return "Based on the tool results: \(toolOutputs.map { $0.1 }.joined(separator: ", "))"
         }
@@ -83,11 +100,51 @@ struct LLMSessionToolCallingTests {
         
         // Test that tool calls are generated and executed
         let response = try await session.respond(to: "What's the weather in Tokyo?")
-        #expect(response.contains("weather") || response.contains("Tokyo"))
+        #expect(response.contains("weather") || response.contains("Tokyo") || response.contains("tool results"))
         
-        // Verify tool was called
-        #expect(await client.generateToolCallsCallCount >= 1)
+        // Verify that respond now uses streamResponse (which uses responseStream for tool calls)
+        // The implementation should use responseStream and resume for tool handling
+        #expect(await client.responseStreamCallCount >= 1)
+        #expect(await client.resumeCallCount >= 1)
+        
+        // Test streaming response with tools - should only return text
+        // Reset mock tool calls for the next request
+        await client.setMockToolCalls([
+            LLMToolCall(
+                id: "weather_2",
+                name: "get_weather",
+                arguments: "{\"location\": \"Paris\", \"unit\": \"celsius\"}"
+            )
+        ])
+        
+        var streamedText = ""
+        for try await chunk in session.streamResponse(to: "What's the weather in Paris?") {
+            streamedText += chunk
+        }
+        #expect(streamedText.contains("tool results") || streamedText.contains("Paris"))
     }
+    
+    
+    @Test
+    func respondWithoutToolsShouldNotUseResponseStream() async throws {
+        // Test that sessions without tools don't use responseStream
+        let client = MockToolCallingClient(tools: [])
+        
+        let model = LLMSession.SystemModel(
+            prewarm: { },
+            makeClient: { _ in AnyLLMClient(client) }
+        )
+        
+        let session = LLMSession(model: model, tools: [])
+        
+        let response = try await session.respond(to: "Hello world")
+        
+        // Should use textStream instead of responseStream
+        #expect(await client.responseStreamCallCount == 0)
+        #expect(await client.resumeCallCount == 0)
+        #expect(response == "Streaming response")
+    }
+    
     
     @Test
     func sessionWithMultipleTools() async throws {

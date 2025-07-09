@@ -1,7 +1,7 @@
 import Foundation
 
 /// Handles the execution of tools based on tool calls from the LLM
-public actor ToolExecutor {
+package actor ToolExecutor {
     /// Available tools for execution
     private let tools: [AnyLLMTool]
     
@@ -15,7 +15,7 @@ public actor ToolExecutor {
     /// - Parameters:
     ///   - tools: The available tools
     ///   - maxConcurrency: Maximum number of tools to execute concurrently (default: 10)
-    public init(tools: [AnyLLMTool], maxConcurrency: Int = 10) {
+    package init(tools: [AnyLLMTool], maxConcurrency: Int = 10) {
         self.tools = tools
         self.maxConcurrency = maxConcurrency
         
@@ -30,7 +30,7 @@ public actor ToolExecutor {
     /// Executes a single tool call
     /// - Parameter toolCall: The tool call to execute
     /// - Returns: The tool output and any error that occurred
-    public func execute(_ toolCall: LLMToolCall) async -> Result<ToolOutput, Error> {
+    package func execute(_ toolCall: LLMToolCall) async -> Result<ToolOutput, Error> {
         guard let tool = toolLookup[toolCall.name] else {
             return .failure(ToolError.executionFailed(
                 toolName: toolCall.name,
@@ -49,7 +49,7 @@ public actor ToolExecutor {
     /// Executes multiple tool calls concurrently
     /// - Parameter toolCalls: The tool calls to execute
     /// - Returns: Array of results matching the order of input tool calls
-    public func executeBatch(_ toolCalls: [LLMToolCall]) async -> [Result<ToolOutput, Error>] {
+    package func executeBatch(_ toolCalls: [LLMToolCall]) async -> [Result<ToolOutput, Error>] {
         guard !toolCalls.isEmpty else { return [] }
         
         return await withTaskGroup(of: (Int, Result<ToolOutput, Error>).self) { group in
@@ -95,7 +95,7 @@ public actor ToolExecutor {
     /// - Parameter toolCalls: The tool calls to execute
     /// - Returns: Array of tuples containing (toolCallId, formattedOutput) for successful executions
     /// - Throws: An aggregate error if any tool execution fails
-    public func executeAndFormat(_ toolCalls: [LLMToolCall]) async throws -> [(String, String)] {
+    package func executeAndFormat(_ toolCalls: [LLMToolCall]) async throws -> [(String, String)] {
         let results = await executeBatch(toolCalls)
         
         var outputs: [(String, String)] = []
@@ -127,9 +127,8 @@ public actor ToolExecutor {
         do {
             // Try to serialize as JSON for structured output
             let jsonData = try JSONSerialization.data(withJSONObject: output.data, options: [.sortedKeys])
-            if let jsonString = String(data: jsonData, encoding: .utf8) {
-                return jsonString
-            }
+            let jsonString = String(decoding: jsonData, as: UTF8.self)
+            return jsonString
         } catch {
             #if DEBUG
             print("[ToolExecutor] Failed to serialize tool output as JSON: \(error)")
@@ -145,10 +144,10 @@ public actor ToolExecutor {
 }
 
 /// Errors that can occur during tool execution
-public enum ToolExecutionError: LocalizedError {
+package enum ToolExecutionError: LocalizedError {
     case multipleFailed(errors: [Error])
     
-    public var errorDescription: String? {
+    package var errorDescription: String? {
         switch self {
         case .multipleFailed(let errors):
             let errorMessages = errors.map { $0.localizedDescription }.joined(separator: "; ")
@@ -163,7 +162,7 @@ extension ToolExecutor {
     /// Validates that all required tools are available for the given tool calls
     /// - Parameter toolCalls: The tool calls to validate
     /// - Returns: Array of missing tool names, empty if all tools are available
-    public func validateTools(for toolCalls: [LLMToolCall]) -> [String] {
+    package func validateTools(for toolCalls: [LLMToolCall]) -> [String] {
         let requiredTools = Set(toolCalls.map { $0.name })
         let availableTools = Set(toolLookup.keys)
         return Array(requiredTools.subtracting(availableTools))
@@ -172,12 +171,12 @@ extension ToolExecutor {
     /// Checks if a specific tool is available
     /// - Parameter toolName: The name of the tool to check
     /// - Returns: True if the tool is available
-    public func hasTool(named toolName: String) -> Bool {
+    package func hasTool(named toolName: String) -> Bool {
         toolLookup[toolName] != nil
     }
     
     /// Gets the list of available tool names
-    public var availableToolNames: [String] {
+    package var availableToolNames: [String] {
         Array(toolLookup.keys).sorted()
     }
 }

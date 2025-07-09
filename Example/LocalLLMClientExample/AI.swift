@@ -165,25 +165,6 @@ final class AI {
         }
 
         return session.streamResponse(to: message, attachments: attachments)
-
-//        guard areToolsEnabled, !tools.isEmpty else {
-//            return session.streamResponse(to: message, attachments: attachments)
-//        }
-//
-//        return AsyncThrowingStream { continuation in
-//            Task {
-//                do {
-//                    let response = try await session.respond(to: message, attachments: attachments)
-//                    // Send the full response as chunks
-//                    for char in response {
-//                        continuation.yield(String(char))
-//                    }
-//                    continuation.finish()
-//                } catch {
-//                    continuation.finish(throwing: error)
-//                }
-//            }
-//        }
     }
     
     func toggleTools() async {
