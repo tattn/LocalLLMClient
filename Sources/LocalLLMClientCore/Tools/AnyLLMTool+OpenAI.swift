@@ -30,14 +30,14 @@ extension AnyLLMTool {
     /// ```
     ///
     /// - Returns: A dictionary containing the tool definition in OpenAI format
-    public func toOAICompatJSON() -> [String: Any] {
+    public func toOAICompatJSON() -> [String: any Sendable] {
         [
             "type": "function",
             "function": [
                 "name": name,
                 "description": description,
-                "parameters": argumentsSchema as [String: Any]
-            ]
+                "parameters": argumentsSchema as [String: any Sendable]
+            ] as [String: any Sendable]
         ]
     }
     
@@ -57,9 +57,7 @@ extension AnyLLMTool {
     /// - Throws: An error if the JSON serialization fails or string encoding fails
     public func toOAICompatJSONString(options: JSONSerialization.WritingOptions = .prettyPrinted) throws -> String {
         let data = try toOAICompatJSONData(options: options)
-        guard let string = String(data: data, encoding: .utf8) else {
-            throw ToolError.invalidArgumentEncoding(toolName: name)
-        }
+        let string = String(decoding: data, as: UTF8.self)
         return string
     }
 }
@@ -90,9 +88,7 @@ extension Collection where Element == AnyLLMTool {
     /// - Throws: An error if the JSON serialization fails or string encoding fails
     public func toOAICompatJSONString(options: JSONSerialization.WritingOptions = .prettyPrinted) throws -> String {
         let data = try toOAICompatJSONData(options: options)
-        guard let string = String(data: data, encoding: .utf8) else {
-            throw ToolError.invalidArgumentEncoding(toolName: "collection")
-        }
+        let string = String(decoding: data, as: UTF8.self)
         return string
     }
 }

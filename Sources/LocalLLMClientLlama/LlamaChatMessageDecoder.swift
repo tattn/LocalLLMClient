@@ -1,4 +1,5 @@
 import LocalLLMClientCore
+import Foundation
 import Jinja
 
 public enum MessageChunk: Equatable, Hashable {
@@ -46,15 +47,21 @@ public extension LlamaChatMessageDecoder {
             let template = try Template(chatTemplate)
 
             var templateContext: [String: Any] = [
-                "messages": messages.map(\.value),
-                "add_generation_prompt": true,
+                "add_generation_prompt": true
             ]
-            
+
+            var messages = messages.map(\.value)
+
             // Convert tools to the format expected by the template
             if !tools.isEmpty {
-                let toolsArray = tools.map { $0.toOAICompatJSON() }
-                templateContext["tools"] = toolsArray
+                let toolsJSON = tools.compactMap { $0.toOAICompatJSON() }
+                templateContext["tools"] = toolsJSON
+                if let index = messages.firstIndex(where: { $0["role"] as? String == "system" }) {
+                    messages[index]["tools"] = String(decoding: try JSONSerialization.data(withJSONObject: toolsJSON, options: []), as: UTF8.self)
+                }
             }
+
+            templateContext["messages"] = messages
 
             if let additionalContext {
                 templateContext.merge(additionalContext) { _, new in new }
