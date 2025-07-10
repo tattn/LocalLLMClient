@@ -1,4 +1,4 @@
-import LocalLLMClient
+import LocalLLMClientCore
 import LocalLLMClientUtility
 import Foundation
 
@@ -11,9 +11,9 @@ public extension LLMSession.DownloadModel {
         let source = FileDownloader.Source.huggingFace(id: id, globs: .mlx)
         return LLMSession.DownloadModel(
             source: source,
-            makeClient: {
+            makeClient: { tools in
                 try await AnyLLMClient(
-                    LocalLLMClient.mlx(url: source.destination(for: URL.defaultRootDirectory), parameter: parameter)
+                    LocalLLMClient.mlx(url: source.destination(for: URL.defaultRootDirectory), parameter: parameter, tools: tools.map { $0.underlyingTool })
                 )
             }
         )

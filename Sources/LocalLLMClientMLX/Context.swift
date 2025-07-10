@@ -1,6 +1,6 @@
 import Foundation
 import MLXVLM
-import LocalLLMClient
+import LocalLLMClientCore
 import MLX
 import MLXLLM
 import MLXLMCommon

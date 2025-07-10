@@ -1,4 +1,4 @@
-import LocalLLMClient
+import LocalLLMClientCore
 import Jinja
 
 enum ChatTemplate {
@@ -77,16 +77,16 @@ public struct LlamaAutoMessageDecoder: LlamaChatMessageDecoder {
         chatTemplate.decoder.templateValue(from: messages)
     }
 
-    public func applyTemplate(_ messages: [LLMInput.ChatTemplateMessage], chatTemplate: String, additionalContext: [String: Any]?) throws(LLMError) -> String {
-        try self.chatTemplate.decoder.applyTemplate(messages, chatTemplate: chatTemplate, additionalContext: additionalContext)
+    public func applyTemplate(_ messages: [LLMInput.ChatTemplateMessage], chatTemplate: String, additionalContext: [String: Any]?, tools: [AnyLLMTool]) throws(LLMError) -> String {
+        try self.chatTemplate.decoder.applyTemplate(messages, chatTemplate: chatTemplate, additionalContext: additionalContext, tools: tools)
     }
 
     public func extractChunks(prompt: String, imageChunks: [[LLMInputImage]]) throws -> [MessageChunk] {
         try chatTemplate.decoder.extractChunks(prompt: prompt, imageChunks: imageChunks)
     }
 
-    public func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, multimodal: MultimodalContext?) throws {
-        try chatTemplate.decoder.decode(messages, context: context, multimodal: multimodal)
+    public func decode(_ messages: [LLMInput.ChatTemplateMessage], context: Context, multimodal: MultimodalContext?, tools: [AnyLLMTool] = []) throws {
+        try chatTemplate.decoder.decode(messages, context: context, multimodal: multimodal, tools: tools)
     }
 }
 

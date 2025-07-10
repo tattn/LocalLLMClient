@@ -6,7 +6,7 @@ import Foundation
 #else
 @preconcurrency import LocalLLMClientLlamaC
 #endif
-import LocalLLMClient
+import LocalLLMClientCore
 
 public struct Generator: AsyncSequence, Sendable {
     public init(context: Context) {

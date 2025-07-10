@@ -6,7 +6,7 @@
 @preconcurrency import LocalLLMClientLlamaC
 #endif
 import Foundation
-import LocalLLMClient
+import LocalLLMClientCore
 
 public final class Context: @unchecked Sendable {
     let parameter: LlamaClient.Parameter

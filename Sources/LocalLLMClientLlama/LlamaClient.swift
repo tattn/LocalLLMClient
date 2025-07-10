@@ -1,5 +1,5 @@
 import Foundation
-import LocalLLMClient
+import LocalLLMClientCore
 
 /// A client for interacting with the Llama models.
 ///
@@ -9,6 +9,11 @@ public final class LlamaClient: LLMClient {
     private let context: Context
     private let multimodal: MultimodalContext?
     private let messageDecoder: any LlamaChatMessageDecoder
+    let tools: [AnyLLMTool]
+
+    var chatFormat: common_chat_format {
+        context.model.chatFormat()
+    }
 
     /// Initializes a new Llama client.
     ///
@@ -17,12 +22,14 @@ public final class LlamaClient: LLMClient {
     ///   - mmprojURL: The URL of the multimodal projector file (optional).
     ///   - parameter: The parameters for the Llama model.
     ///   - messageDecoder: The message decoder to use for chat messages (optional).
+    ///   - tools: An array of tools that can be used by the model for function calling.
     /// - Throws: An error if the client fails to initialize.
     public init(
         url: URL,
         mmprojURL: URL?,
         parameter: Parameter,
-        messageDecoder: (any LlamaChatMessageDecoder)?
+        messageDecoder: (any LlamaChatMessageDecoder)?,
+        tools: [any LLMTool] = []
     ) throws {
         context = try Context(url: url, parameter: parameter)
         if let mmprojURL {
@@ -31,6 +38,7 @@ public final class LlamaClient: LLMClient {
             multimodal = nil
         }
         self.messageDecoder = messageDecoder ?? LlamaAutoMessageDecoder(chatTemplate: context.model.chatTemplate)
+        self.tools = tools.map { AnyLLMTool($0) }
     }
 
     /// Generates a text stream from the given input.
@@ -45,16 +53,125 @@ public final class LlamaClient: LLMClient {
                 context.clear()
                 try context.decode(text: text)
             case .chatTemplate(let messages):
-                try messageDecoder.decode(messages, context: context, multimodal: multimodal)
+                try messageDecoder.decode(messages, context: context, multimodal: multimodal, tools: tools)
             case .chat(let messages):
                 let value = messageDecoder.templateValue(from: messages)
-                try messageDecoder.decode(value, context: context, multimodal: multimodal)
+                try messageDecoder.decode(value, context: context, multimodal: multimodal, tools: tools)
             }
         } catch {
             throw LLMError.failedToDecode(reason: error.localizedDescription)
         }
 
         return Generator(context: context)
+    }
+    
+    /// Generates tool calls from the given input using default streaming implementation
+    public func generateToolCalls(from input: LLMInput) async throws -> GeneratedContent {
+        var text = ""
+        var toolCalls: [LLMToolCall] = []
+        
+        for try await content in try await responseStream(from: input) {
+            switch content {
+            case .text(let chunk):
+                text += chunk
+            case .toolCall(let toolCall):
+                toolCalls.append(toolCall)
+            }
+        }
+        
+        return GeneratedContent(text: text, toolCalls: toolCalls)
+    }
+    
+    /// Resumes a conversation with tool outputs
+    ///
+    /// - Parameters:
+    ///   - toolCalls: The tool calls that were made
+    ///   - toolOutputs: The outputs from executing the tools (toolCallID, output)
+    ///   - originalInput: The original input that generated the tool call
+    /// - Returns: The model's response to the tool outputs
+    /// - Throws: An error if text generation fails
+    public func resume(
+        withToolCalls toolCalls: [LLMToolCall],
+        toolOutputs: [(String, String)],
+        originalInput: LLMInput
+    ) async throws -> String {
+        guard case let .chat(messages) = originalInput.value else {
+            throw LLMError.invalidParameter(reason: "Original input must be a chat")
+        }
+        
+        var updatedMessages = messages
+
+        // Add tool messages for each tool output
+        for (toolCallID, output) in toolOutputs {
+            updatedMessages.append(.tool(output, toolCallID: toolCallID))
+        }
+        
+        // Create a new input with the updated messages
+        let updatedInput = LLMInput.chat(updatedMessages)
+        
+        // Generate a response to the tool outputs
+        return try await generateText(from: updatedInput)
+    }
+    
+    /// Streams responses from the input
+    /// - Parameter input: The input to process
+    /// - Returns: An asynchronous sequence that emits response content (text chunks, tool calls, etc.)
+    /// - Throws: An error if generation fails
+    public func responseStream(from input: LLMInput) async throws -> AsyncThrowingStream<StreamingChunk, Error> {
+        // Create the stream first (this can throw)
+        let textStreamGenerator = try textStream(from: input)
+        let chatFormat = self.chatFormat
+        
+        return AsyncThrowingStream { continuation in
+            let processor = StreamingToolCallProcessor(
+                startTag: getToolCallStartTag(),
+                endTag: getToolCallEndTag()
+            )
+            
+            Task {
+                do {
+                    var fullText = ""
+                    
+                    for try await chunk in textStreamGenerator {
+                        fullText += chunk
+                        
+                        // Process the chunk through the tool call processor
+                        if let processedText = processor.processChunk(chunk) {
+                            continuation.yield(.text(processedText))
+                        }
+                    }
+                    
+                    // Parse the complete text for tool calls
+                    if let toolCalls = LlamaToolCallParser.parseToolCalls(from: fullText, format: chatFormat) {
+                        for toolCall in toolCalls {
+                            continuation.yield(.toolCall(toolCall))
+                        }
+                    }
+                    
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
+    
+    /// Get the tool call start tag based on chat format
+    private func getToolCallStartTag() -> String {
+        // Different chat formats may use different tags
+        switch chatFormat {
+        default:
+            return "<tool_call>"
+        }
+    }
+    
+    /// Get the tool call end tag based on chat format
+    private func getToolCallEndTag() -> String {
+        // Different chat formats may use different tags
+        switch chatFormat {
+        default:
+            return "</tool_call>"
+        }
     }
 }
 
@@ -68,6 +185,7 @@ public extension LocalLLMClient {
     ///   - mmprojURL: The URL of the multimodal projector file (optional).
     ///   - parameter: The parameters for the Llama model. Defaults to `.default`.
     ///   - messageDecoder: The message decoder to use for chat messages (optional).
+    ///   - tools: An array of tools that can be used by the model for function calling.
     ///   - verbose: A Boolean value indicating whether to enable verbose logging. Defaults to `false`.
     /// - Returns: A new `LlamaClient` instance.
     /// - Throws: An error if the client fails to initialize.
@@ -75,14 +193,16 @@ public extension LocalLLMClient {
         url: URL,
         mmprojURL: URL? = nil,
         parameter: LlamaClient.Parameter = .default,
-        messageDecoder: (any LlamaChatMessageDecoder)? = nil
+        messageDecoder: (any LlamaChatMessageDecoder)? = nil,
+        tools: [any LLMTool] = []
     ) async throws -> LlamaClient {
         setLlamaVerbose(parameter.options.verbose)
         return try LlamaClient(
             url: url,
             mmprojURL: mmprojURL,
             parameter: parameter,
-            messageDecoder: messageDecoder
+            messageDecoder: messageDecoder,
+            tools: tools
         )
     }
 }

@@ -37,6 +37,7 @@ A Swift package to interact with local Large Language Models (LLMs) on Apple pla
 - Support for iOS, macOS and Linux
 - Streaming API
 - Multimodal (experimental)
+- Tool calling (experimental)
 
 ## Installation
 
@@ -166,6 +167,72 @@ let session = LLMSession(model: .foundationModels(
 // Generate a response with a specific prompt
 let response = try await session.respond(to: "Tell me a short story about a clever fox.")
 print(response)
+```
+</details>
+
+### Tool Calling
+
+LocalLLMClient supports tool calling for structured outputs and integrations with external systems.
+
+> [!IMPORTANT]
+> Tool calling is only available with models that support this feature. Each backend has different model compatibility.
+> 
+> Make sure your chosen model explicitly supports tool calling before using this feature.
+
+<details open>
+<summary>Using tool calling</summary>
+
+```swift
+import LocalLLMClient
+import LocalLLMClientLlama
+
+@Tool("get_weather")
+struct GetWeatherTool {
+    let description = "Get the current weather in a given location"
+    
+    @ToolArguments
+    struct Arguments {
+        @ToolArgument("The city and state, e.g. San Francisco, CA")
+        var location: String
+        
+        @ToolArgument("Temperature unit")
+        var unit: Unit?
+        
+        @ToolArgumentEnum
+        enum Unit: String {
+            case celsius
+            case fahrenheit
+        }
+    }
+    
+    func call(arguments: Arguments) async throws -> ToolOutput {
+        // In a real implementation, this would call a weather API
+        let temp = arguments.unit == .celsius ? "22°C" : "72°F"
+        return ToolOutput([
+            "location": arguments.location,
+            "temperature": temp,
+            "condition": "sunny"
+        ])
+    }
+}
+
+// Create the tool
+let weatherTool = GetWeatherTool()
+
+// Create a session with a model that supports tool calling and register tools
+let session = LLMSession(
+    model: .llama(
+        id: "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+        model: "qwen2.5-1.5b-instruct-q4_k_m.gguf"
+    ),
+    tools: [weatherTool]
+)
+
+// Ask a question that requires tool use
+let response = try await session.respond(to: "What's the weather like in Tokyo?")
+print(response)
+
+// The model will automatically call the weather tool and include the result in its response
 ```
 </details>
 

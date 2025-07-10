@@ -28,15 +28,31 @@ struct ChatView: View {
             ToolbarItem {
                 Menu {
                     Button("Clear Chat") {
-                        ai.messages = []
+                        ai.resetMessages()
                     }
+                    
+                    Divider()
+                    
+                    Button {
+                        Task {
+                            await ai.toggleTools()
+                        }
+                    } label: {
+                        HStack {
+                            Text("Tools calling")
+                            if ai.areToolsEnabled {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                    .disabled(!ai.model.supportsTools)
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
             }
         }
         .onChange(of: ai.model) { _, _ in
-            ai.messages = []
+            ai.resetMessages()
         }
     }
 }
@@ -49,7 +65,7 @@ struct MessageList: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
-                ForEach(messages) { message in
+                ForEach(messages.filter { $0.role != .system }) { message in
                     ChatBubbleView(message: message)
                         .id(message.id)
                 }

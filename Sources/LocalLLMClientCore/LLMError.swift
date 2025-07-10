@@ -13,4 +13,7 @@ public enum LLMError: Swift.Error {
 
     /// Indicates that vision features are not supported by the current model or configuration.
     case visionUnsupported
+
+    /// Indicates that the operation is not supported on the situation.
+    case unsupportedOperation(reason: String)
 }

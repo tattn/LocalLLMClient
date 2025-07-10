@@ -1,4 +1,4 @@
-import LocalLLMClient
+import LocalLLMClientCore
 import LocalLLMClientUtility
 import Foundation
 
@@ -18,12 +18,13 @@ public extension LLMSession.DownloadModel {
         let destination = source.destination(for: URL.defaultRootDirectory)
         return LLMSession.DownloadModel(
             source: source,
-            makeClient: {
+            makeClient: { tools in
                 try await AnyLLMClient(
                     LocalLLMClient.llama(
                         url: destination.appending(component: model),
                         mmprojURL: mmproj.map { destination.appending(component: $0) },
-                        parameter: parameter
+                        parameter: parameter,
+                        tools: tools.map { $0.underlyingTool }
                     )
                 )
             }

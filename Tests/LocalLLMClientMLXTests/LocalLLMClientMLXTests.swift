@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-import LocalLLMClient
+import LocalLLMClientCore
 import LocalLLMClientMLX
 
 let prompt = "What is the answer to one plus two?"

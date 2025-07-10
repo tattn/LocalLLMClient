@@ -1,5 +1,5 @@
 #if canImport(FoundationModels)
-import LocalLLMClient
+import LocalLLMClientCore
 import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
@@ -82,6 +82,11 @@ extension LLMInput {
                     return Transcript.Entry.response(.init(
                         assetIDs: [], segments: [.text(.init(content: content))]
                     ))
+                case "tool"?:
+                    return Transcript.Entry.prompt(.init(
+                        segments: [.text(.init(content: content))],
+                        options: generationOptions
+                    ))
                 default:
                     return nil
                 }
@@ -103,6 +108,11 @@ extension LLMInput {
                 case .assistant:
                     return Transcript.Entry.response(.init(
                         assetIDs: [], segments: [.text(.init(content: content))]
+                    ))
+                case .tool:
+                    return Transcript.Entry.prompt(.init(
+                        segments: [.text(.init(content: content))],
+                        options: generationOptions
                     ))
                 }
             }

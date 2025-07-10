@@ -1,5 +1,5 @@
 #if canImport(FoundationModels)
-import LocalLLMClient
+import LocalLLMClientCore
 import FoundationModels
 import LocalLLMClientUtility
 import Foundation

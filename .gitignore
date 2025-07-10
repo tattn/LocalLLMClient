@@ -121,5 +121,6 @@ fastlane/test_output
 
 iOSInjectionProject/
 
+tmp
 dev
 Tests/LocalLLMClientLlamaTests/dev
