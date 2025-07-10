@@ -172,7 +172,7 @@ print(response)
 
 ### Tool Calling
 
-LocalLLMClient supports tool calling for structured outputs and integrations with external systems.
+LocalLLMClient supports tool calling for integrations with external systems.
 
 > [!IMPORTANT]
 > Tool calling is only available with models that support this feature. Each backend has different model compatibility.
@@ -471,7 +471,7 @@ You can use LocalLLMClient directly from the terminal using the command line too
 
 ```bash
 # Run using llama.cpp
-swift run localllm --model /path/to/your/model.gguf "Your prompt here"
+swift run LocalLLMCLI --model /path/to/your/model.gguf "Your prompt here"
 
 # Run using MLX
 ./scripts/run_mlx.sh --model https://huggingface.co/mlx-community/Qwen3-1.7B-4bit "Your prompt here"

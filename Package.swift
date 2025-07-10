@@ -29,7 +29,6 @@ var packageProducts: [Product] = [
 
 #if os(iOS) || os(macOS)
 packageProducts.append(contentsOf: [
-    .executable(name: "localllm", targets: ["LocalLLMCLI"]),
     .library(name: "LocalLLMClientLlama", targets: ["LocalLLMClientLlama"]),
     .library(name: "LocalLLMClientMLX", targets: ["LocalLLMClientMLX"]),
     .library(name: "LocalLLMClientFoundationModels", targets: ["LocalLLMClientFoundationModels"]),
