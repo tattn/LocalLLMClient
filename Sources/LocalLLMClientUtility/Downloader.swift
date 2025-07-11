@@ -117,7 +117,10 @@ extension Downloader {
             delegate.isDownloading.withLock { $0 = true }
 
             try? FileManager.default.createDirectory(at: destinationURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let task = existingTask ?? session.downloadTask(with: url)
+            var request = URLRequest(url: url)
+            // https://stackoverflow.com/questions/12235617/mbprogresshud-with-nsurlconnection/12599242#12599242
+            request.addValue("", forHTTPHeaderField: "Accept-Encoding")
+            let task = existingTask ?? session.downloadTask(with: request)
             task.taskDescription = destinationURL.absoluteString
             task.priority = URLSessionTask.highPriority
             task.resume()
