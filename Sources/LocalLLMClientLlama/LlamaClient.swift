@@ -8,7 +8,7 @@ import LocalLLMClientCore
 public final class LlamaClient: LLMClient {
     private let context: Context
     private let multimodal: MultimodalContext?
-    private let messageDecoder: any LlamaChatMessageDecoder
+    private let messageProcessor: MessageProcessor
     let tools: [AnyLLMTool]
 
     var chatFormat: common_chat_format {
@@ -21,14 +21,14 @@ public final class LlamaClient: LLMClient {
     ///   - url: The URL of the Llama model file.
     ///   - mmprojURL: The URL of the multimodal projector file (optional).
     ///   - parameter: The parameters for the Llama model.
-    ///   - messageDecoder: The message decoder to use for chat messages (optional).
+    ///   - messageProcessor: The message processor to use for chat messages (optional).
     ///   - tools: An array of tools that can be used by the model for function calling.
     /// - Throws: An error if the client fails to initialize.
     public init(
         url: URL,
         mmprojURL: URL?,
         parameter: Parameter,
-        messageDecoder: (any LlamaChatMessageDecoder)?,
+        messageProcessor: MessageProcessor?,
         tools: [any LLMTool] = []
     ) throws {
         context = try Context(url: url, parameter: parameter)
@@ -37,7 +37,7 @@ public final class LlamaClient: LLMClient {
         } else {
             multimodal = nil
         }
-        self.messageDecoder = messageDecoder ?? LlamaAutoMessageDecoder(chatTemplate: context.model.chatTemplate)
+        self.messageProcessor = messageProcessor ?? MessageProcessorFactory.createAutoProcessor(chatTemplate: context.model.chatTemplate)
         self.tools = tools.map { AnyLLMTool($0) }
     }
 
@@ -53,12 +53,22 @@ public final class LlamaClient: LLMClient {
                 context.clear()
                 try context.decode(text: text)
             case .chatTemplate(let messages):
-                try messageDecoder.decode(messages, context: context, multimodal: multimodal, tools: tools)
+                try messageProcessor.process(
+                    templateMessages: messages,
+                    context: context,
+                    multimodal: multimodal,
+                    tools: tools
+                )
             case .chat(let messages):
-                let value = messageDecoder.templateValue(from: messages)
-                try messageDecoder.decode(value, context: context, multimodal: multimodal, tools: tools)
+                try messageProcessor.process(
+                    messages: messages,
+                    context: context,
+                    multimodal: multimodal,
+                    tools: tools
+                )
             }
         } catch {
+            context.clear()
             throw LLMError.failedToDecode(reason: error.localizedDescription)
         }
 
@@ -140,14 +150,18 @@ public final class LlamaClient: LLMClient {
                             continuation.yield(.text(processedText))
                         }
                     }
-                    
-                    // Parse the complete text for tool calls
-                    if let toolCalls = LlamaToolCallParser.parseToolCalls(from: fullText, format: chatFormat) {
-                        for toolCall in toolCalls {
-                            continuation.yield(.toolCall(toolCall))
+
+                    var toolCalls = processor.toolCalls + (LlamaToolCallParser.parseToolCalls(from: fullText, format: chatFormat) ?? [])
+                    toolCalls = toolCalls.reduce(into: []) { result, toolCall in
+                        if !result.contains(where: { $0.name == toolCall.name }) {
+                            result.append(toolCall)
                         }
                     }
-                    
+
+                    for toolCall in toolCalls {
+                        continuation.yield(.toolCall(toolCall))
+                    }
+
                     continuation.finish()
                 } catch {
                     continuation.finish(throwing: error)
@@ -184,7 +198,7 @@ public extension LocalLLMClient {
     ///   - url: The URL of the Llama model file.
     ///   - mmprojURL: The URL of the multimodal projector file (optional).
     ///   - parameter: The parameters for the Llama model. Defaults to `.default`.
-    ///   - messageDecoder: The message decoder to use for chat messages (optional).
+    ///   - messageProcessor: The message processor to use for chat messages (optional).
     ///   - tools: An array of tools that can be used by the model for function calling.
     ///   - verbose: A Boolean value indicating whether to enable verbose logging. Defaults to `false`.
     /// - Returns: A new `LlamaClient` instance.
@@ -193,7 +207,7 @@ public extension LocalLLMClient {
         url: URL,
         mmprojURL: URL? = nil,
         parameter: LlamaClient.Parameter = .default,
-        messageDecoder: (any LlamaChatMessageDecoder)? = nil,
+        messageProcessor: MessageProcessor? = nil,
         tools: [any LLMTool] = []
     ) async throws -> LlamaClient {
         setLlamaVerbose(parameter.options.verbose)
@@ -201,7 +215,7 @@ public extension LocalLLMClient {
             url: url,
             mmprojURL: mmprojURL,
             parameter: parameter,
-            messageDecoder: messageDecoder,
+            messageProcessor: messageProcessor,
             tools: tools
         )
     }

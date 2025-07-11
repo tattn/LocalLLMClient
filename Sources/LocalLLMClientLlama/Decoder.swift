@@ -15,6 +15,10 @@ public extension Context {
             return 0 // no data to decode
         }
 
+        if parameter.context < position + batch.n_tokens {
+            throw LLMError.failedToDecode(reason: "context size exceeded")
+        }
+
         batch.logits[Int(batch.n_tokens) - 1] = 1
 
         guard llama_decode(context, batch) == 0 else {

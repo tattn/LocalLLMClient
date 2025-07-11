@@ -15,7 +15,7 @@ extension ModelTests {
         
         private static func makeToolModel(size: LocalLLMClient.ModelSize = .default) -> LLMSession.DownloadModel {
             let info = LocalLLMClient.modelInfo(for: .tool, modelSize: size)
-            return .llama(id: info.id, model: info.model, mmproj: info.clip, parameter: .init(context: 1536))
+            return .llama(id: info.id, model: info.model, mmproj: info.clip, parameter: .init(context: 1800))
         }
         
         @Test

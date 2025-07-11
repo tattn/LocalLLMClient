@@ -92,9 +92,9 @@ enum LLMModel: Sendable, CaseIterable, Identifiable {
     
     var supportsTools: Bool {
         switch self {
-        case .qwen3, .qwen3_4b:
+        case .qwen3, .qwen3_4b, .phi4mini, .gemma3, .gemma3_4b:
             return true
-        case .qwen2_5VL_3b, .gemma3_4b_mlx, .phi4mini, .gemma3, .gemma3_4b, .mobileVLM_3b:
+        case .qwen2_5VL_3b, .gemma3_4b_mlx, .mobileVLM_3b:
             return false
         }
     }
@@ -143,7 +143,7 @@ final class AI {
                     id: model.id,
                     model: model.filename!,
                     mmproj: model.mmprojFilename,
-                    parameter: .init(options: .init(extraEOSTokens: model.extraEOSTokens, verbose: true))
+                    parameter: .init(context: 10240, options: .init(extraEOSTokens: model.extraEOSTokens, verbose: true))
                 )
             }
 

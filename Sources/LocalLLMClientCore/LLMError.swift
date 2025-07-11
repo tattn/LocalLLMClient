@@ -1,5 +1,7 @@
+import Foundation
+
 /// Errors that can occur when interacting with the Local LLM Client.
-public enum LLMError: Swift.Error {
+public enum LLMError: LocalizedError {
     /// Indicates that the model failed to load.
     /// - Parameter reason: A description of why the model loading failed.
     case failedToLoad(reason: String)
@@ -16,4 +18,19 @@ public enum LLMError: Swift.Error {
 
     /// Indicates that the operation is not supported on the situation.
     case unsupportedOperation(reason: String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .failedToLoad(let reason):
+            return "Failed to load model: \(reason)"
+        case .invalidParameter(let reason):
+            return "Invalid parameter: \(reason)"
+        case .failedToDecode(let reason):
+            return "Failed to decode response: \(reason)"
+        case .visionUnsupported:
+            return "Vision features are not supported by this model or configuration."
+        case .unsupportedOperation(let reason):
+            return "Unsupported operation: \(reason)"
+        }
+    }
 }

@@ -30,12 +30,9 @@ extension ModelTests.LLMToolTests {
     
     @Test func toolsInTemplate() throws {
         let tool = WeatherTool()
-        let decoder = LlamaChatMLMessageDecoder()
-        let messages: [LLMInput.ChatTemplateMessage] = [
-            LLMInput.ChatTemplateMessage(
-                value: ["role": "user", "content": "What's the weather like in San Francisco?"],
-                attachments: []
-            )
+        let processor = MessageProcessorFactory.chatMLProcessor()
+        let messages: [LLMInput.Message] = [
+            .user("What's the weather like in San Francisco?")
         ]
         
         let template = """
@@ -51,10 +48,10 @@ extension ModelTests.LLMToolTests {
         {% endfor %}
         """
         
-        let result = try decoder.applyTemplate(
-            messages,
-            chatTemplate: template,
-            additionalContext: ["bos_token": "<s>"],
+        let (result, _) = try processor.renderAndExtractChunks(
+            messages: messages,
+            template: template,
+            specialTokens: ["bos_token": "<s>"],
             tools: [AnyLLMTool(tool)]
         )
         

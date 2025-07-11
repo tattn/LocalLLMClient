@@ -66,14 +66,12 @@ struct CalculatorTool {
             
             return ToolOutput(data: [
                 "expression": arguments.expression,
-                "result": "\(result)",
-                "timestamp": ISO8601DateFormatter().string(from: Date())
+                "result": "\(result)"
             ])
         } catch {
             return ToolOutput(data: [
                 "expression": arguments.expression,
-                "error": "Failed to calculate: \(error.localizedDescription)",
-                "timestamp": ISO8601DateFormatter().string(from: Date())
+                "error": "Failed to calculate: \(error.localizedDescription)"
             ])
         }
     }
@@ -110,8 +108,7 @@ struct DateTimeTool {
         
         return ToolOutput(data: [
             "datetime": formattedDate,
-            "timezone": formatter.timeZone.identifier,
-            "timestamp": ISO8601DateFormatter().string(from: now)
+            "timezone": formatter.timeZone.identifier
         ])
     }
 }
@@ -145,8 +142,7 @@ struct RandomNumberTool {
         return ToolOutput(data: [
             "value": randomNumber,
             "min": arguments.min,
-            "max": arguments.max,
-            "timestamp": ISO8601DateFormatter().string(from: Date())
+            "max": arguments.max
         ])
     }
 }
