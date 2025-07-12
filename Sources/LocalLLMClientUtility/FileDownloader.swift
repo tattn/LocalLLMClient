@@ -39,7 +39,7 @@ public struct FileDownloader: FileDownloadable {
     }
 
     public var isDownloaded: Bool {
-        source.isDownloaded(for: rootDestination)
+        source.isDownloaded(for: destination)
     }
 
     /// Specifies the source from which files are to be downloaded.
@@ -169,7 +169,7 @@ public struct FileDownloader: FileDownloadable {
     /// - Parameter onProgress: An asynchronous closure that is called with the download progress (a `Double` between 0.0 and 1.0). Defaults to an empty closure.
     /// - Throws: An error if saving metadata fails or if the `HubApi` encounters an issue during the download.
     public func download(onProgress: @Sendable @escaping (Double) async -> Void = { _ in }) async throws {
-        let destination = source.destination(for: rootDestination)
+        let destination = self.destination
         guard !source.isDownloaded(for: destination) else {
             await onProgress(1.0)
             return
