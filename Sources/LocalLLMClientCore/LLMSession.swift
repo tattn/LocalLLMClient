@@ -5,7 +5,7 @@ import LocalLLMClientUtility
 #if !os(Linux)
 @Observable
 #endif
-public final class LLMSession {
+public final class LLMSession: Sendable {
     public init<T: Model>(model: T, messages: [LLMInput.Message] = [], tools: [any LLMTool] = []) {
         generator = Generator(model: model, messages: messages, tools: tools.map { AnyLLMTool($0) })
     }
