@@ -9,7 +9,7 @@ let llamaVersion = "b5921"
 
 var packageDependencies: [Package.Dependency] = [
     .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.4.0")),
-    .package(url: "https://github.com/johnmai-dev/Jinja", .upToNextMinor(from: "1.1.0")),
+    .package(url: "https://github.com/johnmai-dev/Jinja", .upToNextMinor(from: "1.2.0")),
     .package(url: "https://github.com/swiftlang/swift-syntax", from: "600.0.0")
 ]
 

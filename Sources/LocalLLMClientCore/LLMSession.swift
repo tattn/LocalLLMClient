@@ -262,8 +262,13 @@ public extension LLMSession {
         let downloader: FileDownloader
         public let makeClient: @Sendable ([AnyLLMTool]) async throws -> AnyLLMClient
 
-        package init(source: FileDownloader.Source, makeClient: @Sendable @escaping ([AnyLLMTool]) async throws -> AnyLLMClient) {
+        public var isDownloaded: Bool {
+            downloader.isDownloaded
+        }
+
+        package init(source: FileDownloader.Source, destination: URL? = nil, makeClient: @Sendable @escaping ([AnyLLMTool]) async throws -> AnyLLMClient) {
             self.source = source
+            let destination = destination ?? FileDownloader.defaultRootDestination
 #if os(iOS)
             let identifier = switch source {
             case .huggingFace(let id, _):
@@ -271,10 +276,11 @@ public extension LLMSession {
             }
             downloader = FileDownloader(
                 source: source,
+                destination: destination,
                 configuration: .background(withIdentifier: identifier)
             )
 #else
-            downloader = FileDownloader(source: source)
+            downloader = FileDownloader(source: source, destination: destination)
 #endif
             self.makeClient = makeClient
         }
