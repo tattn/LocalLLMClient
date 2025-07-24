@@ -49,13 +49,18 @@ public extension MLXClient {
         ///
         /// - Parameters:
         ///   - extraEOSTokens: A set of additional strings that, when encountered, will be treated as end-of-sequence tokens by the model. Default is an empty set.
+        ///   - disableAutoPause: If `true`, disables automatic pausing when the app goes to background on iOS. Default is `false`.
         public init(
-            extraEOSTokens: Set<String> = []
+            extraEOSTokens: Set<String> = [],
+            disableAutoPause: Bool = false
         ) {
             self.extraEOSTokens = extraEOSTokens
+            self.disableAutoPause = disableAutoPause
         }
 
         /// Additional strings to be treated as end-of-sequence tokens by the model.
         public var extraEOSTokens: Set<String>
+        /// If `true`, disables automatic pausing when the app goes to background on iOS.
+        public var disableAutoPause: Bool
     }
 }

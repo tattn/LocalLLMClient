@@ -34,6 +34,8 @@ public struct TokenGenerator: AsyncIteratorProtocol {
             updatePromptCache()
             return nil
         }
+        
+        await context.pauseHandler.checkPauseState()
 
         try context.decode()
 
