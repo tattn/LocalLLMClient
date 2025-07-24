@@ -19,26 +19,26 @@ package actor PauseHandler {
         }
 
         func setupObservers(
-            didEnterBackground: @Sendable @escaping () -> Void,
-            willEnterForeground: @Sendable @escaping () -> Void
+            willResignActive: @Sendable @escaping () -> Void,
+            didBecomeActive: @Sendable @escaping () -> Void
         ) {
-            let didEnterBackgroundObserver = NotificationCenter.default.addObserver(
-                forName: UIApplication.didEnterBackgroundNotification,
+            let willResignActiveObserver = NotificationCenter.default.addObserver(
+                forName: UIApplication.willResignActiveNotification,
                 object: nil,
                 queue: nil
             ) { _ in
-                didEnterBackground()
+                willResignActive()
             }
 
-            let willEnterForegroundObserver = NotificationCenter.default.addObserver(
-                forName: UIApplication.willEnterForegroundNotification,
+            let didBecomeActiveObserver = NotificationCenter.default.addObserver(
+                forName: UIApplication.didBecomeActiveNotification,
                 object: nil,
                 queue: nil
             ) { _ in
-                willEnterForeground()
+                didBecomeActive()
             }
 
-            observers = [didEnterBackgroundObserver, willEnterForegroundObserver]
+            observers = [willResignActiveObserver, didBecomeActiveObserver]
         }
     }
     private var notificationObservers = LifecycleObserver()
@@ -51,7 +51,7 @@ package actor PauseHandler {
                 Task {
                     await self?.pause()
                 }
-            } willEnterForeground: { [weak self] in
+            } didBecomeActive: { [weak self] in
                 Task {
                     await self?.resume()
                 }
