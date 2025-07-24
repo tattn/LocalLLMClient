@@ -123,7 +123,7 @@ struct ToolEdgeCaseTests {
             }
             
             func call(arguments: Arguments) async throws -> ToolOutput {
-                try await Task.sleep(nanoseconds: UInt64(arguments.delay * 1_000_000_000))
+                try await Task.sleep(for: .seconds(arguments.delay))
                 return ToolOutput(data: ["completed": true])
             }
         }

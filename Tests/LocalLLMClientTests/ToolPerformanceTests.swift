@@ -29,7 +29,7 @@ struct ToolPerformanceTests {
             
             func call(arguments: Arguments) async throws -> ToolOutput {
                 let start = Date()
-                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                try await Task.sleep(for: .seconds(delay))
                 let elapsed = Date().timeIntervalSince(start)
                 
                 return ToolOutput(data: [
@@ -117,7 +117,7 @@ struct ToolPerformanceTests {
             
             func call(arguments: Arguments) async throws -> ToolOutput {
                 // Simulate some work
-                try await Task.sleep(nanoseconds: 10_000_000) // 10ms
+                try await Task.sleep(for: .milliseconds(10))
                 
                 let count = await counter.increment()
                 

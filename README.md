@@ -31,6 +31,9 @@ A Swift package to interact with local Large Language Models (LLMs) on Apple pla
 > [!IMPORTANT]
 > This project is still experimental. The API is subject to change.
 
+> [!TIP]
+> To run larger models more reliably, consider adding `com.apple.developer.kernel.increased-memory-limit` entitlement to your app.
+
 ## Features
 
 - Support for [GGUF](https://github.com/ggml-org/ggml/blob/master/docs/gguf.md) / [MLX models](https://opensource.apple.com/projects/mlx/) / [FoundationModels framework](https://developer.apple.com/documentation/foundationmodels)

@@ -41,6 +41,15 @@ public protocol LLMClient: Sendable {
     /// - Returns: An asynchronous sequence that emits response content (text chunks, tool calls, etc.)
     /// - Throws: An error if generation fails or requested features are not supported
     func responseStream(from input: LLMInput) async throws -> ResponseGenerator
+    
+    /// Pauses any ongoing text generation
+    func pauseGeneration() async
+    
+    /// Resumes previously paused text generation
+    func resumeGeneration() async
+    
+    /// Whether the generation is currently paused
+    var isGenerationPaused: Bool { get async }
 }
 
 public extension LLMClient {

@@ -18,6 +18,7 @@ public final class Context: @unchecked Sendable {
     let model: Model
     let extraEOSTokens: Set<String>
     private var promptCaches: [(chunk: MessageChunk, lastPosition: llama_pos)] = []
+    let pauseHandler: PauseHandler
 
     package var vocab: OpaquePointer {
         model.vocab
@@ -44,6 +45,7 @@ public final class Context: @unchecked Sendable {
         ctx_params.n_threads_batch = ctx_params.n_threads
 
         self.parameter = parameter
+        self.pauseHandler = PauseHandler(disableAutoPause: parameter.options.disableAutoPause)
         self.model = try Model(url: url)
         self.context = try model.makeAndAllocateContext(with: ctx_params)
         batch = llama_batch_init(Int32(parameter.batch), 0, 1)

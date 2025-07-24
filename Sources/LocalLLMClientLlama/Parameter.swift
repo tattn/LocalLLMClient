@@ -80,14 +80,17 @@ public extension LlamaClient {
         ///   - responseFormat: Specifies the desired format for the model's response, such as JSON or a custom grammar. `nil` means no specific format is enforced. Default is `nil`.
         ///   - extraEOSTokens: A set of additional strings that, when encountered, will be treated as end-of-sequence tokens by the model. Default is an empty set.
         ///   - verbose: If `true`, enables verbose output for debugging purposes. Default is `false`.
+        ///   - disableAutoPause: If `true`, disables automatic pausing when the app goes to background on iOS. Default is `false`.
         public init(
             responseFormat: ResponseFormat? = nil,
             extraEOSTokens: Set<String> = [],
-            verbose: Bool = false
+            verbose: Bool = false,
+            disableAutoPause: Bool = false
         ) {
             self.responseFormat = responseFormat
             self.extraEOSTokens = extraEOSTokens
             self.verbose = verbose
+            self.disableAutoPause = disableAutoPause
         }
 
         /// Specifies the desired format for the model's response (e.g., JSON, custom grammar).
@@ -96,6 +99,8 @@ public extension LlamaClient {
         public var extraEOSTokens: Set<String>
         /// If `true`, enables verbose output for debugging purposes.
         public var verbose: Bool
+        /// If `true`, disables automatic pausing when the app goes to background on iOS.
+        public var disableAutoPause: Bool
     }
 
     /// Specifies the desired format for the model's response.
