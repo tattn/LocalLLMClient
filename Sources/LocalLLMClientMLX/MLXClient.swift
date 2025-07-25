@@ -48,6 +48,8 @@ public final actor MLXClient: LLMClient {
         let modelContainer =  context.modelContainer
 
         return try await modelContainer.perform { [userInput] context in
+            await pauseHandler.checkPauseState()
+
             let lmInput = try await context.processor.prepare(input: userInput)
             let stream = try MLXLMCommon.generate(
                 input: lmInput,
@@ -57,6 +59,8 @@ public final actor MLXClient: LLMClient {
 
             return .init { continuation in
                 let task = Task {
+                    await pauseHandler.checkPauseState()
+
                     for await generated in stream {
                         await pauseHandler.checkPauseState()
                         continuation.yield(generated.chunk ?? "")
