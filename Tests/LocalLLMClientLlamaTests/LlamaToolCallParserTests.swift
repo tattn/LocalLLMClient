@@ -83,7 +83,7 @@ struct LlamaToolCallParserTests {
         
         let result = LlamaToolCallParser.parseToolCalls(from: response, format: COMMON_CHAT_FORMAT_HERMES_2_PRO)
         #expect(result != nil, "Parser should return a result for valid tool calls")
-        #expect(result?.count == 1, "Currently only first tool call is parsed (known limitation)")
+        #expect(result?.count == 2, "Currently only first tool call is parsed (known limitation)")
         
         if let toolCall = result?.first {
             #expect(toolCall.name == "function1", "First tool call should be function1")
