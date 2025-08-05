@@ -11,6 +11,7 @@ public final actor MLXClient: LLMClient {
     let context: Context
     let parameter: MLXClient.Parameter
     let tools: [AnyLLMTool]
+    let pauseHandler: PauseHandler
 
     /// Initializes a new MLX client.
     ///
@@ -23,6 +24,7 @@ public final actor MLXClient: LLMClient {
         context = try await Context(url: url, parameter: parameter)
         self.parameter = parameter
         self.tools = tools.map { AnyLLMTool($0) }
+        self.pauseHandler = PauseHandler(disableAutoPause: parameter.options.disableAutoPause)
     }
 
     /// Generates a text stream from the given input.
@@ -56,6 +58,7 @@ public final actor MLXClient: LLMClient {
             return .init { continuation in
                 let task = Task {
                     for await generated in stream {
+                        await pauseHandler.checkPauseState()
                         continuation.yield(generated.chunk ?? "")
                     }
                     continuation.finish()
@@ -129,63 +132,7 @@ public final actor MLXClient: LLMClient {
                 return nil
             }
             
-            let mlxType: ToolParameterType
-            switch type {
-            case "string":
-                mlxType = .string
-            case "integer", "number":
-                mlxType = .int
-            case "boolean":
-                mlxType = .bool
-            case "array":
-                // Check for items schema to determine element type
-                if let items = value["items"] as? [String: any Sendable] {
-                    if let itemType = items["type"] as? String {
-                        let elementType: ToolParameterType
-                        switch itemType {
-                        case "string":
-                            elementType = .string
-                        case "integer":
-                            elementType = .int
-                        case "number":
-                            elementType = .double
-                        case "boolean":
-                            elementType = .bool
-                        case "object":
-                            // For array of objects, parse the object schema
-                            if let objectProperties = items["properties"] as? [String: [String: any Sendable]] {
-                                let mlxProperties = convertParametersToMLXFormat([
-                                    "properties": objectProperties as [String: any Sendable],
-                                    "required": (items["required"] as? [String] ?? []) as [String] as any Sendable
-                                ])
-                                elementType = .object(properties: mlxProperties)
-                            } else {
-                                elementType = .object(properties: [])
-                            }
-                        default:
-                            elementType = .string
-                        }
-                        mlxType = .array(elementType: elementType)
-                    } else {
-                        mlxType = .array(elementType: .string) // Default to string array
-                    }
-                } else {
-                    mlxType = .array(elementType: .string) // Default to string array
-                }
-            case "object":
-                // Parse object properties if available
-                if let objectProperties = value["properties"] as? [String: [String: any Sendable]] {
-                    let mlxProperties = convertParametersToMLXFormat([
-                        "properties": objectProperties as [String: any Sendable],
-                        "required": (value["required"] as? [String] ?? []) as [String] as any Sendable
-                    ])
-                    mlxType = .object(properties: mlxProperties)
-                } else {
-                    mlxType = .object(properties: []) // Empty object
-                }
-            default:
-                mlxType = .string
-            }
+            let mlxType = convertToToolParameterType(from: type, value: value)
             
             var extraProperties: [String: Any] = [:]
             if let enumValues = value["enum"] as? [String] {
@@ -197,6 +144,69 @@ public final actor MLXClient: LLMClient {
             } else {
                 return ToolParameter.optional(key, type: mlxType, description: description, extraProperties: extraProperties.isEmpty ? [:] : extraProperties)
             }
+        }
+    }
+    
+    private func convertToToolParameterType(from type: String, value: [String: any Sendable]) -> ToolParameterType {
+        switch type {
+        case "string":
+            return .string
+        case "integer", "number":
+            return .int
+        case "boolean":
+            return .bool
+        case "array":
+            return convertArrayType(from: value)
+        case "object":
+            return convertObjectType(from: value)
+        default:
+            return .string
+        }
+    }
+    
+    private func convertArrayType(from value: [String: any Sendable]) -> ToolParameterType {
+        guard let items = value["items"] as? [String: any Sendable],
+              let itemType = items["type"] as? String else {
+            return .array(elementType: .string)
+        }
+        
+        let elementType: ToolParameterType
+        switch itemType {
+        case "string":
+            elementType = .string
+        case "integer":
+            elementType = .int
+        case "number":
+            elementType = .double
+        case "boolean":
+            elementType = .bool
+        case "object":
+            // For array of objects, parse the object schema
+            if let objectProperties = items["properties"] as? [String: [String: any Sendable]] {
+                let mlxProperties = convertParametersToMLXFormat([
+                    "properties": objectProperties as [String: any Sendable],
+                    "required": (items["required"] as? [String] ?? []) as [String] as any Sendable
+                ])
+                elementType = .object(properties: mlxProperties)
+            } else {
+                elementType = .object(properties: [])
+            }
+        default:
+            elementType = .string
+        }
+        
+        return .array(elementType: elementType)
+    }
+    
+    private func convertObjectType(from value: [String: any Sendable]) -> ToolParameterType {
+        if let objectProperties = value["properties"] as? [String: [String: any Sendable]] {
+            let mlxProperties = convertParametersToMLXFormat([
+                "properties": objectProperties as [String: any Sendable],
+                "required": (value["required"] as? [String] ?? []) as [String] as any Sendable
+            ])
+            return .object(properties: mlxProperties)
+        } else {
+            return .object(properties: [])
         }
     }
     
@@ -244,6 +254,7 @@ public final actor MLXClient: LLMClient {
                     }
                     
                     for try await generation in stream {
+                        await pauseHandler.checkPauseState()
                         switch generation {
                         case let .chunk(text):
                             continuation.yield(.text(text))
@@ -266,6 +277,23 @@ public final actor MLXClient: LLMClient {
                     continuation.finish(throwing: error)
                 }
             }
+        }
+    }
+    
+    /// Pauses any ongoing text generation
+    public func pauseGeneration() async {
+        await pauseHandler.pause()
+    }
+    
+    /// Resumes previously paused text generation
+    public func resumeGeneration() async {
+        await pauseHandler.resume()
+    }
+    
+    /// Whether the generation is currently paused
+    public var isGenerationPaused: Bool {
+        get async {
+            await pauseHandler.isPaused
         }
     }
 }

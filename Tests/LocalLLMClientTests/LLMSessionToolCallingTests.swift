@@ -259,7 +259,7 @@ struct LLMSessionToolCallingTests {
             }
             
             func call(arguments: Arguments) async throws -> ToolOutput {
-                try await Task.sleep(nanoseconds: UInt64(executionTime * 1_000_000_000))
+                try await Task.sleep(for: .seconds(executionTime))
                 return ToolOutput(data: ["task": arguments.task, "status": "completed"])
             }
         }
@@ -310,7 +310,7 @@ struct LLMSessionToolCallingTests {
             
             func call(arguments: Arguments) async throws -> ToolOutput {
                 do {
-                    try await Task.sleep(nanoseconds: UInt64(arguments.duration * 1_000_000_000))
+                    try await Task.sleep(for: .seconds(arguments.duration))
                     return ToolOutput(data: ["status": "completed"])
                 } catch is CancellationError {
                     return ToolOutput(data: ["status": "cancelled"])
@@ -343,7 +343,7 @@ struct LLMSessionToolCallingTests {
         }
         
         // Give it time to start
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1s
+        try await Task.sleep(for: .milliseconds(100))
         
         // Cancel the task
         task.cancel()

@@ -187,6 +187,23 @@ public final class LlamaClient: LLMClient {
             return "</tool_call>"
         }
     }
+    
+    /// Pauses any ongoing text generation
+    public func pauseGeneration() async {
+        await context.pauseHandler.pause()
+    }
+    
+    /// Resumes previously paused text generation
+    public func resumeGeneration() async {
+        await context.pauseHandler.resume()
+    }
+    
+    /// Whether the generation is currently paused
+    public var isGenerationPaused: Bool {
+        get async {
+            await context.pauseHandler.isPaused
+        }
+    }
 }
 
 public extension LocalLLMClient {
