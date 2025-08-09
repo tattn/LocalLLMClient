@@ -3,6 +3,7 @@ import Foundation
 import LocalLLMClientCore
 import LocalLLMClientLlama
 import LocalLLMClientTestUtilities
+import LocalLLMClientUtility
 
 extension ModelTests {
     @Suite(.serialized, .timeLimit(.minutes(5)))
@@ -111,6 +112,32 @@ extension ModelTests {
             if let lastArgs = weatherTool.lastArguments {
                 #expect(lastArgs.location.lowercased().contains("paris"), "Tool should have been called with Paris as location")
             }
+        }
+        
+        @Test
+        func localModelLoading() async throws {
+            // First download the model to ensure we have a local copy
+            let info = LocalLLMClient.modelInfo(for: .general, modelSize: .light)
+            let downloader = FileDownloader(source: FileDownloader.Source.huggingFace(id: info.id, globs: [info.model]))
+            
+            // Download if not already downloaded
+            if !downloader.isDownloaded {
+                try await downloader.download()
+            }
+            
+            // Get the local path
+            let modelPath = downloader.destination.appending(component: info.model)
+            
+            // Create a session with the local model
+            let localModel = LLMSession.LocalModel.llama(url: modelPath)
+            let session = LLMSession(model: localModel)
+            
+            // Test that it works
+            let response = try await session.respond(to: "Hi, can you say hello?")
+            print("Local model response: \(response)")
+            
+            #expect(!response.isEmpty, "Local model should generate a response")
+            #expect(response.lowercased().contains("hello") || response.lowercased().contains("hi"), "Response should contain a greeting")
         }
     }
 }

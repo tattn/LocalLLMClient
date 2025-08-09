@@ -22,3 +22,20 @@ public extension LLMSession.DownloadModel {
         )
     }
 }
+
+@available(macOS 14.0, iOS 17.0, watchOS 10.0, tvOS 17.0, *)
+public extension LLMSession.LocalModel {
+    /// Create an MLX model from local file path
+    static func mlx(
+        url: URL,
+        parameter: MLXClient.Parameter = .default
+    ) -> LLMSession.LocalModel {
+        return LLMSession.LocalModel(
+            makeClient: { tools in
+                try await AnyLLMClient(
+                    LocalLLMClient.mlx(url: url, parameter: parameter, tools: tools.map { $0.underlyingTool })
+                )
+            }
+        )
+    }
+}
