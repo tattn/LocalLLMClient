@@ -117,16 +117,10 @@ extension ModelTests {
         @Test
         func localModelLoading() async throws {
             // First download the model to ensure we have a local copy
+            // First download the model to ensure we have a local copy
             let info = LocalLLMClient.modelInfo(for: .general, modelSize: .light)
-            let downloader = FileDownloader(source: FileDownloader.Source.huggingFace(id: info.id, globs: [info.model]))
-            
-            // Download if not already downloaded
-            if !downloader.isDownloaded {
-                try await downloader.download()
-            }
-            
-            // Get the local path
-            let modelPath = downloader.destination.appending(component: info.model)
+            let destinationURL = try await LocalLLMClient.downloadModel(testType: .general, modelSize: .light)
+            let modelPath = destinationURL.appending(component: info.model)
             
             // Create a session with the local model
             let localModel = LLMSession.LocalModel.llama(url: modelPath)
