@@ -35,4 +35,27 @@ public extension LLMSession.DownloadModel {
     }
 }
 
+@available(macOS 14.0, iOS 17.0, watchOS 10.0, tvOS 17.0, *)
+public extension LLMSession.LocalModel {
+    /// Create a llama.cpp model from local file paths
+    static func llama(
+        url: URL,
+        mmprojURL: URL? = nil,
+        parameter: LlamaClient.Parameter = .default
+    ) -> LLMSession.LocalModel {
+        return LLMSession.LocalModel(
+            makeClient: { tools in
+                try await AnyLLMClient(
+                    LocalLLMClient.llama(
+                        url: url,
+                        mmprojURL: mmprojURL,
+                        parameter: parameter,
+                        tools: tools.map { $0.underlyingTool }
+                    )
+                )
+            }
+        )
+    }
+}
+
 

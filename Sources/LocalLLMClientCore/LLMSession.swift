@@ -47,6 +47,11 @@ extension LLMSession {
     public convenience init(model: LLMSession.SystemModel, messages: [LLMInput.Message] = [], tools: [any LLMTool] = []) {
         self.init(model: model, messages: messages, tools: tools)
     }
+    
+    @_disfavoredOverload
+    public convenience init(model: LLMSession.LocalModel, messages: [LLMInput.Message] = [], tools: [any LLMTool] = []) {
+        self.init(model: model, messages: messages, tools: tools)
+    }
 }
 
 @available(macOS 14.0, iOS 17.0, watchOS 10.0, tvOS 17.0, *)
@@ -291,6 +296,18 @@ public extension LLMSession {
 
         public func downloadModel(onProgress: @Sendable @escaping (Double) async -> Void = { _ in }) async throws {
             try await downloader.download(onProgress: onProgress)
+        }
+    }
+    
+    struct LocalModel: Model {
+        public let makeClient: @Sendable ([AnyLLMTool]) async throws -> AnyLLMClient
+        
+        package init(makeClient: @Sendable @escaping ([AnyLLMTool]) async throws -> AnyLLMClient) {
+            self.makeClient = makeClient
+        }
+        
+        public func prewarm() async throws {
+            // No prewarming needed for local models
         }
     }
 }
