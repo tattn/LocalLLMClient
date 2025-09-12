@@ -13,7 +13,7 @@ public struct ToolArgumentEnumMacro: ExtensionMacro {
         in context: some MacroExpansionContext
     ) throws -> [ExtensionDeclSyntax] {
         // Ensure the macro is applied to an enum
-        guard let enumDecl = declaration.as(EnumDeclSyntax.self) else {
+        guard declaration.as(EnumDeclSyntax.self) != nil else {
             context.diagnose(
                 Diagnostic(
                     node: node,
@@ -24,9 +24,10 @@ public struct ToolArgumentEnumMacro: ExtensionMacro {
         }
         
         // Create extension with the required conformances
+        // Use the 'type' parameter which contains the fully qualified type name
         let extensionDecl = try ExtensionDeclSyntax(
             """
-            extension \(enumDecl.name): Decodable, ToolArgumentType, CaseIterable {}
+            extension \(type): Decodable, ToolArgumentType, CaseIterable {}
             """
         )
         

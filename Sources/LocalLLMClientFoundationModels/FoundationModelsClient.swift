@@ -44,8 +44,8 @@ public final actor FoundationModelsClient: LLMClient {
                     let session = LanguageModelSession(model: model, transcript: input.makeTranscript(generationOptions: generationOptions))
                     for try await text in session.streamResponse(to: input.makePrompt(), options: generationOptions) {
                         await pauseHandler.checkPauseState()
-                        continuation.yield(String(text[(position ?? text.startIndex)...]))
-                        position = text.endIndex
+                        continuation.yield(String(text.content[(position ?? text.content.startIndex)...]))
+                        position = text.content.endIndex
                     }
                 } catch {
                 }
