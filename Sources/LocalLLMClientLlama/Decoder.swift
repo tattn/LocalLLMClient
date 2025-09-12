@@ -16,7 +16,7 @@ public extension Context {
         }
 
         if parameter.context < position + batch.n_tokens {
-            throw LLMError.failedToDecode(reason: "context size exceeded")
+            throw LLMError.failedToDecode(reason: "context size exceeded[\(parameter.context) < \(position + batch.n_tokens)]")
         }
 
         batch.logits[Int(batch.n_tokens) - 1] = 1

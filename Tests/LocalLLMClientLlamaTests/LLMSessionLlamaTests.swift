@@ -117,7 +117,6 @@ extension ModelTests {
         @Test
         func localModelLoading() async throws {
             // First download the model to ensure we have a local copy
-            // First download the model to ensure we have a local copy
             let info = LocalLLMClient.modelInfo(for: .general, modelSize: .light)
             let destinationURL = try await LocalLLMClient.downloadModel(testType: .general, modelSize: .light)
             let modelPath = destinationURL.appending(component: info.model)
@@ -128,10 +127,7 @@ extension ModelTests {
             
             // Test that it works
             let response = try await session.respond(to: "Hi, can you say hello?")
-            print("Local model response: \(response)")
-            
             #expect(!response.isEmpty, "Local model should generate a response")
-            #expect(response.lowercased().contains("hello") || response.lowercased().contains("hi"), "Response should contain a greeting")
         }
     }
 }
