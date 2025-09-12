@@ -42,14 +42,16 @@ extension ModelTests.LocalLLMClientLlamaTests {
         #expect(!result.isEmpty)
     }
 
-    @Test @MainActor
+    @Test
     func cancel() async throws {
         var counter = 0
         var breaked = false
 
+        let client = try await LocalLLMClient.llama()
+
         var task: Task<Void, Error>?
         task = Task {
-            for try await _ in try await LocalLLMClient.llama().textStream(from: prompt) {
+            for try await _ in try await client.textStream(from: prompt) {
                 counter += 1
                 task?.cancel()
             }
