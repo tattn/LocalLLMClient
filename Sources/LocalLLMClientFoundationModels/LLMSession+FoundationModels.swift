@@ -14,7 +14,7 @@ public extension LLMSession.Model {
     ) -> LLMSession.SystemModel {
         return LLMSession.SystemModel(
             prewarm: { LanguageModelSession(model: model).prewarm() },
-            makeClient: {
+            makeClient: { _ in 
                 try await AnyLLMClient(
                     LocalLLMClient.foundationModels(model: model, parameter: parameter)
                 )
