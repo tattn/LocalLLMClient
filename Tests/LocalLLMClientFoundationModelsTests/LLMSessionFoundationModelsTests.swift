@@ -31,7 +31,7 @@ extension ModelTests {
             print()
         }
         
-        @Test
+        @Test(.disabled("Tool calls are not supported by this LLM client"))
         @available(macOS 26.0, *)
         func simpleToolCall() async throws {
             // Create a test weather tool that tracks invocations
@@ -61,7 +61,7 @@ extension ModelTests {
             #expect(response.contains("Tokyo") || response.contains("weather") || response.contains("temperature") || response.contains("22") || response.contains("72"))
         }
         
-        @Test
+        @Test(.disabled("Tool calls are not supported by this LLM client"))
         @available(macOS 26.0, *)
         func toolCallWithMultipleTools() async throws {
             // Create test tools

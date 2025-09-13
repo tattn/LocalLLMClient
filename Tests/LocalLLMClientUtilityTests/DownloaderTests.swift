@@ -8,17 +8,17 @@ let canImportFoundationNetworking = false
 #endif
 @testable import LocalLLMClientUtility
 
-struct DownloaderTests {
-    
+actor DownloaderTests {
+
     /// Creates a mock session configuration with MockURLProtocol
-    private func mockSessionConfiguration() -> URLSessionConfiguration {
+    private nonisolated func mockSessionConfiguration() -> URLSessionConfiguration {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         return configuration
     }
     
     /// Helper function to create a temporary directory for test file downloads
-    private func createTemporaryDirectory() -> URL {
+    private nonisolated func createTemporaryDirectory() -> URL {
         let tempDirURL = FileManager.default.temporaryDirectory.appendingPathComponent(
             "DownloaderTests_\(UUID().uuidString)",
             isDirectory: true
@@ -31,7 +31,7 @@ struct DownloaderTests {
     }
     
     /// Cleanup temporary files after tests
-    private func cleanupTemporaryDirectory(_ url: URL) {
+    private nonisolated func cleanupTemporaryDirectory(_ url: URL) {
         try? FileManager.default.removeItem(at: url)
     }
     

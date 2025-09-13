@@ -48,7 +48,7 @@ final class Downloader {
             }
         }
 #else
-        observer = progress.observe(\.fractionCompleted, options: [.initial, .new]) { progress, change in
+        observer = progress.observe(\.fractionCompleted, options: [.initial, .new]) { progress, _ in
             Task {
                 await action(progress)
             }
@@ -177,7 +177,7 @@ extension Downloader.ChildDownloader {
             didWriteData bytesWritten: Int64,
             totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64
         ) {
-            if bytesWritten == totalBytesWritten {
+            if totalBytesExpectedToWrite > 0 && progress.totalUnitCount != totalBytesExpectedToWrite {
                 progress.totalUnitCount = totalBytesExpectedToWrite
             }
             progress.completedUnitCount = totalBytesWritten
