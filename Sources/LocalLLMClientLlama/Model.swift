@@ -1,5 +1,6 @@
 import Foundation
-import LocalLLMClient
+import LocalLLMClientCore
+import LocalLLMClientLlamaC
 import Jinja
 
 final class Model {
@@ -23,7 +24,7 @@ final class Model {
 
         self.model = model
 
-        let chatTemplate = getString(capacity: 2048) { buffer, length in
+        let chatTemplate = getString(capacity: 4096) { buffer, length in
             // LLM_KV_TOKENIZER_CHAT_TEMPLATE
             llama_model_meta_val_str(model, "tokenizer.chat_template", buffer, length)
         }
@@ -54,6 +55,17 @@ final class Model {
             }
             partialResult[key] = value
         }
+    }
+
+    func chatFormat() -> common_chat_format {
+        let inputs = create_chat_templates_inputs()
+        defer { 
+            free_chat_templates_inputs(inputs)
+        }
+
+        add_message_to_inputs(inputs, "user", "test")
+        let params = apply_chat_templates_with_model(model, inputs)
+        return params.format
     }
 }
 

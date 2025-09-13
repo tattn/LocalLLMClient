@@ -1,14 +1,16 @@
 // swift-tools-version: 6.1
 
 import PackageDescription
+import CompilerPluginSupport
 
-let llamaVersion = "b5666"
+let llamaVersion = "b6451"
 
 // MARK: - Package Dependencies
 
 var packageDependencies: [Package.Dependency] = [
     .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.4.0")),
-    .package(url: "https://github.com/johnmai-dev/Jinja", .upToNextMinor(from: "1.1.0")),
+    .package(url: "https://github.com/johnmai-dev/Jinja", .upToNextMinor(from: "1.2.0")),
+    .package(url: "https://github.com/swiftlang/swift-syntax", from: "600.0.0")
 ]
 
 #if os(iOS) || os(macOS)
@@ -27,7 +29,6 @@ var packageProducts: [Product] = [
 
 #if os(iOS) || os(macOS)
 packageProducts.append(contentsOf: [
-    .executable(name: "localllm", targets: ["LocalLLMCLI"]),
     .library(name: "LocalLLMClientLlama", targets: ["LocalLLMClientLlama"]),
     .library(name: "LocalLLMClientMLX", targets: ["LocalLLMClientMLX"]),
     .library(name: "LocalLLMClientFoundationModels", targets: ["LocalLLMClientFoundationModels"]),
@@ -42,8 +43,51 @@ packageProducts.append(contentsOf: [
 // MARK: - Package Targets
 
 var packageTargets: [Target] = [
-    .target(name: "LocalLLMClient", dependencies: ["LocalLLMClientUtility"]),
+    .target(
+        name: "LocalLLMClient",
+        dependencies: [
+            "LocalLLMClientCore",
+            "LocalLLMClientMacros"
+        ]
+    ),
+    .testTarget(
+        name: "LocalLLMClientTests",
+        dependencies: ["LocalLLMClient", "LocalLLMClientTestUtilities"]
+    ),
+    
+    .target(
+        name: "LocalLLMClientCore", 
+        dependencies: [
+            "LocalLLMClientUtility"
+        ]
+    ),
+
     .target(name: "LocalLLMClientUtility"),
+    .target(
+        name: "LocalLLMClientTestUtilities",
+        dependencies: ["LocalLLMClientCore", "LocalLLMClientMacros"]
+    ),
+    
+    .macro(
+        name: "LocalLLMClientMacrosPlugin",
+        dependencies: [
+            .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+            .product(name: "SwiftCompilerPlugin", package: "swift-syntax")
+        ]
+    ),
+    .target(
+        name: "LocalLLMClientMacros",
+        dependencies: ["LocalLLMClientMacrosPlugin", "LocalLLMClientCore"]
+    ),
+    .testTarget(
+        name: "LocalLLMClientMacrosTests",
+        dependencies: [
+            "LocalLLMClientCore",
+            "LocalLLMClientMacros",
+            "LocalLLMClientMacrosPlugin",
+            .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+        ]
+    )
 ]
 
 #if os(iOS) || os(macOS)
@@ -56,6 +100,9 @@ packageTargets.append(contentsOf: [
             "LocalLLMClientFoundationModels",
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
         ],
+        swiftSettings: [
+            .interoperabilityMode(.Cxx)
+        ],
         linkerSettings: [
             .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path"])
         ]
@@ -64,31 +111,36 @@ packageTargets.append(contentsOf: [
     .target(
         name: "LocalLLMClientLlama",
         dependencies: [
-            "LocalLLMClient",
+            "LocalLLMClientCore",
             "LocalLLMClientLlamaC",
             .product(name: "Jinja", package: "Jinja")
         ],
         resources: [.process("Resources")],
-        swiftSettings: Context.environment["BUILD_DOCC"] == nil ? [] : [
+        swiftSettings: (Context.environment["BUILD_DOCC"] == nil ? [] : [
             .define("BUILD_DOCC")
+        ]) + [
+            .interoperabilityMode(.Cxx)
         ]
     ),
     .testTarget(
         name: "LocalLLMClientLlamaTests",
-        dependencies: ["LocalLLMClientLlama"]
+        dependencies: ["LocalLLMClientLlama", "LocalLLMClientTestUtilities"],
+        swiftSettings: [
+            .interoperabilityMode(.Cxx)
+        ]
     ),
 
     .target(
         name: "LocalLLMClientMLX",
         dependencies: [
-            "LocalLLMClient",
+            "LocalLLMClientCore",
             .product(name: "MLXLLM", package: "mlx-swift-examples"),
             .product(name: "MLXVLM", package: "mlx-swift-examples"),
         ],
     ),
     .testTarget(
         name: "LocalLLMClientMLXTests",
-        dependencies: ["LocalLLMClientMLX"]
+        dependencies: ["LocalLLMClientMLX", "LocalLLMClientTestUtilities"]
     ),
     .target(
         name: "LocalLLMClientFoundationModels",
@@ -96,22 +148,29 @@ packageTargets.append(contentsOf: [
     ),
     .testTarget(
         name: "LocalLLMClientFoundationModelsTests",
-        dependencies: ["LocalLLMClientFoundationModels"]
+        dependencies: ["LocalLLMClientFoundationModels", "LocalLLMClientTestUtilities"]
     ),
 
     .binaryTarget(
         name: "LocalLLMClientLlamaFramework",
         url:
             "https://github.com/ggml-org/llama.cpp/releases/download/\(llamaVersion)/llama-\(llamaVersion)-xcframework.zip",
-        checksum: "4b8af9136676332288de74fb5bc216906655014534537eff115d1e75dbbc9157"
+        checksum: "e125f20ad15f6c664e5cd8ea0b7c1d786761d8e3663bce5565f45d52b90dd39a"
     ),
     .target(
         name: "LocalLLMClientLlamaC",
         dependencies: ["LocalLLMClientLlamaFramework"],
         exclude: ["exclude"],
         cSettings: [
-            .unsafeFlags(["-w"])
+            .unsafeFlags(["-w"]),
+            .headerSearchPath(".")
         ],
+        cxxSettings: [
+            .headerSearchPath(".")
+        ],
+        swiftSettings: [
+            .interoperabilityMode(.Cxx)
+        ]
     ),
 
     .testTarget(
@@ -130,6 +189,9 @@ packageTargets.append(contentsOf: [
             "LocalLLMClientLlama",
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
         ],
+        swiftSettings: [
+            .interoperabilityMode(.Cxx)
+        ],
         linkerSettings: [
             .unsafeFlags([
                 Context.environment["LDFLAGS", default: ""],
@@ -140,15 +202,21 @@ packageTargets.append(contentsOf: [
     .target(
         name: "LocalLLMClientLlama",
         dependencies: [
-            "LocalLLMClient",
+            "LocalLLMClientCore",
             "LocalLLMClientLlamaC",
             .product(name: "Jinja", package: "Jinja")
         ],
-        resources: [.process("Resources")]
+        resources: [.process("Resources")],
+        swiftSettings: [
+            .interoperabilityMode(.Cxx)
+        ]
     ),
     .testTarget(
         name: "LocalLLMClientLlamaTests",
-        dependencies: ["LocalLLMClientLlama"],
+        dependencies: ["LocalLLMClientLlama", "LocalLLMClientTestUtilities"],
+        swiftSettings: [
+            .interoperabilityMode(.Cxx)
+        ],
         linkerSettings: [
             .unsafeFlags([
                 Context.environment["LDFLAGS", default: ""],
@@ -160,7 +228,14 @@ packageTargets.append(contentsOf: [
         name: "LocalLLMClientLlamaC",
         exclude: ["exclude"],
         cSettings: [
-            .unsafeFlags(["-w"])
+            .unsafeFlags(["-w"]),
+            .headerSearchPath(".")
+        ],
+        cxxSettings: [
+            .headerSearchPath(".")
+        ],
+        swiftSettings: [
+            .interoperabilityMode(.Cxx)
         ],
         linkerSettings: [
             .unsafeFlags([
@@ -184,5 +259,5 @@ let package = Package(
     products: packageProducts,
     dependencies: packageDependencies,
     targets: packageTargets,
-    cxxLanguageStandard: .cxx20
+    cxxLanguageStandard: .cxx17
 )

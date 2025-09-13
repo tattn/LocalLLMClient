@@ -7,13 +7,13 @@ import LocalLLMClientUtility
 /// Mock URLProtocol for testing download functionality without actual network requests
 final class MockURLProtocol: URLProtocol {
     /// Dictionary to store mock responses by URL
-    static let mockResponses: Locked<[URL: (data: Data, response: HTTPURLResponse, error: Error?)]> = .init([:])
+    static let mockResponses: Locked<[URL: (data: Data, response: HTTPURLResponse, error: Error?, delay: TimeInterval?)]> = .init([:])
 
     /// Storage for downloaded files
     static let downloadedFiles: Locked<[URL: URL]> = .init([:])
 
     /// Registers a mock response for a specific URL
-    static func setResponse(for url: URL, with data: Data, statusCode: Int = 200, error: Error? = nil) {
+    static func setResponse(for url: URL, with data: Data, statusCode: Int = 200, error: Error? = nil, delay: TimeInterval? = nil) {
         let response = HTTPURLResponse(
             url: url,
             statusCode: statusCode,
@@ -21,7 +21,7 @@ final class MockURLProtocol: URLProtocol {
             headerFields: ["Content-Length": "\(data.count)"]
         )!
         mockResponses.withLock {
-            $0[url] = (data, response, error)
+            $0[url] = (data, response, error, delay)
         }
     }
 
@@ -43,7 +43,9 @@ final class MockURLProtocol: URLProtocol {
     }
 
     override func startLoading() {
-        guard let url = request.url, let client else {
+        guard
+            let url = request.url?.absoluteString.removingPercentEncoding.flatMap(URL.init),
+            let client else {
             client?.urlProtocolDidFinishLoading(self)
             return
         }
@@ -70,25 +72,52 @@ final class MockURLProtocol: URLProtocol {
             $0[url] = tempFileURL
         }
 
-        // Report download progress
+        // Report download progress with optional delay
         let totalBytes = mockData.data.count
-        let chunkSize = totalBytes / 10
-
-        var offset = 0
-        while offset < totalBytes {
-            // Create a chunk of data to simulate progressive loading
-            let currentChunkSize = min(chunkSize, totalBytes - offset)
-            let startIndex = offset
-            let endIndex = offset + currentChunkSize
-            let chunkData = mockData.data[startIndex..<endIndex]
-            client.urlProtocol(self, didLoad: chunkData)
-            offset += currentChunkSize
+        let chunkSize = max(1, totalBytes / 10)
+        
+        if let delay = mockData.delay {
+            // Use dispatch queue for delay to avoid concurrency issues
+            DispatchQueue.global().asyncAfter(deadline: .now() + delay) { [weak self, weak client] in
+                guard let self = self, let client = client else { return }
+                self.sendDataInChunks(data: mockData.data, chunkSize: chunkSize, client: client, withDelay: true)
+            }
+        } else {
+            sendDataInChunks(data: mockData.data, chunkSize: chunkSize, client: client, withDelay: false)
         }
-
-        client.urlProtocolDidFinishLoading(self)
     }
 
     override func stopLoading() {
         // No action needed
+    }
+    
+    private func sendDataInChunks(data: Data, chunkSize: Int, client: URLProtocolClient, withDelay: Bool) {
+        var offset = 0
+        let totalBytes = data.count
+        
+        func sendNextChunk() {
+            guard offset < totalBytes else {
+                client.urlProtocolDidFinishLoading(self)
+                return
+            }
+            
+            let currentChunkSize = min(chunkSize, totalBytes - offset)
+            let startIndex = offset
+            let endIndex = offset + currentChunkSize
+            let chunkData = data[startIndex..<endIndex]
+            
+            client.urlProtocol(self, didLoad: chunkData)
+            offset += currentChunkSize
+            
+            if withDelay && offset < totalBytes {
+                DispatchQueue.global().asyncAfter(deadline: .now() + 0.05) {
+                    sendNextChunk()
+                }
+            } else {
+                sendNextChunk()
+            }
+        }
+        
+        sendNextChunk()
     }
 }

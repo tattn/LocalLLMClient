@@ -3,21 +3,21 @@ import LocalLLMClient
 import LocalLLMClientMLX
 
 struct ChatView: View {
-    @State var viewModel = ChatViewModel()
-    @State private var position = ScrollPosition(idType: ChatMessage.ID.self)
+    @State var viewModel: ChatViewModel
+    @State private var position = ScrollPosition(idType: LLMInput.Message.ID.self)
 
     @Environment(AI.self) private var ai
 
     var body: some View {
         VStack {
-            messageList
+            MessageList(messages: viewModel.messages)
 
             BottomBar(
                 text: $viewModel.inputText,
-                images: $viewModel.inputImages,
+                attachments: $viewModel.inputAttachments,
                 isGenerating: viewModel.isGenerating
             ) { _ in
-                viewModel.sendMessage(to: ai)
+                viewModel.sendMessage()
             } onCancel: {
                 viewModel.cancelGeneration()
             }
@@ -28,23 +28,44 @@ struct ChatView: View {
             ToolbarItem {
                 Menu {
                     Button("Clear Chat") {
-                        viewModel.clearMessages()
+                        ai.resetMessages()
                     }
+                    
+                    Divider()
+                    
+                    Button {
+                        Task {
+                            await ai.toggleTools()
+                        }
+                    } label: {
+                        HStack {
+                            Text("Tools calling")
+                            if ai.areToolsEnabled {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                    .disabled(!ai.model.supportsTools)
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
             }
         }
         .onChange(of: ai.model) { _, _ in
-            viewModel.clearMessages()
+            ai.resetMessages()
         }
     }
+}
 
-    @ViewBuilder
-    private var messageList: some View {
+struct MessageList: View {
+    let messages: [LLMInput.Message]
+
+    @State private var position = ScrollPosition(idType: LLMInput.Message.ID.self)
+
+    var body: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
-                ForEach(viewModel.messages) { message in
+                ForEach(messages.filter { $0.role != .system }) { message in
                     ChatBubbleView(message: message)
                         .id(message.id)
                 }
@@ -52,34 +73,35 @@ struct ChatView: View {
             .scrollTargetLayout()
             .padding(.horizontal)
         }
-        .onChange(of: viewModel.messages) { _, _ in
-            withAnimation {
-                position.scrollTo(edge: .bottom)
-            }
-        }
         .scrollPosition($position)
+        .onChange(of: messages) { _, _ in
+            position.scrollTo(edge: .bottom)
+        }
     }
 }
 
 struct ChatBubbleView: View {
-    let message: ChatMessage
-    
+    let message: LLMInput.Message
+
     var body: some View {
         let isUser = message.role == .user
 
         VStack(alignment: isUser ? .trailing : .leading) {
             LazyVGrid(columns: [.init(.adaptive(minimum: 100))], alignment: .leading) {
-                ForEach(message.images) { image in
-                    Image(llm: image.value)
-                        .resizable()
-                        .scaledToFit()
-                        .cornerRadius(16)
+                ForEach(message.attachments) { attachment in
+                    switch attachment.content {
+                    case let .image(image):
+                        Image(llm: image)
+                            .resizable()
+                            .scaledToFit()
+                            .cornerRadius(16)
+                    }
                 }
                 .scaleEffect(x: isUser ? -1 : 1)
             }
             .scaleEffect(x: isUser ? -1 : 1)
 
-            Text(message.text)
+            Text(message.content)
                 .padding(12)
                 .background(isUser ? Color.accentColor : .gray.opacity(0.2))
                 .foregroundColor(isUser ? .white : .primary)
@@ -91,17 +113,23 @@ struct ChatBubbleView: View {
 }
 
 #Preview("Text") {
-    NavigationStack {
-        ChatView(viewModel: .init(messages: [
-            .init(role: .user, text: "Hello"),
-            .init(role: .assistant, text: "Hi! How can I help you?"),
-            .init(role: .user, text: "Hello", images: [.preview, .preview2]),
+    @Previewable @State var ai: AI = {
+        let ai = AI()
+        ai.setSession(.init(model: .mlx(id: ""), messages: [
+            .user("Hello"),
+            .assistant("Hi! How can I help you?"),
+            .user("What is in these images?", attachments: [.imagePreview, .imagePreview2])
         ]))
+        return ai
+    }()
+
+    NavigationStack {
+        ChatView(viewModel: .init(ai: ai))
     }
-    .environment(AI())
+    .environment(ai)
 }
 
-extension ChatMessage.Image {
-    static let preview = try! Self.init(value: LLMInputImage(data: .init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.jpeg")!))!)
-    static let preview2 = try! Self.init(value: LLMInputImage(data: .init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/robot.png")!))!)
+extension LLMAttachment {
+    static let imagePreview = try! Self.image(LLMInputImage(data: .init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.jpeg")!))!)
+    static let imagePreview2 = try! Self.image(LLMInputImage(data: .init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/robot.png")!))!)
 }

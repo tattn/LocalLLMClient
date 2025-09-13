@@ -48,7 +48,7 @@ final class Downloader {
             }
         }
 #else
-        observer = progress.observe(\.fractionCompleted, options: [.initial, .new]) { progress, change in
+        observer = progress.observe(\.fractionCompleted, options: [.initial, .new]) { progress, _ in
             Task {
                 await action(progress)
             }
@@ -117,7 +117,10 @@ extension Downloader {
             delegate.isDownloading.withLock { $0 = true }
 
             try? FileManager.default.createDirectory(at: destinationURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let task = existingTask ?? session.downloadTask(with: url)
+            var request = URLRequest(url: url)
+            // https://stackoverflow.com/questions/12235617/mbprogresshud-with-nsurlconnection/12599242#12599242
+            request.addValue("", forHTTPHeaderField: "Accept-Encoding")
+            let task = existingTask ?? session.downloadTask(with: request)
             task.taskDescription = destinationURL.absoluteString
             task.priority = URLSessionTask.highPriority
             task.resume()
@@ -139,8 +142,7 @@ extension Downloader.ChildDownloader {
 #endif
 
             // Move the downloaded file to the permanent location
-            guard let taskDescription = downloadTask.taskDescription,
-                  let destinationURL = URL(string: taskDescription) else {
+            guard let destinationURL = downloadTask.destinationURL else {
                 return
             }
             try? FileManager.default.removeItem(at: destinationURL)
@@ -158,11 +160,15 @@ extension Downloader.ChildDownloader {
         func urlSession(
             _ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?
         ) {
-#if DEBUG
             if let error {
+#if DEBUG
                 print("Download failed with error: \(error.localizedDescription)")
-            }
 #endif
+                if let url = task.destinationURL {
+                    // Attempt to remove the file if it exists
+                    try? FileManager.default.removeItem(at: url)
+                }
+            }
             isDownloading.withLock { $0 = false }
         }
 
@@ -171,10 +177,17 @@ extension Downloader.ChildDownloader {
             didWriteData bytesWritten: Int64,
             totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64
         ) {
-            if bytesWritten == totalBytesWritten {
+            if totalBytesExpectedToWrite > 0 && progress.totalUnitCount != totalBytesExpectedToWrite {
                 progress.totalUnitCount = totalBytesExpectedToWrite
             }
             progress.completedUnitCount = totalBytesWritten
         }
+    }
+}
+
+private extension URLSessionTask {
+    var destinationURL: URL? {
+        guard let taskDescription else { return nil }
+        return URL(string: taskDescription)
     }
 }

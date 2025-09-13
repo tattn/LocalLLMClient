@@ -33,7 +33,16 @@ package extension Sampler {
         llama_sampler_apply(self, &tokenDataArray)
         assert(tokenDataArray.selected != -1)
 
-        let token = tokenDataArray.data[Int(tokenDataArray.selected)].id
+        var data = tokenDataArray.data[Int(tokenDataArray.selected)]
+        if data.logit.isInfinite {
+            if let grammer = context.grammer {
+                llama_sampler_apply(grammer, &tokenDataArray)
+            }
+            llama_sampler_apply(self, &tokenDataArray)
+            data = tokenDataArray.data[Int(tokenDataArray.selected)]
+            assert(tokenDataArray.selected != -1)
+        }
+        let token = data.id
         llama_sampler_accept(self, token)
         return token
     }

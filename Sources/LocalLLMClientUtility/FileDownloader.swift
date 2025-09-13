@@ -39,7 +39,7 @@ public struct FileDownloader: FileDownloadable {
     }
 
     public var isDownloaded: Bool {
-        source.isDownloaded(for: rootDestination)
+        source.isDownloaded(for: destination)
     }
 
     /// Specifies the source from which files are to be downloaded.
@@ -65,11 +65,23 @@ public struct FileDownloader: FileDownloadable {
                 return false
             }
 
+            // Check if all files in metadata exist in the destination directory
             let fileURLs = FileManager.default.enumerator(at: destination, includingPropertiesForKeys: nil)?
                 .compactMap { $0 as? URL } ?? []
+            let filesOnDisk = Dictionary(uniqueKeysWithValues: fileURLs.map { ($0.lastPathComponent, $0) })
+
             return meta.files.allSatisfy { file in
-                fileURLs.contains { url in
-                    file.name == url.lastPathComponent
+                guard let fileURL = filesOnDisk[file.name] else {
+                    return false
+                }
+
+                // Check if it matches the file size
+                do {
+                    let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
+                    let fileSize = attributes[.size] as? Int ?? 0
+                    return fileSize == file.size
+                } catch {
+                    return false
                 }
             }
         }
@@ -91,8 +103,8 @@ public struct FileDownloader: FileDownloadable {
             switch self {
             case let .huggingFace(id, globs):
                 let client = HuggingFaceAPI(repo: .init(id: id))
-                let filenames = try await client.getFilenames(matching: globs)
-                let metadata = FilesMetadata(files: filenames.map { FilesMetadata.FileMetadata(name: $0) })
+                let fileInfos = try await client.getFileInfo(matching: globs)
+                let metadata = FilesMetadata(files: fileInfos.map { FilesMetadata.FileMetadata(name: $0.filename, size: $0.size) })
                 try metadata.save(to: destination)
                 return metadata
             }
@@ -157,7 +169,7 @@ public struct FileDownloader: FileDownloadable {
     /// - Parameter onProgress: An asynchronous closure that is called with the download progress (a `Double` between 0.0 and 1.0). Defaults to an empty closure.
     /// - Throws: An error if saving metadata fails or if the `HubApi` encounters an issue during the download.
     public func download(onProgress: @Sendable @escaping (Double) async -> Void = { _ in }) async throws {
-        let destination = source.destination(for: rootDestination)
+        let destination = self.destination
         guard !source.isDownloaded(for: destination) else {
             await onProgress(1.0)
             return
@@ -178,6 +190,7 @@ struct FilesMetadata: Codable, Sendable {
 
     struct FileMetadata: Codable, Sendable {
         let name: String
+        let size: Int
     }
 
     static func load(from url: URL) throws -> FilesMetadata {

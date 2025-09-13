@@ -7,7 +7,7 @@ import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
-import LocalLLMClient
+import LocalLLMClientCore
 import LocalLLMClientLlama
 #if canImport(LocalLLMClientMLX)
 import LocalLLMClientMLX
@@ -76,8 +76,8 @@ struct LocalLLMCommand: AsyncParsableCommand {
                     temperature: temperature,
                     topK: topK,
                     topP: topP,
-                ),
-                verbose: verbose
+                    options: .init(verbose: verbose)
+                )
             )
         case .mlx:
 #if canImport(LocalLLMClientMLX)

@@ -5,7 +5,7 @@
 #else
 @preconcurrency import LocalLLMClientLlamaC
 #endif
-import LocalLLMClient
+import LocalLLMClientCore
 
 public extension Context {
     @discardableResult
@@ -13,6 +13,10 @@ public extension Context {
         let numberOfTokens = batch.n_tokens
         guard batch.n_tokens > 0 else {
             return 0 // no data to decode
+        }
+
+        if parameter.context < position + batch.n_tokens {
+            throw LLMError.failedToDecode(reason: "context size exceeded[\(parameter.context) < \(position + batch.n_tokens)]")
         }
 
         batch.logits[Int(batch.n_tokens) - 1] = 1

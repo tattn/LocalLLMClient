@@ -45,8 +45,8 @@ struct HuggingFaceAPITests {
         let repoInfo = """
         {
             "siblings": [
-                {"rfilename": "test1.bin"},
-                {"rfilename": "test2.bin"}
+                {"rfilename": "test1.bin", "size": 1024},
+                {"rfilename": "test2.bin", "size": 2048}
             ]
         }
         """
@@ -54,7 +54,7 @@ struct HuggingFaceAPITests {
         let testFile1Data = "Test file 1 content".data(using: .utf8)!
         let testFile2Data = "Test file 2 content".data(using: .utf8)!
         
-        let apiURL = URL(string: "https://huggingface.co/api/models/\(#function)/revision/main")!
+        let apiURL = URL(string: "https://huggingface.co/api/models/\(#function)/revision/main?blobs=true")!
         let file1URL = URL(string: "https://huggingface.co/\(#function)/resolve/main/test1.bin")!
         let file2URL = URL(string: "https://huggingface.co/\(#function)/resolve/main/test2.bin")!
 

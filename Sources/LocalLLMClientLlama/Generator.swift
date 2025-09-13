@@ -6,7 +6,7 @@ import Foundation
 #else
 @preconcurrency import LocalLLMClientLlamaC
 #endif
-import LocalLLMClient
+import LocalLLMClientCore
 
 public struct Generator: AsyncSequence, Sendable {
     public init(context: Context) {
@@ -34,6 +34,8 @@ public struct TokenGenerator: AsyncIteratorProtocol {
             updatePromptCache()
             return nil
         }
+        
+        await context.pauseHandler.checkPauseState()
 
         try context.decode()
 

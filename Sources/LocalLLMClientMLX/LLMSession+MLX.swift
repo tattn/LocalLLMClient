@@ -1,18 +1,39 @@
-import LocalLLMClient
+import LocalLLMClientCore
 import LocalLLMClientUtility
 import Foundation
 
-public extension LLMSession.Model {
+@available(macOS 14.0, iOS 17.0, watchOS 10.0, tvOS 17.0, *)
+public extension LLMSession.DownloadModel {
     static func mlx(
         id: String,
+        destination: URL? = nil,
         parameter: MLXClient.Parameter = .default
     ) -> LLMSession.DownloadModel {
         let source = FileDownloader.Source.huggingFace(id: id, globs: .mlx)
+        let rootDestination = destination ?? URL.defaultRootDirectory
         return LLMSession.DownloadModel(
             source: source,
-            makeClient: {
+            destination: rootDestination,
+            makeClient: { tools in
                 try await AnyLLMClient(
-                    LocalLLMClient.mlx(url: source.destination(for: URL.defaultRootDirectory), parameter: parameter)
+                    LocalLLMClient.mlx(url: source.destination(for: rootDestination), parameter: parameter, tools: tools.map { $0.underlyingTool })
+                )
+            }
+        )
+    }
+}
+
+@available(macOS 14.0, iOS 17.0, watchOS 10.0, tvOS 17.0, *)
+public extension LLMSession.LocalModel {
+    /// Create an MLX model from local file path
+    static func mlx(
+        url: URL,
+        parameter: MLXClient.Parameter = .default
+    ) -> LLMSession.LocalModel {
+        return LLMSession.LocalModel(
+            makeClient: { tools in
+                try await AnyLLMClient(
+                    LocalLLMClient.mlx(url: url, parameter: parameter, tools: tools.map { $0.underlyingTool })
                 )
             }
         )

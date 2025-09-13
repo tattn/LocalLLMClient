@@ -1,24 +1,24 @@
 import Foundation
-import LocalLLMClient
+import LocalLLMClientCore
 @_exported import LocalLLMClientLlamaC
 
 public class MultimodalContext: @unchecked Sendable {
     package let multimodalContext: OpaquePointer
     package let verbose: Bool
 
-    package init(url: URL, context: Context, parameter: LlamaClient.Parameter, verbose: Bool = false) throws(LLMError) {
+    package init(url: URL, context: Context, parameter: LlamaClient.Parameter) throws(LLMError) {
         var mparams = mtmd_context_params_default()
         mparams.use_gpu = true
-        mparams.print_timings = verbose
+        mparams.print_timings = parameter.options.verbose
         if let numberOfThreads = parameter.numberOfThreads {
             mparams.n_threads = Int32(numberOfThreads)
         }
-        mparams.verbosity = verbose ? GGML_LOG_LEVEL_DEBUG : GGML_LOG_LEVEL_CONT;
+        mparams.verbosity = parameter.options.verbose ? GGML_LOG_LEVEL_DEBUG : GGML_LOG_LEVEL_CONT;
         guard let multimodalContext = mtmd_init_from_file(url.path(), context.model.model, mparams) else {
             throw .failedToLoad(reason: "Failed to load the mmproj file")
         }
         self.multimodalContext = multimodalContext
-        self.verbose = verbose
+        self.verbose = parameter.options.verbose
     }
 
     deinit {

@@ -3,7 +3,7 @@ import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
-import LocalLLMClient
+import LocalLLMClientCore
 import LocalLLMClientLlama
 
 private let prompt = "<|im_start|>user\nWhat is the answer to one plus two?<|im_end|>\n<|im_start|>assistant\n"
@@ -47,9 +47,11 @@ extension ModelTests.LocalLLMClientLlamaTests {
         var counter = 0
         var breaked = false
 
+        let client = try await LocalLLMClient.llama()
+
         var task: Task<Void, Error>?
         task = Task {
-            for try await _ in try await LocalLLMClient.llama().textStream(from: prompt) {
+            for try await _ in try await client.textStream(from: prompt) {
                 counter += 1
                 task?.cancel()
             }
@@ -94,8 +96,8 @@ extension ModelTests.LocalLLMClientLlamaTests {
     }
 
     @Test
-    func overBatchSize() async throws {
-        let result = try await LocalLLMClient.llama(parameter: .init(batch: 2)).generateText(from: "Hello, world!")
+    func overflowBatchSize() async throws {
+        let result = try await LocalLLMClient.llama(parameter: .init(context: 512, batch: 2, options: .init(verbose: true))).generateText(from: "Hello, world!")
         #expect(!result.isEmpty)
     }
 }

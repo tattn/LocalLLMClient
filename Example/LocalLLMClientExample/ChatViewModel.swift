@@ -1,90 +1,58 @@
 import Foundation
 import LocalLLMClient
 
-struct ChatMessage: Identifiable, Equatable, Sendable {
-    var id = UUID()
-    var role: Role
-    var text: String
-    var images: [Image] = []
-
-    enum Role: Sendable {
-        case system
-        case user
-        case assistant
-    }
-
-    struct Image: Identifiable, Equatable, @unchecked Sendable {
-        var id = UUID()
-        var value: LLMInputImage
-    }
-}
 
 @Observable @MainActor
 final class ChatViewModel {
-    var inputText = ""
-    var inputImages: [ChatMessage.Image] = []
-    private(set) var messages: [ChatMessage] = []
-    private var generateTask: Task<Void, Never>?
+    init(ai: AI) {
+        self.ai = ai
+    }
 
-    init(messages: [ChatMessage] = []) {
-        self.messages = messages
+    var inputText = ""
+    var inputAttachments: [LLMAttachment] = []
+
+    private var ai: AI
+    private var generateTask: Task<Void, Never>?
+    private var generatingText = ""
+
+    var messages: [LLMInput.Message] {
+        var messages = ai.messages
+        if !generatingText.isEmpty, messages.last?.role != .assistant {
+            messages.append(.assistant(generatingText))
+        }
+        return messages
     }
 
     var isGenerating: Bool {
         generateTask != nil
     }
 
-    func sendMessage(to ai: AI) {
+    func sendMessage() {
         guard !inputText.isEmpty, !isGenerating else { return }
 
-        messages.append(ChatMessage(role: .user, text: inputText, images: inputImages))
-        let newMessages = messages
-        messages.append(ChatMessage(role: .assistant, text: ""))
-
-        let currentInput = (inputText, inputImages)
+        let currentInput = (text: inputText, images: inputAttachments)
         inputText = ""
-        inputImages = []
+        inputAttachments = []
 
         generateTask = Task {
+            generatingText = ""
+
             do {
-                var response = ""
-                for try await token in try await ai.ask(newMessages.llmMessages()) {
-                    response += token
-                    messages[messages.count - 1].text = response
+                for try await token in try await ai.ask(currentInput.text, attachments: currentInput.images) {
+                    generatingText += token
                 }
             } catch {
-                messages[messages.count - 1].text = "Error: \(error.localizedDescription)"
-                (inputText, inputImages) = currentInput
+                ai.messages.append(.assistant("Error: \(error.localizedDescription)"))
+                (inputText, inputAttachments) = currentInput
             }
 
             generateTask = nil
+            generatingText = ""
         }
     }
 
     func cancelGeneration() {
         generateTask?.cancel()
         generateTask = nil
-    }
-
-    func clearMessages() {
-        messages.removeAll()
-    }
-}
-
-extension [ChatMessage] {
-    func llmMessages() -> [LLMInput.Message] {
-        map { message in
-            var role: LLMInput.Message.Role {
-                switch message.role {
-                case .user: return .user
-                case .assistant: return .assistant
-                case .system: return .system
-                }
-            }
-            let attachments: [LLMAttachment] = message.images.map { image in
-                .image(image.value)
-            }
-            return LLMInput.Message(role: role, content: message.text, attachments: attachments)
-        }
     }
 }

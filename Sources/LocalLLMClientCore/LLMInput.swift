@@ -81,9 +81,22 @@ extension LLMInput: ExpressibleByStringLiteral {
 }
 
 /// Represents different types of attachments that can be included with messages.
-public enum LLMAttachment: @unchecked Sendable, Hashable {
-    /// An image attachment.
-    case image(LLMInputImage)
+public struct LLMAttachment: Sendable, Hashable, Equatable, Identifiable {
+    public let id = UUID()
+
+    /// Content of the attachment.
+    public var content: Content
+
+    public enum Content: @unchecked Sendable, Hashable {
+        /// An image attachment.
+        case image(LLMInputImage)
+    }
+
+    /// Initializes an attachment with the specified content.
+    /// - Parameter image: The image of the attachment.
+    public static func image(_ image: LLMInputImage) -> LLMAttachment {
+        LLMAttachment(content: .image(image))
+    }
 }
 
 public extension LLMInput {
@@ -116,7 +129,7 @@ public extension LLMInput {
     ///
     /// Each message has a role (system, user, assistant, or custom), content text,
     /// and optional attachments such as images.
-    struct Message: Sendable, Hashable {
+    struct Message: Sendable, Hashable, Equatable, Identifiable {
         /// Initializes a message with the specified role and content.
         ///
         /// - Parameters:
@@ -167,6 +180,23 @@ public extension LLMInput {
             .init(role: .assistant, content: content, attachments: attachments)
         }
 
+        /// Creates a tool message.
+        ///
+        /// Tool messages represent the results of tool calls made by the language model.
+        ///
+        /// - Parameters:
+        ///   - content: The result content from the tool execution.
+        ///   - toolCallID: The ID of the tool call this result is associated with.
+        /// - Returns: A new `Message` instance with tool role.
+        public static func tool(_ content: String, toolCallID: String) -> LLMInput.Message {
+            var message = LLMInput.Message(role: .tool, content: content)
+            message.metadata["tool_call_id"] = toolCallID
+            return message
+        }
+
+        /// ID of the message
+        public var id: UUID = UUID()
+
         /// The role of the message sender.
         public var role: Role
         
@@ -175,6 +205,11 @@ public extension LLMInput {
         
         /// Attachments associated with this message.
         public var attachments: [LLMAttachment]
+
+        /// Metadata associated with this message.
+        /// This can be used to store additional information about the message,
+        /// such as tool call IDs for tool messages.
+        public var metadata: [String: String] = [:]
 
         /// Enumeration representing the role of a message sender in a conversation.
         public enum Role: Sendable, Hashable {
@@ -187,6 +222,9 @@ public extension LLMInput {
             /// Assistant role, representing language model responses.
             case assistant
             
+            /// Tool role, representing results from tool execution.
+            case tool
+            
             /// Custom role with a specified name.
             case custom(String)
 
@@ -196,12 +234,14 @@ public extension LLMInput {
                 case .system: "system"
                 case .user: "user"
                 case .assistant: "assistant"
+                case .tool: "tool"
                 case .custom(let value): value
                 }
             }
         }
     }
 }
+
 
 #if os(macOS)
 import class CoreImage.CIImage

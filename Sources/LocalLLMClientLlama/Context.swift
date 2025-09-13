@@ -6,7 +6,7 @@
 @preconcurrency import LocalLLMClientLlamaC
 #endif
 import Foundation
-import LocalLLMClient
+import LocalLLMClientCore
 
 public final class Context: @unchecked Sendable {
     let parameter: LlamaClient.Parameter
@@ -18,6 +18,7 @@ public final class Context: @unchecked Sendable {
     let model: Model
     let extraEOSTokens: Set<String>
     private var promptCaches: [(chunk: MessageChunk, lastPosition: llama_pos)] = []
+    let pauseHandler: PauseHandler
 
     package var vocab: OpaquePointer {
         model.vocab
@@ -44,6 +45,7 @@ public final class Context: @unchecked Sendable {
         ctx_params.n_threads_batch = ctx_params.n_threads
 
         self.parameter = parameter
+        self.pauseHandler = PauseHandler(disableAutoPause: parameter.options.disableAutoPause)
         self.model = try Model(url: url)
         self.context = try model.makeAndAllocateContext(with: ctx_params)
         batch = llama_batch_init(Int32(parameter.batch), 0, 1)
@@ -51,18 +53,6 @@ public final class Context: @unchecked Sendable {
 
         // https://github.com/ggml-org/llama.cpp/blob/master/common/sampling.cpp
         sampling = llama_sampler_chain_init(llama_sampler_chain_default_params())
-        let minKeep = 0
-        let penaltyFreq: Float = 0
-        let penaltyPresent: Float = 0
-        llama_sampler_chain_add(sampling, llama_sampler_init_temp(parameter.temperature))
-        llama_sampler_chain_add(sampling, llama_sampler_init_dist(parameter.seed.map(UInt32.init) ?? LLAMA_DEFAULT_SEED))
-        llama_sampler_chain_add(sampling, llama_sampler_init_top_k(Int32(parameter.topK)))
-        llama_sampler_chain_add(sampling, llama_sampler_init_top_p(parameter.topP, minKeep))
-        llama_sampler_chain_add(sampling, llama_sampler_init_min_p(1 - parameter.topP, 1))
-        llama_sampler_chain_add(sampling, llama_sampler_init_typical(parameter.typicalP, minKeep))
-        llama_sampler_chain_add(sampling, llama_sampler_init_penalties(Int32(parameter.penaltyLastN), parameter.penaltyRepeat, penaltyFreq, penaltyPresent))
-
-        cursorPointer = .allocate(capacity: Int(llama_vocab_n_tokens(model.vocab)))
 
         if let format = parameter.options.responseFormat {
             switch format {
@@ -80,6 +70,19 @@ public final class Context: @unchecked Sendable {
         } else {
             grammer = nil
         }
+
+        let minKeep = 0
+        let penaltyFreq: Float = 0
+        let penaltyPresent: Float = 0
+        llama_sampler_chain_add(sampling, llama_sampler_init_temp_ext(parameter.temperature, 0, 1.0))
+        llama_sampler_chain_add(sampling, llama_sampler_init_top_k(Int32(parameter.topK)))
+        llama_sampler_chain_add(sampling, llama_sampler_init_top_p(parameter.topP, minKeep))
+        llama_sampler_chain_add(sampling, llama_sampler_init_min_p(1 - parameter.topP, 1))
+        llama_sampler_chain_add(sampling, llama_sampler_init_typical(parameter.typicalP, minKeep))
+        llama_sampler_chain_add(sampling, llama_sampler_init_penalties(Int32(parameter.penaltyLastN), parameter.penaltyRepeat, penaltyFreq, penaltyPresent))
+        llama_sampler_chain_add(sampling, llama_sampler_init_dist(parameter.seed.map(UInt32.init) ?? LLAMA_DEFAULT_SEED))
+
+        cursorPointer = .allocate(capacity: Int(llama_vocab_n_tokens(model.vocab)))
     }
 
     deinit {
