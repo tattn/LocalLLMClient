@@ -65,7 +65,7 @@ public struct HuggingFaceAPI: Sendable {
 #if os(iOS) || os(macOS)
             if let identifier {
                 config = URLSessionConfiguration.background(withIdentifier: identifier)
-                config.isDiscretionary = true
+                config.isDiscretionary = false
                 config.sessionSendsLaunchEvents = true
             } else {
                 config = .default
