@@ -5,12 +5,18 @@ import FoundationNetworking
 import LocalLLMClientUtility
 
 /// Mock URLProtocol for testing download functionality without actual network requests
-final class MockURLProtocol: URLProtocol {
+final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     /// Dictionary to store mock responses by URL
     static let mockResponses: Locked<[URL: (data: Data, response: HTTPURLResponse, error: Error?, delay: TimeInterval?)]> = .init([:])
 
     /// Storage for downloaded files
     static let downloadedFiles: Locked<[URL: URL]> = .init([:])
+    
+    /// Storage for cancelled tasks
+    private static let cancelledTasks: Locked<Set<UUID>> = .init([])
+    
+    /// Unique identifier for this instance
+    private let taskID = UUID()
 
     /// Registers a mock response for a specific URL
     static func setResponse(for url: URL, with data: Data, statusCode: Int = 200, error: Error? = nil, delay: TimeInterval? = nil) {
@@ -74,12 +80,13 @@ final class MockURLProtocol: URLProtocol {
 
         // Report download progress with optional delay
         let totalBytes = mockData.data.count
-        let chunkSize = max(1, totalBytes / 10)
-        
+        let chunkSize = max(1, totalBytes / 100)
+
         if let delay = mockData.delay {
-            // Use dispatch queue for delay to avoid concurrency issues
             DispatchQueue.global().asyncAfter(deadline: .now() + delay) { [weak self, weak client] in
-                guard let self = self, let client = client else { return }
+                guard let self, let client else { return }
+                // Check if task was cancelled during delay
+                guard !Self.cancelledTasks.withLock({ $0.contains(self.taskID) }) else { return }
                 self.sendDataInChunks(data: mockData.data, chunkSize: chunkSize, client: client, withDelay: true)
             }
         } else {
@@ -88,15 +95,24 @@ final class MockURLProtocol: URLProtocol {
     }
 
     override func stopLoading() {
-        // No action needed
+        // Mark task as cancelled
+        Self.cancelledTasks.withLock { $0.insert(taskID) }
+        
+        // Notify client that the load was cancelled
+        client?.urlProtocol(self, didFailWithError: URLError(.cancelled))
     }
     
     private func sendDataInChunks(data: Data, chunkSize: Int, client: URLProtocolClient, withDelay: Bool) {
-        var offset = 0
-        let totalBytes = data.count
+        let id = taskID
         
-        func sendNextChunk() {
+        @Sendable func sendNextChunk(offset: Int, totalBytes: Int) {
+            // Check if task has been cancelled
+            guard !Self.cancelledTasks.withLock({ $0.contains(id) }) else {
+                return
+            }
+            
             guard offset < totalBytes else {
+                Self.cancelledTasks.withLock { $0.remove(id) }
                 client.urlProtocolDidFinishLoading(self)
                 return
             }
@@ -107,17 +123,17 @@ final class MockURLProtocol: URLProtocol {
             let chunkData = data[startIndex..<endIndex]
             
             client.urlProtocol(self, didLoad: chunkData)
-            offset += currentChunkSize
-            
+            let offset = offset + currentChunkSize
+
             if withDelay && offset < totalBytes {
                 DispatchQueue.global().asyncAfter(deadline: .now() + 0.05) {
-                    sendNextChunk()
+                    sendNextChunk(offset: offset, totalBytes: totalBytes)
                 }
             } else {
-                sendNextChunk()
+                sendNextChunk(offset: offset, totalBytes: totalBytes)
             }
         }
         
-        sendNextChunk()
+        sendNextChunk(offset: 0, totalBytes: data.count)
     }
 }
