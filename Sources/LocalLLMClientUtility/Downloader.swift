@@ -77,15 +77,12 @@ final class Downloader {
                 cancelAllDownloads()
                 throw CancellationError()
             } else {
-                var error: Error?
+                let firstError = downloaders.lazy.compactMap(\.error).first
                 for downloader in downloaders {
-                    if let downloadError = downloader.error {
-                        error = downloadError
-                    }
                     downloader.reset()
                 }
-                if let error {
-                    throw error
+                if let firstError {
+                    throw firstError
                 }
             }
         }
