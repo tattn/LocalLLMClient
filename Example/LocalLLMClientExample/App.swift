@@ -17,18 +17,25 @@ struct RootView: View {
         NavigationStack {
             ChatView(viewModel: .init(ai: ai))
         }
-        .disabled(ai.isLoading)
+        .disabled(ai.loading.isLoading)
         .overlay {
-            if ai.isLoading {
+            if ai.loading.isLoading {
                 ZStack {
                     Color.black.opacity(0.5)
                         .ignoresSafeArea()
 
-                    Group {
-                        if ai.downloadProgress < 1 {
-                            ProgressView("Downloading LLM...", value: ai.downloadProgress)
+                    VStack(spacing: 16) {
+                        if ai.loading.progress < 1 {
+                            ProgressView("Downloading LLM...", value: ai.loading.progress)
                         } else {
                             ProgressView("Loading LLM...")
+                        }
+
+                        if ai.loading.progress < 1, ai.loading.model != .default {
+                            Button("Cancel", role: .cancel) {
+                                ai.cancelDownload()
+                            }
+                            .buttonStyle(.bordered)
                         }
                     }
                     .padding()
@@ -37,13 +44,6 @@ struct RootView: View {
                 }
             }
         }
-#if !targetEnvironment(simulator)
-        .onChange(of: ai.model, initial: true) { _, _ in
-            Task {
-                await ai.loadLLM()
-            }
-        }
-#endif
     }
 }
 

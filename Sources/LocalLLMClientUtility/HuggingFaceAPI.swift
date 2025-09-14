@@ -65,7 +65,7 @@ public struct HuggingFaceAPI: Sendable {
 #if os(iOS) || os(macOS)
             if let identifier {
                 config = URLSessionConfiguration.background(withIdentifier: identifier)
-                config.isDiscretionary = true
+                config.isDiscretionary = false
                 config.sessionSendsLaunchEvents = true
             } else {
                 config = .default
@@ -93,11 +93,30 @@ public struct HuggingFaceAPI: Sendable {
     /// - Parameters:
     ///   - globs: Array of glob patterns to match files (e.g., "*.json")
     ///   - revision: The repository revision (branch, tag, or commit hash), defaults to "main"
+    ///   - configuration: Download configuration with optional protocol classes
     /// - Returns: Array of matching file information
     public func getFileInfo(
         matching globs: Globs,
         revision: String = "main",
-        configuration: URLSessionConfiguration = .default
+        configuration: DownloadConfiguration = .default
+    ) async throws -> [FileInfo] {
+        try await getFileInfo(
+            matching: globs,
+            revision: revision,
+            configuration: configuration.makeURLSessionConfiguration()
+        )
+    }
+    
+    /// Retrieves file information from a Hugging Face repository that match the given glob patterns
+    /// - Parameters:
+    ///   - globs: Array of glob patterns to match files (e.g., "*.json")
+    ///   - revision: The repository revision (branch, tag, or commit hash), defaults to "main"
+    ///   - configuration: URLSession configuration
+    /// - Returns: Array of matching file information
+    private func getFileInfo(
+        matching globs: Globs,
+        revision: String = "main",
+        configuration: URLSessionConfiguration
     ) async throws -> [FileInfo] {
         // Read repo info and only parse "siblings" (files in the repository)
         let (data, _) = try await get(
@@ -144,7 +163,7 @@ public struct HuggingFaceAPI: Sendable {
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
 
         // Get files to download
-        let fileInfos = try await getFileInfo(matching: globs, revision: revision, configuration: configuration.makeURLSessionConfiguration())
+        let fileInfos = try await getFileInfo(matching: globs, revision: revision, configuration: configuration)
 
         let downloader = Downloader()
         for fileInfo in fileInfos {
@@ -168,7 +187,8 @@ public struct HuggingFaceAPI: Sendable {
         }
 
         downloader.download()
-        await downloader.waitForDownloads()
+        try await downloader.waitForDownloads()
+
         await progressHandler(downloader.progress)
 
         return destination
@@ -199,9 +219,10 @@ public struct HuggingFaceAPI: Sendable {
     /// - Parameters:
     ///   - globs: Array of glob patterns to match files (e.g., "*.json")
     ///   - revision: The repository revision (branch, tag, or commit hash), defaults to "main"
+    ///   - configuration: Download configuration with optional protocol classes
     /// - Returns: Array of file metadata
-    public func getFileMetadata(matching globs: Globs, revision: String = "main") async throws -> [FileMetadata] {
-        let fileInfos = try await getFileInfo(matching: globs, revision: revision)
+    public func getFileMetadata(matching globs: Globs, revision: String = "main", configuration: DownloadConfiguration = .default) async throws -> [FileMetadata] {
+        let fileInfos = try await getFileInfo(matching: globs, revision: revision, configuration: configuration)
         let baseURL = URL(string: "\(endpoint)/\(repo.type.rawValue)/\(repo.id)/resolve/\(revision)")!
         
         var metadata: [FileMetadata] = []

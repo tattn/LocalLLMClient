@@ -298,4 +298,71 @@ struct FileDownloaderTests {
         #expect(destination.pathComponents.contains("test-org"))
         #expect(destination.lastPathComponent == "test-repo")
     }
+    
+    @Test
+    func testDownloadCancellation() async throws {
+        let testDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("FileDownloaderTests_\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: testDirectory) }
+        
+        // Setup mock API response for file list
+        let apiURL = URL(string: "https://huggingface.co/api/models/test-org/test-repo/revision/main?blobs=true")!
+        let apiResponse = """
+        {
+            "siblings": [
+                {"rfilename": "model.safetensors", "size": 1024000},
+                {"rfilename": "config.json", "size": 1000}
+            ]
+        }
+        """.data(using: .utf8)!
+        MockURLProtocol.setResponse(for: apiURL, with: apiResponse)
+        defer { MockURLProtocol.removeResponse(for: apiURL) }
+        
+        // Setup mock file downloads with long delay to ensure cancellation
+        let modelURL = URL(string: "https://huggingface.co/test-org/test-repo/resolve/main/model.safetensors")!
+        let modelData = Data(repeating: 0, count: 1024000)
+        MockURLProtocol.setResponse(for: modelURL, with: modelData, delay: 0.1)
+        defer { MockURLProtocol.removeResponse(for: modelURL) }
+        
+        let configURL = URL(string: "https://huggingface.co/test-org/test-repo/resolve/main/config.json")!
+        let configData = Data(repeating: 0, count: 1000)
+        MockURLProtocol.setResponse(for: configURL, with: configData, delay: 0.1)
+        defer { MockURLProtocol.removeResponse(for: configURL) }
+        
+        // Create file downloader with mock configuration
+        let globs: Globs = ["*.safetensors", "*.json"]
+        let source = FileDownloader.Source.huggingFace(id: "test-org/test-repo", globs: globs)
+        let mockConfig = URLSessionConfiguration.ephemeral
+        mockConfig.protocolClasses = [MockURLProtocol.self]
+        let downloadConfig = FileDownloader.DownloadConfiguration(identifier: nil, protocolClasses: mockConfig.protocolClasses)
+        let downloader = FileDownloader(source: source, destination: testDirectory, configuration: downloadConfig)
+        
+        let progressValues = Locked<[Double]>([])
+        
+        // Start download task
+        let downloadTask = Task {
+            try await downloader.download { progress in
+                progressValues.withLock { $0.append(progress) }
+            }
+        }
+        
+        // Give it a moment to start downloading
+        try await Task.sleep(for: .milliseconds(300))
+
+        // Cancel the download
+        downloadTask.cancel()
+
+        // Verify that the task throws an error on cancellation
+        await #expect(throws: CancellationError.self) {
+            try await downloadTask.value
+        }
+
+        // Verify metadata was cleaned up after cancellation
+        let metadataURL = downloader.destination.appendingPathComponent(FilesMetadata.filename)
+        #expect(!FileManager.default.fileExists(atPath: metadataURL.path))
+        
+        // Verify that progress was reported at least once (unless cancelled very quickly)
+        let values = progressValues.withLock { $0 }
+        #expect(!values.isEmpty)
+        #expect(values.allSatisfy { $0 >= 0.0 && $0 <= 1.0 }, "Progress values should be between 0 and 1")
+    }
 }

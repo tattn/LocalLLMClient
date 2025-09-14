@@ -68,10 +68,31 @@ final class Downloader {
         }
     }
 
-    func waitForDownloads() async {
-        while isDownloading && progress.fractionCompleted < 1.0 {
+    func waitForDownloads() async throws {
+        while isDownloading, !Task.isCancelled {
             try? await Task.sleep(for: .seconds(1))
         }
+        if progress.fractionCompleted < 1.0 {
+            if Task.isCancelled {
+                cancelAllDownloads()
+                throw CancellationError()
+            } else {
+                let firstError = downloaders.lazy.compactMap(\.error).first
+                for downloader in downloaders {
+                    downloader.reset()
+                }
+                if let firstError {
+                    throw firstError
+                }
+            }
+        }
+    }
+    
+    func cancelAllDownloads() {
+        for downloader in downloaders {
+            downloader.cancel()
+        }
+        progress.cancel()
     }
 }
 
@@ -79,25 +100,41 @@ extension Downloader {
     final class ChildDownloader: Sendable {
         private let url: URL
         private let destinationURL: URL
-        private let session: URLSession
+        private let session: Locked<URLSession>
         private let delegate = Delegate()
+        private let currentTask = Locked<URLSessionTask?>(nil)
 
         var progress: Progress {
             delegate.progress
         }
 
         var isDownloading: Bool {
-            delegate.isDownloading.withLock(\.self)
+            delegate.state.withLock {
+                if case .downloading = $0 {
+                    return true
+                }
+                return false
+            }
         }
 
         var isDownloaded: Bool {
             FileManager.default.fileExists(atPath: destinationURL.path)
         }
 
+        var error: Error? {
+            delegate.state.withLock {
+                if case .error(let error) = $0 {
+                    return error
+                }
+                return nil
+            }
+        }
+
         public init(url: URL, destinationURL: URL, configuration: URLSessionConfiguration = .default) {
             self.url = url
             self.destinationURL = destinationURL
-            session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
+            let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
+            self.session = Locked(session)
 
 #if !os(Linux)
             Task {
@@ -114,16 +151,38 @@ extension Downloader {
 
         public func download(existingTask: URLSessionTask? = nil) {
             guard !isDownloading else { return }
-            delegate.isDownloading.withLock { $0 = true }
+            delegate.state.withLock { $0 = .downloading }
 
             try? FileManager.default.createDirectory(at: destinationURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             var request = URLRequest(url: url)
             // https://stackoverflow.com/questions/12235617/mbprogresshud-with-nsurlconnection/12599242#12599242
             request.addValue("", forHTTPHeaderField: "Accept-Encoding")
-            let task = existingTask ?? session.downloadTask(with: request)
+            let task = existingTask ?? session.withLock(\.self).downloadTask(with: request)
             task.taskDescription = destinationURL.absoluteString
             task.priority = URLSessionTask.highPriority
+            currentTask.withLock { $0 = task }
             task.resume()
+        }
+        
+        public func cancel() {
+            currentTask.withLock { task in
+                task?.cancel()
+                task = nil
+            }
+            delegate.state.withLock { $0 = .error(CancellationError()) }
+            // Clean up partial download if it exists
+            if FileManager.default.fileExists(atPath: destinationURL.path) {
+                try? FileManager.default.removeItem(at: destinationURL)
+            }
+
+            reset()
+        }
+
+        public func reset() {
+            session.withLock {
+                $0.invalidateAndCancel()
+                $0 = URLSession(configuration: $0.configuration, delegate: delegate, delegateQueue: nil)
+            }
         }
     }
 }
@@ -131,7 +190,14 @@ extension Downloader {
 extension Downloader.ChildDownloader {
     final class Delegate: NSObject, URLSessionDownloadDelegate {
         let progress = Progress(totalUnitCount: 1)
-        let isDownloading = Locked(false)
+        let state = Locked(State.initial)
+
+        enum State {
+            case initial
+            case downloading
+            case completed
+            case error(Error)
+        }
 
         func urlSession(
             _ session: URLSession, downloadTask: URLSessionDownloadTask,
@@ -168,8 +234,11 @@ extension Downloader.ChildDownloader {
                     // Attempt to remove the file if it exists
                     try? FileManager.default.removeItem(at: url)
                 }
+
+                state.withLock { $0 = .error(error) }
+            } else {
+                state.withLock { $0 = .completed }
             }
-            isDownloading.withLock { $0 = false }
         }
 
         func urlSession(

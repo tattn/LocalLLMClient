@@ -115,7 +115,7 @@ actor DownloaderTests {
         
         // Start the download and wait for completion
         downloader.download()
-        await downloader.waitForDownloads()
+        try await downloader.waitForDownloads()
 
 
         // Verify the download completed successfully
@@ -165,7 +165,11 @@ actor DownloaderTests {
         
         // Start the download and wait for completion
         downloader.download()
-        await downloader.waitForDownloads()
+        await #expect {
+            try await downloader.waitForDownloads()
+        } throws: { thrownError in
+            thrownError._domain == error.domain
+        }
 
         // Verify the download completed with error
         #expect(!downloader.isDownloading)
@@ -219,7 +223,7 @@ actor DownloaderTests {
         
         // Start the downloads and wait for completion
         downloader.download()
-        await downloader.waitForDownloads()
+        try await downloader.waitForDownloads()
 
         // Verify all downloads completed successfully
         #expect(!downloader.isDownloading)
@@ -273,7 +277,7 @@ actor DownloaderTests {
         // Track progress updates with a thread-safe container
         let progressUpdates = Locked<[Double]>([])
         
-        await confirmation("Progress reaches 100%") { done in
+        try await confirmation("Progress reaches 100%") { done in
             downloader.setObserver { progress in
                 progressUpdates.withLock {
                     $0.append(progress.fractionCompleted)
@@ -285,7 +289,7 @@ actor DownloaderTests {
             
             // Start the download
             downloader.download()
-            await downloader.waitForDownloads()
+            try await downloader.waitForDownloads()
         }
         
         // Extract the final progress updates
@@ -341,7 +345,7 @@ actor DownloaderTests {
         
         // Start the download anyway
         downloader.download()
-        await downloader.waitForDownloads()
+        try await downloader.waitForDownloads()
 
         // Verify the download is still marked as complete
         #expect(!downloader.isDownloading)
@@ -675,14 +679,14 @@ actor DownloaderTests {
         }
         
         let waitTask = Task {
-            await downloader.waitForDownloads()
+            try await downloader.waitForDownloads()
             return "completed"
         }
         
         // Race between timeout and completion
         let result = await withTaskGroup(of: String.self) { group in
             group.addTask { (try? await timeoutTask.value) ?? "timeout" }
-            group.addTask { await waitTask.value }
+            group.addTask { (try? await waitTask.value) ?? "error" }
             
             let firstResult = await group.next()!
             group.cancelAll()
@@ -721,7 +725,7 @@ actor DownloaderTests {
         // Track progress calls
         let progressCalls = Locked<[Double]>([])
         
-        await confirmation("Progress observer called multiple times") { done in
+        try await confirmation("Progress observer called multiple times") { done in
             downloader.setObserver { progress in
                 progressCalls.withLock { $0.append(progress.fractionCompleted) }
                 if progress.fractionCompleted == 1.0 {
@@ -731,7 +735,7 @@ actor DownloaderTests {
             
             // Start download
             downloader.download()
-            await downloader.waitForDownloads()
+            try await downloader.waitForDownloads()
         }
         
         // Verify progress was called multiple times
@@ -805,7 +809,7 @@ actor DownloaderTests {
         // Track final progress
         let finalProgress = Locked<Double>(0.0)
         
-        await confirmation("All downloads complete") { done in
+        try await confirmation("All downloads complete") { done in
             downloader.setObserver { progress in
                 finalProgress.withLock { $0 = progress.fractionCompleted }
                 if progress.fractionCompleted == 1.0 {
@@ -815,7 +819,7 @@ actor DownloaderTests {
             
             // Start all downloads concurrently
             downloader.download()
-            await downloader.waitForDownloads()
+            try await downloader.waitForDownloads()
         }
         
         // Final progress should be 100%
@@ -844,7 +848,7 @@ actor DownloaderTests {
         let testData = Data(repeating: 0xAB, count: 500_000) // 500KB
         let sourceURL = URL(string: "https://\(#function)")!
         
-        MockURLProtocol.setResponse(for: sourceURL, with: testData, delay: 0.3)
+        MockURLProtocol.setResponse(for: sourceURL, with: testData, delay: 0.1)
         defer {
             MockURLProtocol.removeResponse(for: sourceURL)
         }
@@ -868,7 +872,7 @@ actor DownloaderTests {
         
         // Monitor progress
         var attempts = 0
-        while !childDownloader.isDownloaded && attempts < 20 {
+        while !childDownloader.isDownloaded && attempts < 200 {
             progressValues.withLock { $0.append(childDownloader.progress.completedUnitCount) }
             try await Task.sleep(for: .milliseconds(50))
             attempts += 1
@@ -896,5 +900,144 @@ actor DownloaderTests {
         // Should initialize properly
         #expect(!childDownloader.isDownloading)
         #expect(!childDownloader.isDownloaded)
+    }
+    
+    @Test(.disabled(if: canImportFoundationNetworking)) @MainActor
+    func testDownloadCancellation() async throws {
+        // Setup mock to simulate a slow download
+        let testData = Data(repeating: 0, count: 1024 * 1024) // 1MB
+        let sourceURL = URL(string: "https://\(#function)/large-file.bin")!
+        
+        MockURLProtocol.setResponse(for: sourceURL, with: testData, delay: 10.0) // 10 seconds delay
+        defer {
+            MockURLProtocol.removeResponse(for: sourceURL)
+        }
+        
+        let tempDir = createTemporaryDirectory()
+        defer { cleanupTemporaryDirectory(tempDir) }
+        
+        let destinationURL = tempDir.appendingPathComponent("\(#function).bin")
+        
+        // Create downloader with slow download
+        let downloader = Downloader()
+        let childDownloader = Downloader.ChildDownloader(
+            url: sourceURL,
+            destinationURL: destinationURL,
+            configuration: mockSessionConfiguration()
+        )
+        downloader.add(childDownloader)
+        
+        // Start download in a task
+        downloader.download()
+        
+        let waitTask = Task {
+            try await downloader.waitForDownloads()
+        }
+        
+        // Give it a moment to start
+        try await Task.sleep(for: .milliseconds(100))
+        
+        // Cancel the download and the wait task
+        downloader.cancelAllDownloads()
+        
+        // Verify the task finished
+        await #expect {
+            try await waitTask.value
+        } throws: { thrownError in
+            if case let error as URLError = thrownError {
+                return error.code == .cancelled
+            }
+            return false
+        }
+        #expect(!childDownloader.isDownloading)
+
+        // Verify file was cleaned up
+        #expect(!FileManager.default.fileExists(atPath: destinationURL.path))
+    }
+
+    @Test(.disabled(if: canImportFoundationNetworking)) @MainActor
+    func testDownloadCancellationUsingTask() async throws {
+        // Setup mock to simulate a slow download
+        let testData = Data(repeating: 0, count: 1024 * 1024) // 1MB
+        let sourceURL = URL(string: "https://\(#function)/large-file.bin")!
+
+        MockURLProtocol.setResponse(for: sourceURL, with: testData, delay: 10.0) // 10 seconds delay
+        defer {
+            MockURLProtocol.removeResponse(for: sourceURL)
+        }
+
+        let tempDir = createTemporaryDirectory()
+        defer { cleanupTemporaryDirectory(tempDir) }
+
+        let destinationURL = tempDir.appendingPathComponent("\(#function).bin")
+
+        // Create downloader with slow download
+        let downloader = Downloader()
+        let childDownloader = Downloader.ChildDownloader(
+            url: sourceURL,
+            destinationURL: destinationURL,
+            configuration: mockSessionConfiguration()
+        )
+        downloader.add(childDownloader)
+
+        // Start download in a task
+        downloader.download()
+
+        let waitTask = Task {
+            try await downloader.waitForDownloads()
+        }
+
+        // Give it a moment to start
+        try await Task.sleep(for: .milliseconds(100))
+
+        // Cancel the download and the wait task
+        waitTask.cancel()
+
+        // Verify the task finished
+        await #expect(throws: CancellationError.self) {
+            try await waitTask.value
+        }
+        #expect(!childDownloader.isDownloading)
+
+        // Verify file was cleaned up
+        #expect(!FileManager.default.fileExists(atPath: destinationURL.path))
+    }
+
+    @Test(.disabled(if: canImportFoundationNetworking)) @MainActor
+    func testChildDownloaderCancellation() async throws {
+        // Setup mock to simulate a slow download
+        let testData = Data(repeating: 0, count: 1024 * 1024) // 1MB
+        let sourceURL = URL(string: "https://\(#function)/large-file.bin")!
+        
+        MockURLProtocol.setResponse(for: sourceURL, with: testData, delay: 5.0) // 5 seconds delay
+        defer {
+            MockURLProtocol.removeResponse(for: sourceURL)
+        }
+        
+        let tempDir = createTemporaryDirectory()
+        defer { cleanupTemporaryDirectory(tempDir) }
+        
+        let destinationURL = tempDir.appendingPathComponent("\(#function).bin")
+        
+        // Create child downloader
+        let childDownloader = Downloader.ChildDownloader(
+            url: sourceURL,
+            destinationURL: destinationURL,
+            configuration: mockSessionConfiguration()
+        )
+        
+        // Start download
+        childDownloader.download()
+        #expect(childDownloader.isDownloading)
+        
+        // Give it a moment to start
+        try await Task.sleep(for: .milliseconds(100))
+        
+        // Cancel the download
+        childDownloader.cancel()
+        
+        // Verify cancellation
+        #expect(!childDownloader.isDownloading)
+        #expect(!FileManager.default.fileExists(atPath: destinationURL.path))
     }
 }

@@ -99,11 +99,11 @@ public struct FileDownloader: FileDownloadable {
         }
 
         @discardableResult
-        func saveMetadata(to destination: URL) async throws -> FilesMetadata {
+        func saveMetadata(to destination: URL, configuration: HuggingFaceAPI.DownloadConfiguration = .default) async throws -> FilesMetadata {
             switch self {
             case let .huggingFace(id, globs):
                 let client = HuggingFaceAPI(repo: .init(id: id))
-                let fileInfos = try await client.getFileInfo(matching: globs)
+                let fileInfos = try await client.getFileInfo(matching: globs, configuration: configuration)
                 let metadata = FilesMetadata(files: fileInfos.map { FilesMetadata.FileMetadata(name: $0.filename, size: $0.size) })
                 try metadata.save(to: destination)
                 return metadata
@@ -165,21 +165,36 @@ public struct FileDownloader: FileDownloadable {
     ///
     /// If the files are already downloaded, this method completes immediately, calling the progress handler with `1.0`.
     /// It handles saving metadata and then uses `HubApi` to perform the actual download, reporting progress via the `onProgress` closure.
+    /// The download can be cancelled by cancelling the Task that calls this method.
     ///
     /// - Parameter onProgress: An asynchronous closure that is called with the download progress (a `Double` between 0.0 and 1.0). Defaults to an empty closure.
-    /// - Throws: An error if saving metadata fails or if the `HubApi` encounters an issue during the download.
+    /// - Throws: An error if saving metadata fails, if the `HubApi` encounters an issue during the download, or if the task is cancelled.
     public func download(onProgress: @Sendable @escaping (Double) async -> Void = { _ in }) async throws {
         let destination = self.destination
         guard !source.isDownloaded(for: destination) else {
             await onProgress(1.0)
             return
         }
-        try await source.saveMetadata(to: destination)
-        try await source.downloadFiles(
-            to: rootDestination,
-            configuration: downloadConfiguration.makeHuggingFaceConfiguration(),
-            onProgress: onProgress
-        )
+        
+        // Check for cancellation before saving metadata
+        try Task.checkCancellation()
+        
+        try await source.saveMetadata(to: destination, configuration: downloadConfiguration.makeHuggingFaceConfiguration())
+        
+        do {
+            // Check for cancellation before starting download
+            try Task.checkCancellation()
+
+            try await source.downloadFiles(
+                to: rootDestination,
+                configuration: downloadConfiguration.makeHuggingFaceConfiguration(),
+                onProgress: onProgress
+            )
+        } catch {
+            // Clean up metadata
+            try? source.removeMetadata(from: destination)
+            throw error
+        }
     }
 }
 
