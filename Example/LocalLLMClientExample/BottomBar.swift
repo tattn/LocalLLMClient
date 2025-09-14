@@ -103,7 +103,9 @@ struct BottomBar: View {
             Menu {
                 ForEach(LLMModel.allCases) { model in
                     Button {
-                        ai.model = model
+                        Task {
+                            await ai.loadLLM(model)
+                        }
                     } label: {
                         if model.supportsVision {
                             Text("\(model.name) [VLM]")

@@ -17,6 +17,8 @@ enum LLMModel: Sendable, CaseIterable, Identifiable {
     case gemma3_4b
     case mobileVLM_3b
 
+    static let `default` = qwen3
+
     var name: String {
         switch self {
         case .qwen3: "MLX / Qwen3 1.7B"
@@ -102,13 +104,12 @@ enum LLMModel: Sendable, CaseIterable, Identifiable {
 
 @Observable @MainActor
 final class AI {
-    var model = LLMModel.qwen3 {
+    private(set) var model = LLMModel.default {
         didSet {
             areToolsEnabled = model.supportsTools && areToolsEnabled
         }
     }
-    private(set) var isLoading = false
-    private(set) var downloadProgress: Double = 0
+    private(set) var loading = Loading()
     var areToolsEnabled = false
 
     private var session: LLMSession?
@@ -123,40 +124,61 @@ final class AI {
         get { session?.messages ?? [] }
         set { session?.messages = newValue }
     }
-    
+
+    struct Loading: Sendable {
+        var isLoading = false
+        var progress: Double = 0.0
+        var model: LLMModel = .default
+        var task: Task<Void, Never>?
+    }
+
     func resetMessages() {
         messages = [.system("You are a helpful assistant who is responsible for helping the user with tasks using the provided tools.")]
     }
 
-    func loadLLM() async {
-        isLoading = true
-        defer { isLoading = false }
+    func loadLLM(_ model: LLMModel) async {
+        cancelDownload()
+
+        loading.isLoading = true
+        defer { loading.isLoading = false }
+        loading.model = model
 
         // Release memory first if a previous model was loaded
         session = nil
 
-        do {
-            let downloadModel: LLMSession.DownloadModel = if model.isMLX {
-                .mlx(id: model.id, parameter: .init(options: .init(extraEOSTokens: model.extraEOSTokens)))
-            } else {
-                .llama(
-                    id: model.id,
-                    model: model.filename!,
-                    mmproj: model.mmprojFilename,
-                    parameter: .init(context: 10240, options: .init(extraEOSTokens: model.extraEOSTokens, verbose: true))
-                )
-            }
-
-            try await downloadModel.downloadModel { @MainActor [weak self] progress in
-                self?.downloadProgress = progress
-                print("Download progress: \(progress)")
-            }
-
-            session = LLMSession(model: downloadModel, tools: areToolsEnabled ? tools : [])
-            resetMessages()
-        } catch {
-            print("Failed to load LLM: \(error)")
+        let downloadModel: LLMSession.DownloadModel = if model.isMLX {
+            .mlx(id: model.id, parameter: .init(options: .init(extraEOSTokens: model.extraEOSTokens)))
+        } else {
+            .llama(
+                id: model.id,
+                model: model.filename!,
+                mmproj: model.mmprojFilename,
+                parameter: .init(context: 10240, options: .init(extraEOSTokens: model.extraEOSTokens, verbose: true))
+            )
         }
+
+        loading.task = Task {
+            do {
+                try await downloadModel.downloadModel { @MainActor [weak self] progress in
+                    self?.loading.progress = progress
+                    print("Download progress: \(progress)")
+                }
+
+                self.model = model
+                session = LLMSession(model: downloadModel, tools: areToolsEnabled ? tools : [])
+                resetMessages()
+            } catch {
+                print("Failed to load LLM: \(error)")
+            }
+        }
+
+        await loading.task?.value
+    }
+    
+    func cancelDownload() {
+        loading.task?.cancel()
+        loading.task = nil
+        loading.isLoading = false
     }
 
     func ask(_ message: String, attachments: [LLMAttachment]) async throws -> AsyncThrowingStream<String, any Error> {
@@ -170,7 +192,7 @@ final class AI {
     func toggleTools() async {
         areToolsEnabled.toggle()
         if session != nil {
-            await loadLLM() // Reload session with/without tools
+            await loadLLM(model) // Reload session with/without tools
         }
     }
 }

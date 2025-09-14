@@ -77,10 +77,15 @@ final class Downloader {
                 cancelAllDownloads()
                 throw CancellationError()
             } else {
+                var error: Error?
                 for downloader in downloaders {
-                    if let error = downloader.error {
-                        throw error
+                    if let downloadError = downloader.error {
+                        error = downloadError
                     }
+                    downloader.reset()
+                }
+                if let error {
+                    throw error
                 }
             }
         }
@@ -98,7 +103,7 @@ extension Downloader {
     final class ChildDownloader: Sendable {
         private let url: URL
         private let destinationURL: URL
-        private let session: URLSession
+        private let session: Locked<URLSession>
         private let delegate = Delegate()
         private let currentTask = Locked<URLSessionTask?>(nil)
 
@@ -131,7 +136,8 @@ extension Downloader {
         public init(url: URL, destinationURL: URL, configuration: URLSessionConfiguration = .default) {
             self.url = url
             self.destinationURL = destinationURL
-            session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
+            let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
+            self.session = Locked(session)
 
 #if !os(Linux)
             Task {
@@ -154,7 +160,7 @@ extension Downloader {
             var request = URLRequest(url: url)
             // https://stackoverflow.com/questions/12235617/mbprogresshud-with-nsurlconnection/12599242#12599242
             request.addValue("", forHTTPHeaderField: "Accept-Encoding")
-            let task = existingTask ?? session.downloadTask(with: request)
+            let task = existingTask ?? session.withLock(\.self).downloadTask(with: request)
             task.taskDescription = destinationURL.absoluteString
             task.priority = URLSessionTask.highPriority
             currentTask.withLock { $0 = task }
@@ -170,6 +176,15 @@ extension Downloader {
             // Clean up partial download if it exists
             if FileManager.default.fileExists(atPath: destinationURL.path) {
                 try? FileManager.default.removeItem(at: destinationURL)
+            }
+
+            reset()
+        }
+
+        public func reset() {
+            session.withLock {
+                $0.invalidateAndCancel()
+                $0 = URLSession(configuration: $0.configuration, delegate: delegate, delegateQueue: nil)
             }
         }
     }
