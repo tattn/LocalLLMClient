@@ -104,8 +104,9 @@ final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     
     private func sendDataInChunks(data: Data, chunkSize: Int, client: URLProtocolClient, withDelay: Bool) {
         let id = taskID
-        
-        @Sendable func sendNextChunk(offset: Int, totalBytes: Int) {
+        let totalBytes = data.count
+
+        @Sendable func sendNextChunk(offset: Int) {
             // Check if task has been cancelled
             guard !Self.cancelledTasks.withLock({ $0.contains(id) }) else {
                 return
@@ -127,13 +128,13 @@ final class MockURLProtocol: URLProtocol, @unchecked Sendable {
 
             if withDelay && offset < totalBytes {
                 DispatchQueue.global().asyncAfter(deadline: .now() + 0.05) {
-                    sendNextChunk(offset: offset, totalBytes: totalBytes)
+                    sendNextChunk(offset: offset)
                 }
             } else {
-                sendNextChunk(offset: offset, totalBytes: totalBytes)
+                sendNextChunk(offset: offset)
             }
         }
         
-        sendNextChunk(offset: 0, totalBytes: data.count)
+        sendNextChunk(offset: 0)
     }
 }
