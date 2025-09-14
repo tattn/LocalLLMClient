@@ -80,48 +80,35 @@ struct BottomBar: View {
 
     @ViewBuilder
     private var modelMenu: some View {
+        Menu {
+            ForEach(LLMModel.allCases) { model in
+                Button {
+                    Task {
+                        await ai.loadLLM(model)
+                    }
+                } label: {
+                    if model.supportsVision {
+                        Text("\(model.name) [VLM]")
+                    } else {
+                        Text(model.name)
+                    }
+                    if ai.model == model {
+                        Image(systemName: "checkmark")
+                    }
+                }
+            }
+        } label: {
 #if os(macOS)
-            @Bindable var ai = ai
-            Picker(selection: $ai.model) {
-                ForEach(LLMModel.allCases) { model in
-                    Group {
-                        if model.supportsVision {
-                            Text("\(model.name) [VLM]")
-                        } else {
-                            Text(model.name)
-                        }
-                    }
-                    .tag(model)
-                }
-            } label: {
-                Image(systemName: "brain.head.profile")
+            if ai.model.supportsVision {
+                Text("\(ai.model.name) [VLM]")
+            } else {
+                Text(ai.model.name)
             }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .fixedSize(horizontal: true, vertical: false)
-#elseif os(iOS)
-            Menu {
-                ForEach(LLMModel.allCases) { model in
-                    Button {
-                        Task {
-                            await ai.loadLLM(model)
-                        }
-                    } label: {
-                        if model.supportsVision {
-                            Text("\(model.name) [VLM]")
-                        } else {
-                            Text(model.name)
-                        }
-                        if ai.model == model {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-            } label: {
-                Image(systemName: "brain.head.profile")
-            }
-            .menuStyle(.button)
+#else
+            Image(systemName: "brain.head.profile")
 #endif
+        }
+        .menuStyle(.button)
     }
 
     @ViewBuilder
