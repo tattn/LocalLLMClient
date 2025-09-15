@@ -11,11 +11,11 @@ typealias Sampler = UnsafeMutablePointer<llama_sampler>
 
 package extension Sampler {
     func sample(context: Context, index: Int32) -> llama_token {
-        let logits = UncheckedSendable(llama_get_logits_ith(context.context, Int32(index))!)
+        let logits = llama_get_logits_ith(context.context, index)!
 
-        DispatchQueue.concurrentPerform(iterations: context.cursorPointer.count) { tokenID in
+        for tokenID in context.cursorPointer.indices { // faster than using range
             context.cursorPointer[tokenID] = llama_token_data(
-                id: Int32(tokenID), logit: logits.value[tokenID], p: 0.0
+                id: Int32(tokenID), logit: logits[tokenID], p: 0.0
             )
         }
 
@@ -45,13 +45,5 @@ package extension Sampler {
         let token = data.id
         llama_sampler_accept(self, token)
         return token
-    }
-}
-
-private struct UncheckedSendable<Value>: @unchecked Sendable {
-    var value: Value
-
-    init(_ value: Value) {
-        self.value = value
     }
 }

@@ -138,7 +138,7 @@ struct MessageProcessorTests {
 }
 
 private extension LLMInputImage {
-    nonisolated(unsafe) static let testImage = LLMInputImage()
+    static let testImage = LLMInputImage()
 }
 
 private extension LLMAttachment {
