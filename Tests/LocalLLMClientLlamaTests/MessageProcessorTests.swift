@@ -138,7 +138,11 @@ struct MessageProcessorTests {
 }
 
 private extension LLMInputImage {
+#if swift(>=6.2)
+    static let testImage = LLMInputImage()
+#else
     nonisolated(unsafe) static let testImage = LLMInputImage()
+#endif
 }
 
 private extension LLMAttachment {

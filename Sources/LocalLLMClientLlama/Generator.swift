@@ -47,7 +47,7 @@ public struct TokenGenerator: AsyncIteratorProtocol {
                 return nil
             } else {
                 let newToken = makeString() ?? ""
-                temporaryInvalidCharacters.removeAll()
+                temporaryInvalidCharacters.removeAll(keepingCapacity: true)
                 return newToken
             }
         }
@@ -56,18 +56,18 @@ public struct TokenGenerator: AsyncIteratorProtocol {
 
         let newToken: String
         if let token = makeString() {
-            temporaryInvalidCharacters.removeAll()
+            temporaryInvalidCharacters.removeAll(keepingCapacity: true)
             newToken = token
         } else if (1 ..< temporaryInvalidCharacters.count).contains(where: { String(utf8String: Array(temporaryInvalidCharacters.suffix($0)) + [0]) != nil }) {
             let token = makeString() ?? ""
-            temporaryInvalidCharacters.removeAll()
+            temporaryInvalidCharacters.removeAll(keepingCapacity: true)
             newToken = token
         } else {
             newToken = ""
         }
 
         if context.extraEOSTokens.contains(newToken) {
-            temporaryInvalidCharacters.removeAll()
+            temporaryInvalidCharacters.removeAll(keepingCapacity: true)
             updatePromptCache()
             return nil
         }
