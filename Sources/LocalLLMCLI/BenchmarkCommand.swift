@@ -203,7 +203,8 @@ struct BenchmarkCommand: AsyncParsableCommand {
             parameter.batch = batch
         }
 
-        let modelURL = try await getModel()
+        let modelLoader = ModelLoader(verbose: verbose)
+        let modelURL = try await modelLoader.getModel(for: model, backend: .llama)
         let client = try await LocalLLMClient.llama(
             url: modelURL,
             parameter: parameter
@@ -333,36 +334,6 @@ struct BenchmarkCommand: AsyncParsableCommand {
         print("\n💾 Results saved to: \(fileURL.path)")
     }
 
-    private func getModel() async throws -> URL {
-        if model.hasPrefix("/") {
-            return URL(filePath: model)
-        } else if model.hasPrefix("https://"), let url = URL(string: model) {
-            return try await downloadModel(from: url)
-        } else if model.isEmpty {
-            throw LocalLLMCommandError.invalidModel("Error: Missing expected argument '--model <model>'")
-        } else {
-            throw LocalLLMCommandError.invalidModel(model)
-        }
-    }
-
-    private func downloadModel(from url: URL) async throws -> URL {
-        #if canImport(LocalLLMClientUtility)
-        print("Downloading model from Hugging Face: \(model)")
-
-        let downloader = FileDownloader(source: .huggingFace(
-            id: url.pathComponents[1...2].joined(separator: "/"),
-            globs: .init(["*\(url.lastPathComponent)"])
-        ))
-        try await downloader.download { progress in
-            if verbose {
-                print("Downloading model: \(progress)")
-            }
-        }
-        return downloader.destination.appendingPathComponent(url.lastPathComponent)
-        #else
-        throw LocalLLMCommandError.invalidModel("Downloading models is not supported on this platform.")
-        #endif
-    }
 }
 
 // Benchmark data structures
