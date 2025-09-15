@@ -38,7 +38,6 @@ struct BottomBar: View {
                     onSubmit(text)
                 } label: {
                     Image(systemName: "arrow.up")
-                        .foregroundStyle(text.isEmpty ? .gray : .accentColor)
                 }
                 .buttonBorderShape(.circle)
                 .keyboardShortcut(.defaultAction)
