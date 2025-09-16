@@ -10,19 +10,12 @@ let canImportFoundationNetworking = false
 
 @MainActor
 struct DownloaderTests {
-
-    /// Creates a mock session configuration with MockURLProtocol
-    private nonisolated func mockSessionConfiguration() -> URLSessionConfiguration {
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [MockURLProtocol.self]
-        return configuration
-    }
     
     /// Helper function to create a temporary directory for test file downloads
     private nonisolated func createTemporaryDirectory() -> URL {
-        let tempDirURL = FileManager.default.temporaryDirectory.appendingPathComponent(
-            "DownloaderTests_\(UUID().uuidString)",
-            isDirectory: true
+        let tempDirURL = FileManager.default.temporaryDirectory.appending(
+            path: "DownloaderTests_\(UUID().uuidString)",
+            directoryHint: .isDirectory
         )
         try? FileManager.default.createDirectory(
             at: tempDirURL,
@@ -52,13 +45,11 @@ struct DownloaderTests {
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
 
-        let sourceURL = URL(string: "https://\(#function)")!
-        let destinationURL = tempDir.appendingPathComponent("\(#function).txt")
-
+        let mock = MockResponse(data: Data())
+        let destinationURL = tempDir.appending(path: "\(#function).txt")
         let childDownloader = Downloader.ChildDownloader(
-            url: sourceURL,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
+            mock: mock,
+            destinationURL: destinationURL
         )
         
         downloader.add(childDownloader)
@@ -82,28 +73,24 @@ struct DownloaderTests {
     
     @Test(.disabled(if: canImportFoundationNetworking)) @MainActor
     func testSuccessfulDownload() async throws {
-        // Prepare the mock data
-        let testData = "Test file content".data(using: .utf8)!
-        let sourceURL = URL(string: "https://\(#function)")!
-
         // Setup the mock response with small delay for progress tracking
-        MockURLProtocol.setResponse(for: sourceURL, with: testData, delay: 0.1)
-        defer {
-            MockURLProtocol.removeResponse(for: sourceURL)
-        }
+        let testData = "Test file content".data(using: .utf8)!
+        let mock = MockResponse(
+            data: testData,
+            delay: 0.1
+        )
 
         // Create a temporary directory for downloads
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let destinationURL = tempDir.appendingPathComponent("\(#function).txt")
-
         // Create and setup the downloader
+        let destinationURL = tempDir.appending(path: "\(#function).txt")
+        
         let downloader = Downloader()
         let childDownloader = Downloader.ChildDownloader(
-            url: sourceURL,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
+            mock: mock,
+            destinationURL: destinationURL
         )
         
         downloader.add(childDownloader)
@@ -139,27 +126,26 @@ struct DownloaderTests {
     @Test(.disabled(if: canImportFoundationNetworking))
     func testDownloadWithError() async throws {
         // Prepare the mock error
-        let sourceURL = URL(string: "https://\(#function)")!
         let error = NSError(domain: "com.test.downloader", code: 42, userInfo: [NSLocalizedDescriptionKey: "Mock download error"])
-        
+
         // Setup the mock response with error
-        MockURLProtocol.setResponse(for: sourceURL, with: Data(), error: error)
-        defer {
-            MockURLProtocol.removeResponse(for: sourceURL)
-        }
+        let mock = MockResponse(
+            data: Data(),
+            error: error
+        )
+        
 
         // Create a temporary directory for downloads
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let destinationURL = tempDir.appendingPathComponent("\(#function).txt")
-
+        let destinationURL = tempDir.appending(path: "\(#function).txt")
+        
         // Create and setup the downloader
         let downloader = Downloader()
         let childDownloader = Downloader.ChildDownloader(
-            url: sourceURL,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
+            mock: mock,
+            destinationURL: destinationURL
         )
         
         downloader.add(childDownloader)
@@ -179,41 +165,33 @@ struct DownloaderTests {
     
     @Test(.disabled(if: canImportFoundationNetworking))
     func testMultipleDownloads() async throws {
-        // Prepare mock data for multiple files
-        let file1URL = URL(string: "https://\(#function)/file1.txt")!
+        // Setup mock responses
         let file1Data = "File 1 content".data(using: .utf8)!
-        
-        let file2URL = URL(string: "https://\(#function)/file2.txt")!
         let file2Data = "File 2 content".data(using: .utf8)!
         
-        // Setup mock responses
-        MockURLProtocol.setResponse(for: file1URL, with: file1Data)
-        MockURLProtocol.setResponse(for: file2URL, with: file2Data)
-        defer {
-            MockURLProtocol.removeResponse(for: file1URL)
-            MockURLProtocol.removeResponse(for: file2URL)
-        }
+        let mocks = [
+            MockResponse(data: file1Data),
+            MockResponse(data: file2Data)
+        ]
 
         // Create a temporary directory for downloads
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let destination1URL = tempDir.appendingPathComponent("\(#function)file1.txt")
-        let destination2URL = tempDir.appendingPathComponent("\(#function)file2.txt")
+        let destination1URL = tempDir.appending(path: "\(#function)file1.txt")
+        let destination2URL = tempDir.appending(path: "\(#function)file2.txt")
 
         // Create and setup the downloader with multiple files
         let downloader = Downloader()
         
         let childDownloader1 = Downloader.ChildDownloader(
-            url: file1URL,
-            destinationURL: destination1URL,
-            configuration: mockSessionConfiguration()
+            mock: mocks[0],
+            destinationURL: destination1URL
         )
         
         let childDownloader2 = Downloader.ChildDownloader(
-            url: file2URL,
-            destinationURL: destination2URL,
-            configuration: mockSessionConfiguration()
+            mock: mocks[1],
+            destinationURL: destination2URL
         )
         
         downloader.add(childDownloader1)
@@ -250,28 +228,24 @@ struct DownloaderTests {
     
     @Test(.disabled(if: canImportFoundationNetworking))
     func testProgressObservation() async throws {
-        // Prepare the mock data
-        let testData = Data(repeating: 0, count: 1000000) // 1MB of data
-        let sourceURL = URL(string: "https://\(#function)")!
-
         // Setup the mock response with delay for progress observation
-        MockURLProtocol.setResponse(for: sourceURL, with: testData, delay: 0.2)
-        defer {
-            MockURLProtocol.removeResponse(for: sourceURL)
-        }
+        let mock = MockResponse(
+            data: Data(repeating: 0, count: 1000000), // 1MB of data
+            delay: 0.2
+        )
+        
 
         // Create a temporary directory for downloads
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let destinationURL = tempDir.appendingPathComponent("\(#function).dat")
-
+        let destinationURL = tempDir.appending(path: "\(#function).dat")
+        
         // Create and setup the downloader
         let downloader = Downloader()
         let childDownloader = Downloader.ChildDownloader(
-            url: sourceURL,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
+            mock: mock,
+            destinationURL: destinationURL
         )
         
         downloader.add(childDownloader)
@@ -309,21 +283,18 @@ struct DownloaderTests {
     
     @Test(.disabled(if: canImportFoundationNetworking))
     func testAlreadyDownloadedFile() async throws {
-        // Prepare the mock data
-        let testData = "Test file content".data(using: .utf8)!
-        let sourceURL = URL(string: "https://\(#function)")!
-
         // Setup the mock response
-        MockURLProtocol.setResponse(for: sourceURL, with: testData)
-        defer {
-            MockURLProtocol.removeResponse(for: sourceURL)
-        }
+        let testData = "Test file content".data(using: .utf8)!
+        let mock = MockResponse(
+            data: testData
+        )
+        
 
         // Create a temporary directory for downloads
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let destinationURL = tempDir.appendingPathComponent("\(#function).txt")
+        let destinationURL = tempDir.appending(path: "\(#function).txt")
         
         // Create the file before downloading
         try testData.write(to: destinationURL)
@@ -333,11 +304,7 @@ struct DownloaderTests {
         
         // Create and setup the downloader
         let downloader = Downloader()
-        let childDownloader = Downloader.ChildDownloader(
-            url: sourceURL,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
-        )
+        let childDownloader = Downloader.ChildDownloader(mock: mock, destinationURL: destinationURL)
         
         downloader.add(childDownloader)
         
@@ -362,23 +329,23 @@ struct DownloaderTests {
         
         let downloader = Downloader()
         
-        // Create three child downloaders with different states
-        let url1 = URL(string: "https://\(#function)/file1")!
-        let url2 = URL(string: "https://\(#function)/file2")!
-        let url3 = URL(string: "https://\(#function)/file3")!
+        // Create three mock responses
+        let mock1 = MockResponse(content: "content1")
+        let mock2 = MockResponse(content: "content2")
+        let mock3 = MockResponse(content: "content3")
         
-        let dest1 = tempDir.appendingPathComponent("file1.txt")
-        let dest2 = tempDir.appendingPathComponent("file2.txt")
-        let dest3 = tempDir.appendingPathComponent("file3.txt")
+        let dest1 = tempDir.appending(path: "file1.txt")
+        let dest2 = tempDir.appending(path: "file2.txt")
+        let dest3 = tempDir.appending(path: "file3.txt")
         
         // Create first two files to simulate downloaded state
         try "content1".data(using: .utf8)!.write(to: dest1)
         try "content2".data(using: .utf8)!.write(to: dest2)
         // Third file doesn't exist (not downloaded)
         
-        let child1 = Downloader.ChildDownloader(url: url1, destinationURL: dest1, configuration: mockSessionConfiguration())
-        let child2 = Downloader.ChildDownloader(url: url2, destinationURL: dest2, configuration: mockSessionConfiguration())
-        let child3 = Downloader.ChildDownloader(url: url3, destinationURL: dest3, configuration: mockSessionConfiguration())
+        let child1 = Downloader.ChildDownloader(mock: mock1, destinationURL: dest1)
+        let child2 = Downloader.ChildDownloader(mock: mock2, destinationURL: dest2)
+        let child3 = Downloader.ChildDownloader(mock: mock3, destinationURL: dest3)
         
         downloader.add(child1)
         downloader.add(child2)
@@ -401,23 +368,23 @@ struct DownloaderTests {
         
         let downloader = Downloader()
         
-        // Create three child downloaders, all with downloaded files
-        let url1 = URL(string: "https://\(#function)/file1")!
-        let url2 = URL(string: "https://\(#function)/file2")!
-        let url3 = URL(string: "https://\(#function)/file3")!
+        // Create three mock responses
+        let mock1 = MockResponse(content: "content1")
+        let mock2 = MockResponse(content: "content2")
+        let mock3 = MockResponse(content: "content3")
         
-        let dest1 = tempDir.appendingPathComponent("file1.txt")
-        let dest2 = tempDir.appendingPathComponent("file2.txt")
-        let dest3 = tempDir.appendingPathComponent("file3.txt")
+        let dest1 = tempDir.appending(path: "file1.txt")
+        let dest2 = tempDir.appending(path: "file2.txt")
+        let dest3 = tempDir.appending(path: "file3.txt")
         
         // Create all files to simulate downloaded state
         try "content1".data(using: .utf8)!.write(to: dest1)
         try "content2".data(using: .utf8)!.write(to: dest2)
         try "content3".data(using: .utf8)!.write(to: dest3)
         
-        let child1 = Downloader.ChildDownloader(url: url1, destinationURL: dest1, configuration: mockSessionConfiguration())
-        let child2 = Downloader.ChildDownloader(url: url2, destinationURL: dest2, configuration: mockSessionConfiguration())
-        let child3 = Downloader.ChildDownloader(url: url3, destinationURL: dest3, configuration: mockSessionConfiguration())
+        let child1 = Downloader.ChildDownloader(mock: mock1, destinationURL: dest1)
+        let child2 = Downloader.ChildDownloader(mock: mock2, destinationURL: dest2)
+        let child3 = Downloader.ChildDownloader(mock: mock3, destinationURL: dest3)
         
         downloader.add(child1)
         downloader.add(child2)
@@ -439,17 +406,13 @@ struct DownloaderTests {
         defer { cleanupTemporaryDirectory(tempDir) }
         
         let downloader = Downloader()
-        let url = URL(string: "https://\(#function)/file")!
-        let destinationURL = tempDir.appendingPathComponent("file.txt")
+        let mock = MockResponse(content: "content")
+        let destinationURL = tempDir.appending(path: "file.txt")
         
         // Create file first
         try "content".data(using: .utf8)!.write(to: destinationURL)
         
-        let childDownloader = Downloader.ChildDownloader(
-            url: url,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
-        )
+        let childDownloader = Downloader.ChildDownloader(mock: mock, destinationURL: destinationURL)
         downloader.add(childDownloader)
         
         // Should be downloaded initially
@@ -470,17 +433,13 @@ struct DownloaderTests {
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let url = URL(string: "https://\(#function)/directory")!
-        let destinationURL = tempDir.appendingPathComponent("testdir")
+        let mock = MockResponse(data: Data())
+        let destinationURL = tempDir.appending(path: "testdir")
         
         // Create a directory instead of a file
         try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
         
-        let childDownloader = Downloader.ChildDownloader(
-            url: url,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
-        )
+        let childDownloader = Downloader.ChildDownloader(mock: mock, destinationURL: destinationURL)
         
         // Directory exists but is not a file, should be considered downloaded
         // (FileManager.fileExists returns true for directories too)
@@ -493,9 +452,9 @@ struct DownloaderTests {
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let url = URL(string: "https://\(#function)/symlink")!
-        let destinationURL = tempDir.appendingPathComponent("symlink.txt")
-        let targetURL = tempDir.appendingPathComponent("target.txt")
+        let mock = MockResponse(content: "target content")
+        let destinationURL = tempDir.appending(path: "symlink.txt")
+        let targetURL = tempDir.appending(path: "target.txt")
         
         // Create target file
         try "target content".data(using: .utf8)!.write(to: targetURL)
@@ -503,11 +462,7 @@ struct DownloaderTests {
         // Create symlink
         try FileManager.default.createSymbolicLink(at: destinationURL, withDestinationURL: targetURL)
         
-        let childDownloader = Downloader.ChildDownloader(
-            url: url,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
-        )
+        let childDownloader = Downloader.ChildDownloader(mock: mock, destinationURL: destinationURL)
         
         // Symlink exists and points to a valid file
         #expect(childDownloader.isDownloaded)
@@ -519,18 +474,14 @@ struct DownloaderTests {
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let url = URL(string: "https://\(#function)/brokensymlink")!
-        let destinationURL = tempDir.appendingPathComponent("brokensymlink.txt")
-        let targetURL = tempDir.appendingPathComponent("nonexistent.txt")
+        let mock = MockResponse(data: Data())
+        let destinationURL = tempDir.appending(path: "brokensymlink.txt")
+        let targetURL = tempDir.appending(path: "nonexistent.txt")
         
         // Create symlink to non-existent file
         try FileManager.default.createSymbolicLink(at: destinationURL, withDestinationURL: targetURL)
         
-        let childDownloader = Downloader.ChildDownloader(
-            url: url,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
-        )
+        let childDownloader = Downloader.ChildDownloader(mock: mock, destinationURL: destinationURL)
         
         // Broken symlink returns false from FileManager.fileExists
         #expect(!childDownloader.isDownloaded)
@@ -542,17 +493,13 @@ struct DownloaderTests {
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let url = URL(string: "https://\(#function)/empty")!
-        let destinationURL = tempDir.appendingPathComponent("empty.txt")
+        let mock = MockResponse(data: Data())
+        let destinationURL = tempDir.appending(path: "empty.txt")
         
         // Create empty file
         FileManager.default.createFile(atPath: destinationURL.path, contents: nil)
         
-        let childDownloader = Downloader.ChildDownloader(
-            url: url,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
-        )
+        let childDownloader = Downloader.ChildDownloader(mock: mock, destinationURL: destinationURL)
         
         // Empty file should still be considered downloaded
         #expect(childDownloader.isDownloaded)
@@ -564,18 +511,14 @@ struct DownloaderTests {
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let url = URL(string: "https://\(#function)/large")!
-        let destinationURL = tempDir.appendingPathComponent("large.dat")
+        let largeData = Data(repeating: 0xFF, count: 1024 * 1024)
+        let mock = MockResponse(data: largeData)
+        let destinationURL = tempDir.appending(path: "large.dat")
         
         // Create a large file (1MB)
-        let largeData = Data(repeating: 0xFF, count: 1024 * 1024)
         try largeData.write(to: destinationURL)
         
-        let childDownloader = Downloader.ChildDownloader(
-            url: url,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
-        )
+        let childDownloader = Downloader.ChildDownloader(mock: mock, destinationURL: destinationURL)
         
         // Large file should be considered downloaded
         #expect(childDownloader.isDownloaded)
@@ -587,13 +530,11 @@ struct DownloaderTests {
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let sourceURL = URL(string: "https://\(#function)")!
-        let destinationURL = tempDir.appendingPathComponent("\(#function).txt")
-        
+        let mock = MockResponse(data: Data())
+        let destinationURL = tempDir.appending(path: "\(#function).txt")
         let childDownloader = Downloader.ChildDownloader(
-            url: sourceURL,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
+            mock: mock,
+            destinationURL: destinationURL
         )
         
         downloader.add(childDownloader)
@@ -606,23 +547,19 @@ struct DownloaderTests {
     @Test(.disabled(if: canImportFoundationNetworking))
     func testDoubleDownloadPrevention() async throws {
         // Prepare mock data
-        let testData = "Test content".data(using: .utf8)!
-        let sourceURL = URL(string: "https://\(#function)")!
+        let mock = MockResponse(
+            content: "Test content",
+            delay: 0.3
+        )
         
-        MockURLProtocol.setResponse(for: sourceURL, with: testData, delay: 0.3)
-        defer {
-            MockURLProtocol.removeResponse(for: sourceURL)
-        }
         
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let destinationURL = tempDir.appendingPathComponent("\(#function).txt")
-        
+        let destinationURL = tempDir.appending(path: "\(#function).txt")
         let childDownloader = Downloader.ChildDownloader(
-            url: sourceURL,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
+            mock: mock,
+            destinationURL: destinationURL
         )
         
         // Start first download
@@ -649,25 +586,18 @@ struct DownloaderTests {
     @Test(.disabled(if: canImportFoundationNetworking))
     func testWaitForDownloadsTimeout() async throws {
         // Create a large file to ensure download takes time
-        let largeData = Data(repeating: 0, count: 50_000_000) // 50MB
-        let sourceURL = URL(string: "https://\(#function)")!
+        let mock = MockResponse(
+            data: Data(repeating: 0, count: 50_000_000) // 50MB
+        )
         
-        MockURLProtocol.setResponse(for: sourceURL, with: largeData)
-        defer {
-            MockURLProtocol.removeResponse(for: sourceURL)
-        }
         
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let destinationURL = tempDir.appendingPathComponent("\(#function).dat")
+        let destinationURL = tempDir.appending(path: "\(#function).dat")
         
         let downloader = Downloader()
-        let childDownloader = Downloader.ChildDownloader(
-            url: sourceURL,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
-        )
+        let childDownloader = Downloader.ChildDownloader(mock: mock, destinationURL: destinationURL)
         
         downloader.add(childDownloader)
         
@@ -702,25 +632,19 @@ struct DownloaderTests {
     @Test(.disabled(if: canImportFoundationNetworking))
     func testProgressObserverCalledMultipleTimes() async throws {
         // Prepare mock data
-        let testData = Data(repeating: 0, count: 1_000_000) // 1MB
-        let sourceURL = URL(string: "https://\(#function)")!
+        let mock = MockResponse(
+            data: Data(repeating: 0, count: 1_000_000), // 1MB
+            delay: 0.2
+        )
         
-        MockURLProtocol.setResponse(for: sourceURL, with: testData, delay: 0.2)
-        defer {
-            MockURLProtocol.removeResponse(for: sourceURL)
-        }
         
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let destinationURL = tempDir.appendingPathComponent("\(#function).dat")
+        let destinationURL = tempDir.appending(path: "\(#function).dat")
         
         let downloader = Downloader()
-        let childDownloader = Downloader.ChildDownloader(
-            url: sourceURL,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
-        )
+        let childDownloader = Downloader.ChildDownloader(mock: mock, destinationURL: destinationURL)
         
         downloader.add(childDownloader)
         
@@ -752,14 +676,12 @@ struct DownloaderTests {
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let url = URL(string: "https://\(#function)/file")!
+        let mock = MockResponse(data: Data())
         // Destination in a subdirectory that doesn't exist yet
-        let destinationURL = tempDir.appendingPathComponent("subdir/nested/file.txt")
-        
+        let destinationURL = tempDir.appending(path: "subdir/nested/file.txt")
         let childDownloader = Downloader.ChildDownloader(
-            url: url,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
+            mock: mock,
+            destinationURL: destinationURL
         )
         
         // Directory shouldn't exist yet
@@ -776,21 +698,18 @@ struct DownloaderTests {
     @Test(.disabled(if: canImportFoundationNetworking))
     func testConcurrentDownloadsProgressAccuracy() async throws {
         // Create multiple files
-        let files = [
-            (url: URL(string: "https://\(#function)/file1")!, data: Data(repeating: 1, count: 100_000)),
-            (url: URL(string: "https://\(#function)/file2")!, data: Data(repeating: 2, count: 200_000)),
-            (url: URL(string: "https://\(#function)/file3")!, data: Data(repeating: 3, count: 300_000))
+        let filesData = [
+            Data(repeating: 1, count: 100_000),
+            Data(repeating: 2, count: 200_000),
+            Data(repeating: 3, count: 300_000)
         ]
         
         // Setup mock responses with delays
-        for (index, file) in files.enumerated() {
-            MockURLProtocol.setResponse(for: file.url, with: file.data, delay: 0.1 + Double(index) * 0.1)
-        }
-        defer {
-            for file in files {
-                MockURLProtocol.removeResponse(for: file.url)
-            }
-        }
+        let mocks = [
+            MockResponse(data: filesData[0], delay: 0.1),
+            MockResponse(data: filesData[1], delay: 0.2),
+            MockResponse(data: filesData[2], delay: 0.3)
+        ]
         
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
@@ -798,12 +717,11 @@ struct DownloaderTests {
         let downloader = Downloader()
         
         // Add child downloaders
-        for (index, file) in files.enumerated() {
-            let destinationURL = tempDir.appendingPathComponent("file\(index).dat")
+        for (index, mock) in mocks.enumerated() {
+            let destinationURL = tempDir.appending(path: "file\(index).dat")
             let childDownloader = Downloader.ChildDownloader(
-                url: file.url,
-                destinationURL: destinationURL,
-                configuration: mockSessionConfiguration()
+                mock: mock,
+                destinationURL: destinationURL
             )
             downloader.add(childDownloader)
         }
@@ -847,23 +765,19 @@ struct DownloaderTests {
     @Test(.disabled(if: canImportFoundationNetworking))
     func testDownloadProgressReporting() async throws {
         // Create test data
-        let testData = Data(repeating: 0xAB, count: 500_000) // 500KB
-        let sourceURL = URL(string: "https://\(#function)")!
+        let mock = MockResponse(
+            data: Data(repeating: 0xAB, count: 500_000), // 500KB
+            delay: 0.1
+        )
         
-        MockURLProtocol.setResponse(for: sourceURL, with: testData, delay: 0.1)
-        defer {
-            MockURLProtocol.removeResponse(for: sourceURL)
-        }
         
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let destinationURL = tempDir.appendingPathComponent("\(#function).dat")
-        
+        let destinationURL = tempDir.appending(path: "\(#function).dat")
         let childDownloader = Downloader.ChildDownloader(
-            url: sourceURL,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
+            mock: mock,
+            destinationURL: destinationURL
         )
         
         // Track progress updates
@@ -890,12 +804,12 @@ struct DownloaderTests {
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let url = URL(string: "https://\(#function)/file")!
-        let destinationURL = tempDir.appendingPathComponent("file.txt")
+        let mock = MockResponse(data: Data())
+        let destinationURL = tempDir.appending(path: "file.txt")
         
-        // Create with default configuration
+        // Create with mock configuration
         let childDownloader = Downloader.ChildDownloader(
-            url: url,
+            mock: mock,
             destinationURL: destinationURL
         )
         
@@ -907,26 +821,20 @@ struct DownloaderTests {
     @Test(.disabled(if: canImportFoundationNetworking)) @MainActor
     func testDownloadCancellation() async throws {
         // Setup mock to simulate a slow download
-        let testData = Data(repeating: 0, count: 1024 * 1024) // 1MB
-        let sourceURL = URL(string: "https://\(#function)/large-file.bin")!
+        let mock = MockResponse(
+            data: Data(repeating: 0, count: 1024 * 1024), // 1MB
+            delay: 10.0 // 10 seconds delay
+        )
         
-        MockURLProtocol.setResponse(for: sourceURL, with: testData, delay: 10.0) // 10 seconds delay
-        defer {
-            MockURLProtocol.removeResponse(for: sourceURL)
-        }
         
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let destinationURL = tempDir.appendingPathComponent("\(#function).bin")
+        let destinationURL = tempDir.appending(path: "\(#function).bin")
         
         // Create downloader with slow download
         let downloader = Downloader()
-        let childDownloader = Downloader.ChildDownloader(
-            url: sourceURL,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
-        )
+        let childDownloader = Downloader.ChildDownloader(mock: mock, destinationURL: destinationURL)
         downloader.add(childDownloader)
         
         // Start download in a task
@@ -960,26 +868,20 @@ struct DownloaderTests {
     @Test(.disabled(if: canImportFoundationNetworking)) @MainActor
     func testDownloadCancellationUsingTask() async throws {
         // Setup mock to simulate a slow download
-        let testData = Data(repeating: 0, count: 1024 * 1024) // 1MB
-        let sourceURL = URL(string: "https://\(#function)/large-file.bin")!
-
-        MockURLProtocol.setResponse(for: sourceURL, with: testData, delay: 10.0) // 10 seconds delay
-        defer {
-            MockURLProtocol.removeResponse(for: sourceURL)
-        }
+        let mock = MockResponse(
+            data: Data(repeating: 0, count: 1024 * 1024), // 1MB
+            delay: 10.0 // 10 seconds delay
+        )
+        
 
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
 
-        let destinationURL = tempDir.appendingPathComponent("\(#function).bin")
+        let destinationURL = tempDir.appending(path: "\(#function).bin")
 
         // Create downloader with slow download
         let downloader = Downloader()
-        let childDownloader = Downloader.ChildDownloader(
-            url: sourceURL,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
-        )
+        let childDownloader = Downloader.ChildDownloader(mock: mock, destinationURL: destinationURL)
         downloader.add(childDownloader)
 
         // Start download in a task
@@ -1008,25 +910,19 @@ struct DownloaderTests {
     @Test(.disabled(if: canImportFoundationNetworking)) @MainActor
     func testChildDownloaderCancellation() async throws {
         // Setup mock to simulate a slow download
-        let testData = Data(repeating: 0, count: 1024 * 1024) // 1MB
-        let sourceURL = URL(string: "https://\(#function)/large-file.bin")!
+        let mock = MockResponse(
+            data: Data(repeating: 0, count: 1024 * 1024), // 1MB
+            delay: 5.0 // 5 seconds delay
+        )
         
-        MockURLProtocol.setResponse(for: sourceURL, with: testData, delay: 5.0) // 5 seconds delay
-        defer {
-            MockURLProtocol.removeResponse(for: sourceURL)
-        }
         
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let destinationURL = tempDir.appendingPathComponent("\(#function).bin")
+        let destinationURL = tempDir.appending(path: "\(#function).bin")
         
         // Create child downloader
-        let childDownloader = Downloader.ChildDownloader(
-            url: sourceURL,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
-        )
+        let childDownloader = Downloader.ChildDownloader(mock: mock, destinationURL: destinationURL)
         
         // Start download
         childDownloader.download()
@@ -1045,25 +941,19 @@ struct DownloaderTests {
     
     @Test(.disabled(if: canImportFoundationNetworking)) @MainActor
     func testFetchFileSize() async throws {
-        // Prepare mock data with specific size
-        let testData = Data(repeating: 0xAB, count: 12345)
-        let sourceURL = URL(string: "https://\(#function)/file.dat")!
-        
         // Setup the mock response with Content-Length header
-        MockURLProtocol.setResponse(for: sourceURL, with: testData)
-        defer {
-            MockURLProtocol.removeResponse(for: sourceURL)
-        }
+        let mock = MockResponse(
+            data: Data(repeating: 0xAB, count: 12345)
+        )
+        
         
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let destinationURL = tempDir.appendingPathComponent("\(#function).dat")
-        
+        let destinationURL = tempDir.appending(path: "\(#function).dat")
         let childDownloader = Downloader.ChildDownloader(
-            url: sourceURL,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
+            mock: mock,
+            destinationURL: destinationURL
         )
         
         // Fetch file size
@@ -1078,17 +968,13 @@ struct DownloaderTests {
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let sourceURL = URL(string: "https://\(#function)/file.txt")!
-        let destinationURL = tempDir.appendingPathComponent("\(#function).txt")
+        let mock = MockResponse(content: "content")
+        let destinationURL = tempDir.appending(path: "\(#function).txt")
         
         // Create file to simulate already downloaded
         try "content".data(using: .utf8)!.write(to: destinationURL)
         
-        let childDownloader = Downloader.ChildDownloader(
-            url: sourceURL,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
-        )
+        let childDownloader = Downloader.ChildDownloader(mock: mock, destinationURL: destinationURL)
         
         // Should return 0 for already downloaded file
         let size = await childDownloader.fetchFileSize()
@@ -1097,24 +983,12 @@ struct DownloaderTests {
     
     @Test(.disabled(if: canImportFoundationNetworking)) @MainActor
     func testByteBasedProgress() async throws {
-        // Create files with different sizes
-        let file1Data = Data(repeating: 1, count: 1000) // 1KB
-        let file2Data = Data(repeating: 2, count: 3000) // 3KB
-        let file3Data = Data(repeating: 3, count: 6000) // 6KB
-        
-        let file1URL = URL(string: "https://\(#function)/file1.dat")!
-        let file2URL = URL(string: "https://\(#function)/file2.dat")!
-        let file3URL = URL(string: "https://\(#function)/file3.dat")!
-        
-        // Setup mock responses
-        MockURLProtocol.setResponse(for: file1URL, with: file1Data)
-        MockURLProtocol.setResponse(for: file2URL, with: file2Data)
-        MockURLProtocol.setResponse(for: file3URL, with: file3Data)
-        defer {
-            MockURLProtocol.removeResponse(for: file1URL)
-            MockURLProtocol.removeResponse(for: file2URL)
-            MockURLProtocol.removeResponse(for: file3URL)
-        }
+        // Setup mock responses with different sizes
+        let mocks = [
+            MockResponse(data: Data(repeating: 1, count: 1000)), // 1KB
+            MockResponse(data: Data(repeating: 2, count: 3000)), // 3KB
+            MockResponse(data: Data(repeating: 3, count: 6000))  // 6KB
+        ]
         
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
@@ -1122,25 +996,13 @@ struct DownloaderTests {
         let downloader = Downloader()
         
         // Add child downloaders
-        let dest1 = tempDir.appendingPathComponent("file1.dat")
-        let dest2 = tempDir.appendingPathComponent("file2.dat")
-        let dest3 = tempDir.appendingPathComponent("file3.dat")
+        let dest1 = tempDir.appending(path: "file1.dat")
+        let dest2 = tempDir.appending(path: "file2.dat")
+        let dest3 = tempDir.appending(path: "file3.dat")
         
-        downloader.add(Downloader.ChildDownloader(
-            url: file1URL,
-            destinationURL: dest1,
-            configuration: mockSessionConfiguration()
-        ))
-        downloader.add(Downloader.ChildDownloader(
-            url: file2URL,
-            destinationURL: dest2,
-            configuration: mockSessionConfiguration()
-        ))
-        downloader.add(Downloader.ChildDownloader(
-            url: file3URL,
-            destinationURL: dest3,
-            configuration: mockSessionConfiguration()
-        ))
+        downloader.add(Downloader.ChildDownloader(mock: mocks[0], destinationURL: dest1))
+        downloader.add(Downloader.ChildDownloader(mock: mocks[1], destinationURL: dest2))
+        downloader.add(Downloader.ChildDownloader(mock: mocks[2], destinationURL: dest3))
         
         // Start download
         await downloader.download()
@@ -1159,40 +1021,28 @@ struct DownloaderTests {
     
     @Test(.disabled(if: canImportFoundationNetworking)) @MainActor
     func testProgressWithMixedDownloadedFiles() async throws {
+        // Setup mock responses
         let file1Data = Data(repeating: 1, count: 2000) // 2KB
         let file2Data = Data(repeating: 2, count: 3000) // 3KB
         
-        let file1URL = URL(string: "https://\(#function)/file1.dat")!
-        let file2URL = URL(string: "https://\(#function)/file2.dat")!
-        
-        MockURLProtocol.setResponse(for: file1URL, with: file1Data)
-        MockURLProtocol.setResponse(for: file2URL, with: file2Data)
-        defer {
-            MockURLProtocol.removeResponse(for: file1URL)
-            MockURLProtocol.removeResponse(for: file2URL)
-        }
+        let mocks = [
+            MockResponse(data: file1Data),
+            MockResponse(data: file2Data)
+        ]
         
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let dest1 = tempDir.appendingPathComponent("file1.dat")
-        let dest2 = tempDir.appendingPathComponent("file2.dat")
+        let dest1 = tempDir.appending(path: "file1.dat")
+        let dest2 = tempDir.appending(path: "file2.dat")
         
         // Pre-download file1
         try file1Data.write(to: dest1)
         
         let downloader = Downloader()
         
-        downloader.add(Downloader.ChildDownloader(
-            url: file1URL,
-            destinationURL: dest1,
-            configuration: mockSessionConfiguration()
-        ))
-        downloader.add(Downloader.ChildDownloader(
-            url: file2URL,
-            destinationURL: dest2,
-            configuration: mockSessionConfiguration()
-        ))
+        downloader.add(Downloader.ChildDownloader(mock: mocks[0], destinationURL: dest1))
+        downloader.add(Downloader.ChildDownloader(mock: mocks[1], destinationURL: dest2))
         
         // Start download
         await downloader.download()
@@ -1208,27 +1058,20 @@ struct DownloaderTests {
     
     @Test(.disabled(if: canImportFoundationNetworking)) @MainActor
     func testProgressWithFailedSizeFetch() async throws {
-        // Create a URL that will fail HEAD request
-        let sourceURL = URL(string: "https://\(#function)/no-head-support.dat")!
-        let testData = Data(repeating: 0xFF, count: 5000)
-        
         // Mock will return data for GET but fail for HEAD request
-        MockURLProtocol.setResponse(for: sourceURL, with: testData, failHead: true)
-        defer {
-            MockURLProtocol.removeResponse(for: sourceURL)
-        }
+        let mock = MockResponse(
+            data: Data(repeating: 0xFF, count: 5000),
+            failHead: true
+        )
+        
         
         let tempDir = createTemporaryDirectory()
         defer { cleanupTemporaryDirectory(tempDir) }
         
-        let destinationURL = tempDir.appendingPathComponent("file.dat")
+        let destinationURL = tempDir.appending(path: "file.dat")
         
         let downloader = Downloader()
-        let childDownloader = Downloader.ChildDownloader(
-            url: sourceURL,
-            destinationURL: destinationURL,
-            configuration: mockSessionConfiguration()
-        )
+        let childDownloader = Downloader.ChildDownloader(mock: mock, destinationURL: destinationURL)
         
         downloader.add(childDownloader)
         
@@ -1243,5 +1086,44 @@ struct DownloaderTests {
         // Download should still succeed even though HEAD failed
         #expect(downloader.isDownloaded)
         #expect(FileManager.default.fileExists(atPath: destinationURL.path))
+    }
+}
+
+final class MockResponse {
+    let url: URL
+
+    init(data: Data, statusCode: Int = 200, error: Error? = nil, delay: TimeInterval? = nil, failHead: Bool = false) {
+        self.url = URL(string: "https://test.example.com/\(UUID().uuidString)")!
+        MockURLProtocol.setResponse(for: url, with: data, statusCode: statusCode, error: error, delay: delay, failHead: failHead)
+    }
+
+    convenience init(content: String, statusCode: Int = 200, error: Error? = nil, delay: TimeInterval? = nil, failHead: Bool = false) {
+        self.init(data: Data(content.utf8), statusCode: statusCode, error: error, delay: delay, failHead: failHead)
+    }
+
+    deinit {
+        MockURLProtocol.removeResponse(for: url)
+    }
+}
+
+
+// MARK: - Test Helper Extensions
+
+private extension Downloader.ChildDownloader {
+    /// Creates a mock session configuration with MockURLProtocol
+    nonisolated static func mockSessionConfiguration() -> URLSessionConfiguration {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        return configuration
+    }
+
+    /// Convenience initializer for creating a ChildDownloader with mock response and explicit destination URL
+    convenience init(mock: MockResponse, destinationURL: URL) {
+        self.init(
+            url: mock.url,
+            destinationURL: destinationURL,
+            configuration: Self.mockSessionConfiguration(),
+            headSessionConfiguration: Self.mockSessionConfiguration()
+        )
     }
 }
