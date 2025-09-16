@@ -165,10 +165,10 @@ public struct HuggingFaceAPI: Sendable {
         // Get files to download
         let fileInfos = try await getFileInfo(matching: globs, revision: revision, configuration: configuration)
 
-        let downloader = Downloader()
+        let downloader = await Downloader()
         for fileInfo in fileInfos {
             let type = repo.type == .models ? "" : "\(repo.type.rawValue)/"
-            downloader.add(.init(
+            await downloader.add(.init(
                 url: endpoint.appending(path: "\(type)\(repo.id)/resolve/\(revision)/\(fileInfo.filename)"),
                 destinationURL: destination.appendingPathComponent(fileInfo.filename),
                 configuration: {
@@ -182,11 +182,11 @@ public struct HuggingFaceAPI: Sendable {
                 }()
             ))
         }
-        downloader.setObserver { progress in
+        await downloader.setObserver { progress in
             await progressHandler(progress)
         }
 
-        downloader.download()
+        await downloader.download()
         try await downloader.waitForDownloads()
 
         await progressHandler(downloader.progress)

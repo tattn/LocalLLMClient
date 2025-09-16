@@ -3,6 +3,7 @@ import Foundation
 import FoundationNetworking
 #endif
 
+@MainActor
 final class Downloader {
     private(set) var downloaders: [ChildDownloader] = []
     let progress = Progress(totalUnitCount: 0)
@@ -30,8 +31,6 @@ final class Downloader {
 
     func add(_ downloader: ChildDownloader) {
         downloaders.append(downloader)
-        progress.addChild(downloader.progress, withPendingUnitCount: 1)
-        progress.totalUnitCount += 1
     }
 
     func setObserver(_ action: @Sendable @escaping (Progress) async -> Void) {
@@ -56,13 +55,33 @@ final class Downloader {
 #endif
     }
 
-    func download() {
+    func download() async {
         guard !downloaders.isEmpty else {
             // Notify that download is complete
             progress.totalUnitCount = 1
             progress.completedUnitCount = 1
             return
         }
+        
+        // Fetch file sizes first
+        var totalBytes: Int64 = 0
+        for downloader in downloaders {
+            if !downloader.isDownloaded {
+                let size = await downloader.fetchFileSize()
+                if size > 0 {
+                    totalBytes += size
+                    progress.addChild(downloader.progress, withPendingUnitCount: size)
+                } else {
+                    // If we can't get the size, use a default weight
+                    progress.addChild(downloader.progress, withPendingUnitCount: 1_000_000)
+                    totalBytes += 1_000_000
+                }
+            }
+        }
+
+        progress.totalUnitCount = totalBytes
+
+        // Start downloads
         for downloader in downloaders {
             downloader.download()
         }
@@ -101,6 +120,7 @@ extension Downloader {
         private let url: URL
         private let destinationURL: URL
         private let session: Locked<URLSession>
+        private let headSession: URLSession
         private let delegate = Delegate()
         private let currentTask = Locked<URLSessionTask?>(nil)
 
@@ -130,11 +150,12 @@ extension Downloader {
             }
         }
 
-        public init(url: URL, destinationURL: URL, configuration: URLSessionConfiguration = .default) {
+        public init(url: URL, destinationURL: URL, configuration: URLSessionConfiguration = .default, headSessionConfiguration: URLSessionConfiguration = .ephemeral) {
             self.url = url
             self.destinationURL = destinationURL
             let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
             self.session = Locked(session)
+            self.headSession = URLSession(configuration: headSessionConfiguration)
 
 #if !os(Linux)
             Task {
@@ -149,7 +170,29 @@ extension Downloader {
 #endif
         }
 
-        public func download(existingTask: URLSessionTask? = nil) {
+        func fetchFileSize() async -> Int64 {
+            // Skip if already downloaded
+            if isDownloaded {
+                return 0
+            }
+            
+            var request = URLRequest(url: url)
+            request.httpMethod = "HEAD"
+            
+            do {
+                let (_, response) = try await headSession.data(for: request)
+                if let httpResponse = response as? HTTPURLResponse,
+                   let contentLength = httpResponse.value(forHTTPHeaderField: "Content-Length"),
+                   let size = Int64(contentLength) {
+                    return size
+                }
+            } catch {
+                // If HEAD request fails, return 0
+            }
+            return 0
+        }
+        
+        func download(existingTask: URLSessionTask? = nil) {
             guard !isDownloading else { return }
             delegate.state.withLock { $0 = .downloading }
 
@@ -164,7 +207,7 @@ extension Downloader {
             task.resume()
         }
         
-        public func cancel() {
+        func cancel() {
             currentTask.withLock { task in
                 task?.cancel()
                 task = nil
@@ -178,7 +221,7 @@ extension Downloader {
             reset()
         }
 
-        public func reset() {
+        func reset() {
             session.withLock {
                 $0.invalidateAndCancel()
                 $0 = URLSession(configuration: $0.configuration, delegate: delegate, delegateQueue: nil)

@@ -8,7 +8,8 @@ let canImportFoundationNetworking = false
 #endif
 @testable import LocalLLMClientUtility
 
-actor DownloaderTests {
+@MainActor
+struct DownloaderTests {
 
     /// Creates a mock session configuration with MockURLProtocol
     private nonisolated func mockSessionConfiguration() -> URLSessionConfiguration {
@@ -63,15 +64,15 @@ actor DownloaderTests {
         downloader.add(childDownloader)
         
         #expect(downloader.downloaders.count == 1)
-        #expect(downloader.progress.totalUnitCount == 1)
+        #expect(downloader.progress.totalUnitCount == 0) // Update after download() is called
     }
     
     @Test
-    func testEmptyDownloadCompletes() {
+    func testEmptyDownloadCompletes() async {
         let downloader = Downloader()
         
         // Download should immediately complete when no downloaders are added
-        downloader.download()
+        await downloader.download()
         
         #expect(downloader.progress.totalUnitCount == 1)
         #expect(downloader.progress.completedUnitCount == 1)
@@ -114,7 +115,7 @@ actor DownloaderTests {
         }
         
         // Start the download and wait for completion
-        downloader.download()
+        await downloader.download()
         try await downloader.waitForDownloads()
 
 
@@ -164,7 +165,7 @@ actor DownloaderTests {
         downloader.add(childDownloader)
         
         // Start the download and wait for completion
-        downloader.download()
+        await downloader.download()
         await #expect {
             try await downloader.waitForDownloads()
         } throws: { thrownError in
@@ -219,16 +220,17 @@ actor DownloaderTests {
         downloader.add(childDownloader2)
         
         #expect(downloader.downloaders.count == 2)
-        #expect(downloader.progress.totalUnitCount == 2)
+        #expect(downloader.progress.totalUnitCount == 0) // Update after download() is called
         
         // Start the downloads and wait for completion
-        downloader.download()
+        await downloader.download()
         try await downloader.waitForDownloads()
 
         // Verify all downloads completed successfully
         #expect(!downloader.isDownloading)
         #expect(downloader.isDownloaded)
-        
+        #expect(downloader.progress.totalUnitCount == 28)
+
         // Check first file
         #expect(FileManager.default.fileExists(atPath: destination1URL.path))
         if let data1 = try? Data(contentsOf: destination1URL) {
@@ -288,7 +290,7 @@ actor DownloaderTests {
             }
             
             // Start the download
-            downloader.download()
+            await downloader.download()
             try await downloader.waitForDownloads()
         }
         
@@ -344,7 +346,7 @@ actor DownloaderTests {
         #expect(downloader.isDownloaded)
         
         // Start the download anyway
-        downloader.download()
+        await downloader.download()
         try await downloader.waitForDownloads()
 
         // Verify the download is still marked as complete
@@ -670,7 +672,7 @@ actor DownloaderTests {
         downloader.add(childDownloader)
         
         // Start download
-        downloader.download()
+        await downloader.download()
         
         // Create a timeout task
         let timeoutTask = Task {
@@ -734,7 +736,7 @@ actor DownloaderTests {
             }
             
             // Start download
-            downloader.download()
+            await downloader.download()
             try await downloader.waitForDownloads()
         }
         
@@ -818,7 +820,7 @@ actor DownloaderTests {
             }
             
             // Start all downloads concurrently
-            downloader.download()
+            await downloader.download()
             try await downloader.waitForDownloads()
         }
         
@@ -928,7 +930,7 @@ actor DownloaderTests {
         downloader.add(childDownloader)
         
         // Start download in a task
-        downloader.download()
+        await downloader.download()
         
         let waitTask = Task {
             try await downloader.waitForDownloads()
@@ -981,7 +983,7 @@ actor DownloaderTests {
         downloader.add(childDownloader)
 
         // Start download in a task
-        downloader.download()
+        await downloader.download()
 
         let waitTask = Task {
             try await downloader.waitForDownloads()
@@ -1039,5 +1041,207 @@ actor DownloaderTests {
         // Verify cancellation
         #expect(!childDownloader.isDownloading)
         #expect(!FileManager.default.fileExists(atPath: destinationURL.path))
+    }
+    
+    @Test(.disabled(if: canImportFoundationNetworking)) @MainActor
+    func testFetchFileSize() async throws {
+        // Prepare mock data with specific size
+        let testData = Data(repeating: 0xAB, count: 12345)
+        let sourceURL = URL(string: "https://\(#function)/file.dat")!
+        
+        // Setup the mock response with Content-Length header
+        MockURLProtocol.setResponse(for: sourceURL, with: testData)
+        defer {
+            MockURLProtocol.removeResponse(for: sourceURL)
+        }
+        
+        let tempDir = createTemporaryDirectory()
+        defer { cleanupTemporaryDirectory(tempDir) }
+        
+        let destinationURL = tempDir.appendingPathComponent("\(#function).dat")
+        
+        let childDownloader = Downloader.ChildDownloader(
+            url: sourceURL,
+            destinationURL: destinationURL,
+            configuration: mockSessionConfiguration()
+        )
+        
+        // Fetch file size
+        let size = await childDownloader.fetchFileSize()
+        
+        // Should return the data size
+        #expect(size == 12345)
+    }
+    
+    @Test @MainActor
+    func testFetchFileSizeForDownloadedFile() async throws {
+        let tempDir = createTemporaryDirectory()
+        defer { cleanupTemporaryDirectory(tempDir) }
+        
+        let sourceURL = URL(string: "https://\(#function)/file.txt")!
+        let destinationURL = tempDir.appendingPathComponent("\(#function).txt")
+        
+        // Create file to simulate already downloaded
+        try "content".data(using: .utf8)!.write(to: destinationURL)
+        
+        let childDownloader = Downloader.ChildDownloader(
+            url: sourceURL,
+            destinationURL: destinationURL,
+            configuration: mockSessionConfiguration()
+        )
+        
+        // Should return 0 for already downloaded file
+        let size = await childDownloader.fetchFileSize()
+        #expect(size == 0)
+    }
+    
+    @Test(.disabled(if: canImportFoundationNetworking)) @MainActor
+    func testByteBasedProgress() async throws {
+        // Create files with different sizes
+        let file1Data = Data(repeating: 1, count: 1000) // 1KB
+        let file2Data = Data(repeating: 2, count: 3000) // 3KB
+        let file3Data = Data(repeating: 3, count: 6000) // 6KB
+        
+        let file1URL = URL(string: "https://\(#function)/file1.dat")!
+        let file2URL = URL(string: "https://\(#function)/file2.dat")!
+        let file3URL = URL(string: "https://\(#function)/file3.dat")!
+        
+        // Setup mock responses
+        MockURLProtocol.setResponse(for: file1URL, with: file1Data)
+        MockURLProtocol.setResponse(for: file2URL, with: file2Data)
+        MockURLProtocol.setResponse(for: file3URL, with: file3Data)
+        defer {
+            MockURLProtocol.removeResponse(for: file1URL)
+            MockURLProtocol.removeResponse(for: file2URL)
+            MockURLProtocol.removeResponse(for: file3URL)
+        }
+        
+        let tempDir = createTemporaryDirectory()
+        defer { cleanupTemporaryDirectory(tempDir) }
+        
+        let downloader = Downloader()
+        
+        // Add child downloaders
+        let dest1 = tempDir.appendingPathComponent("file1.dat")
+        let dest2 = tempDir.appendingPathComponent("file2.dat")
+        let dest3 = tempDir.appendingPathComponent("file3.dat")
+        
+        downloader.add(Downloader.ChildDownloader(
+            url: file1URL,
+            destinationURL: dest1,
+            configuration: mockSessionConfiguration()
+        ))
+        downloader.add(Downloader.ChildDownloader(
+            url: file2URL,
+            destinationURL: dest2,
+            configuration: mockSessionConfiguration()
+        ))
+        downloader.add(Downloader.ChildDownloader(
+            url: file3URL,
+            destinationURL: dest3,
+            configuration: mockSessionConfiguration()
+        ))
+        
+        // Start download
+        await downloader.download()
+        
+        // Total unit count should be sum of all file sizes (1000 + 3000 + 6000 = 10000 bytes)
+        #expect(downloader.progress.totalUnitCount == 10000)
+        
+        try await downloader.waitForDownloads()
+        
+        // Verify all downloads completed
+        #expect(downloader.isDownloaded)
+        #expect(FileManager.default.fileExists(atPath: dest1.path))
+        #expect(FileManager.default.fileExists(atPath: dest2.path))
+        #expect(FileManager.default.fileExists(atPath: dest3.path))
+    }
+    
+    @Test(.disabled(if: canImportFoundationNetworking)) @MainActor
+    func testProgressWithMixedDownloadedFiles() async throws {
+        let file1Data = Data(repeating: 1, count: 2000) // 2KB
+        let file2Data = Data(repeating: 2, count: 3000) // 3KB
+        
+        let file1URL = URL(string: "https://\(#function)/file1.dat")!
+        let file2URL = URL(string: "https://\(#function)/file2.dat")!
+        
+        MockURLProtocol.setResponse(for: file1URL, with: file1Data)
+        MockURLProtocol.setResponse(for: file2URL, with: file2Data)
+        defer {
+            MockURLProtocol.removeResponse(for: file1URL)
+            MockURLProtocol.removeResponse(for: file2URL)
+        }
+        
+        let tempDir = createTemporaryDirectory()
+        defer { cleanupTemporaryDirectory(tempDir) }
+        
+        let dest1 = tempDir.appendingPathComponent("file1.dat")
+        let dest2 = tempDir.appendingPathComponent("file2.dat")
+        
+        // Pre-download file1
+        try file1Data.write(to: dest1)
+        
+        let downloader = Downloader()
+        
+        downloader.add(Downloader.ChildDownloader(
+            url: file1URL,
+            destinationURL: dest1,
+            configuration: mockSessionConfiguration()
+        ))
+        downloader.add(Downloader.ChildDownloader(
+            url: file2URL,
+            destinationURL: dest2,
+            configuration: mockSessionConfiguration()
+        ))
+        
+        // Start download
+        await downloader.download()
+        
+        // Only file2 should contribute to progress (file1 is already downloaded)
+        // The totalUnitCount should reflect only file2's size (3000 bytes)
+        #expect(downloader.progress.totalUnitCount == 3000)
+        
+        try await downloader.waitForDownloads()
+        
+        #expect(downloader.isDownloaded)
+    }
+    
+    @Test(.disabled(if: canImportFoundationNetworking)) @MainActor
+    func testProgressWithFailedSizeFetch() async throws {
+        // Create a URL that will fail HEAD request
+        let sourceURL = URL(string: "https://\(#function)/no-head-support.dat")!
+        let testData = Data(repeating: 0xFF, count: 5000)
+        
+        // Mock will return data for GET but fail for HEAD request
+        MockURLProtocol.setResponse(for: sourceURL, with: testData, failHead: true)
+        defer {
+            MockURLProtocol.removeResponse(for: sourceURL)
+        }
+        
+        let tempDir = createTemporaryDirectory()
+        defer { cleanupTemporaryDirectory(tempDir) }
+        
+        let destinationURL = tempDir.appendingPathComponent("file.dat")
+        
+        let downloader = Downloader()
+        let childDownloader = Downloader.ChildDownloader(
+            url: sourceURL,
+            destinationURL: destinationURL,
+            configuration: mockSessionConfiguration()
+        )
+        
+        downloader.add(childDownloader)
+        
+        // Start download
+        await downloader.download()
+        
+        // Should use default weight when HEAD fails (1_000_000)
+        #expect(downloader.progress.totalUnitCount == 1_000_000)
+
+        try await downloader.waitForDownloads()
+        
+        // Download should still succeed even though HEAD failed
+        #expect(downloader.isDownloaded)
+        #expect(FileManager.default.fileExists(atPath: destinationURL.path))
     }
 }
