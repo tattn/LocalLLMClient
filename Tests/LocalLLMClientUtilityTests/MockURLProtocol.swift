@@ -7,7 +7,7 @@ import LocalLLMClientUtility
 /// Mock URLProtocol for testing download functionality without actual network requests
 final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     /// Dictionary to store mock responses by URL
-    static let mockResponses: Locked<[URL: (data: Data, response: HTTPURLResponse, error: Error?, delay: TimeInterval?)]> = .init([:])
+    static let mockResponses: Locked<[URL: (data: Data, response: HTTPURLResponse, error: Error?, delay: TimeInterval?, failHead: Bool)]> = .init([:])
 
     /// Storage for downloaded files
     static let downloadedFiles: Locked<[URL: URL]> = .init([:])
@@ -19,7 +19,7 @@ final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     private let taskID = UUID()
 
     /// Registers a mock response for a specific URL
-    static func setResponse(for url: URL, with data: Data, statusCode: Int = 200, error: Error? = nil, delay: TimeInterval? = nil) {
+    static func setResponse(for url: URL, with data: Data, statusCode: Int = 200, error: Error? = nil, delay: TimeInterval? = nil, failHead: Bool = false) {
         let response = HTTPURLResponse(
             url: url,
             statusCode: statusCode,
@@ -27,7 +27,7 @@ final class MockURLProtocol: URLProtocol, @unchecked Sendable {
             headerFields: ["Content-Length": "\(data.count)"]
         )!
         mockResponses.withLock {
-            $0[url] = (data, response, error, delay)
+            $0[url] = (data, response, error, delay, failHead)
         }
     }
 
@@ -67,6 +67,18 @@ final class MockURLProtocol: URLProtocol, @unchecked Sendable {
 
         if let error = mockData.error {
             client.urlProtocol(self, didFailWithError: error)
+            return
+        }
+
+        // Handle HEAD requests - only send headers, no body
+        if request.httpMethod == "HEAD" {
+            // If failHead is true, fail the HEAD request
+            if mockData.failHead {
+                let error = NSError(domain: NSURLErrorDomain, code: NSURLErrorUnsupportedURL, userInfo: nil)
+                client.urlProtocol(self, didFailWithError: error)
+            } else {
+                client.urlProtocolDidFinishLoading(self)
+            }
             return
         }
 
