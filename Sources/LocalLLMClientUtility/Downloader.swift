@@ -65,16 +65,23 @@ final class Downloader {
         
         // Fetch file sizes first
         var totalBytes: Int64 = 0
-        for downloader in downloaders {
-            if !downloader.isDownloaded {
-                let size = await downloader.fetchFileSize()
+        await withTaskGroup(of: (ChildDownloader, Int64).self) { group in
+            for downloader in downloaders where !downloader.isDownloaded {
+                group.addTask {
+                    let size = await downloader.fetchFileSize()
+                    return (downloader, size)
+                }
+            }
+
+            let defaultWeight: Int64 = 1_000_000
+            for await (downloader, size) in group {
                 if size > 0 {
                     totalBytes += size
                     progress.addChild(downloader.progress, withPendingUnitCount: size)
                 } else {
                     // If we can't get the size, use a default weight
-                    progress.addChild(downloader.progress, withPendingUnitCount: 1_000_000)
-                    totalBytes += 1_000_000
+                    progress.addChild(downloader.progress, withPendingUnitCount: defaultWeight)
+                    totalBytes += defaultWeight
                 }
             }
         }
@@ -187,7 +194,9 @@ extension Downloader {
                     return size
                 }
             } catch {
-                // If HEAD request fails, return 0
+#if DEBUG
+                print("Failed to fetch file size for \(url): \(error)")
+#endif
             }
             return 0
         }
