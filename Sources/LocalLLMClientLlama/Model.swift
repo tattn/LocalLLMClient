@@ -24,7 +24,7 @@ final class Model {
 
         self.model = model
 
-        let chatTemplate = getString(capacity: 4096) { buffer, length in
+        let chatTemplate = getString(capacity: 8192) { buffer, length in
             // LLM_KV_TOKENIZER_CHAT_TEMPLATE
             llama_model_meta_val_str(model, "tokenizer.chat_template", buffer, length)
         }
