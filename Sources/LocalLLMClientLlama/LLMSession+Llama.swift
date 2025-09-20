@@ -44,6 +44,7 @@ public extension LLMSession.LocalModel {
         parameter: LlamaClient.Parameter = .default
     ) -> LLMSession.LocalModel {
         return LLMSession.LocalModel(
+            modelPath: url,
             makeClient: { tools in
                 try await AnyLLMClient(
                     LocalLLMClient.llama(

@@ -31,6 +31,7 @@ public extension LLMSession.LocalModel {
         parameter: MLXClient.Parameter = .default
     ) -> LLMSession.LocalModel {
         return LLMSession.LocalModel(
+            modelPath: url,
             makeClient: { tools in
                 try await AnyLLMClient(
                     LocalLLMClient.mlx(url: url, parameter: parameter, tools: tools.map { $0.underlyingTool })

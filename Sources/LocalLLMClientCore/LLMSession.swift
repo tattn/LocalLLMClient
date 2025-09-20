@@ -271,6 +271,11 @@ public extension LLMSession {
             downloader.isDownloaded
         }
 
+        /// The local path where the model files are stored.
+        public var modelPath: URL {
+            downloader.destination
+        }
+
         package init(source: FileDownloader.Source, destination: URL? = nil, makeClient: @Sendable @escaping ([AnyLLMTool]) async throws -> AnyLLMClient) {
             self.source = source
             let destination = destination ?? FileDownloader.defaultRootDestination
@@ -301,8 +306,12 @@ public extension LLMSession {
     
     struct LocalModel: Model {
         public let makeClient: @Sendable ([AnyLLMTool]) async throws -> AnyLLMClient
-        
-        package init(makeClient: @Sendable @escaping ([AnyLLMTool]) async throws -> AnyLLMClient) {
+
+        /// The local path of the model.
+        public let modelPath: URL
+
+        package init(modelPath: URL, makeClient: @Sendable @escaping ([AnyLLMTool]) async throws -> AnyLLMClient) {
+            self.modelPath = modelPath
             self.makeClient = makeClient
         }
         

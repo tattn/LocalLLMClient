@@ -115,6 +115,19 @@ extension ModelTests {
         }
         
         @Test
+        func downloadModelPath() async throws {
+            let downloadModel = Self.makeGeneralModel()
+
+            // Check that modelPath is accessible
+            let modelPath = downloadModel.modelPath
+            #expect(modelPath.path.contains(".localllmclient/huggingface/models"))
+
+            // The path should contain the HuggingFace repository ID
+            let info = LocalLLMClient.modelInfo(for: .general, modelSize: .default)
+            #expect(modelPath.path.contains(info.id.split(separator: "/").last ?? ""), "Model path should contain repository name")
+        }
+
+        @Test
         func localModelLoading() async throws {
             // First download the model to ensure we have a local copy
             let info = LocalLLMClient.modelInfo(for: .general, modelSize: .light)
@@ -124,6 +137,9 @@ extension ModelTests {
             // Create a session with the local model
             let localModel = LLMSession.LocalModel.llama(url: modelPath)
             let session = LLMSession(model: localModel)
+
+            // Verify the model path is accessible
+            #expect(localModel.modelPath == modelPath, "LocalModel should store the provided model path")
             
             // Test that it works
             let response = try await session.respond(to: "Hi, can you say hello?")
