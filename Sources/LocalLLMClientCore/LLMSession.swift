@@ -306,10 +306,15 @@ public extension LLMSession {
         public static func pruneModels(in url: URL = FileDownloader.defaultRootDestination, excluding: [Model] = []) throws {
             guard let enumerator = FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsPackageDescendants]) else { return }
 
-            let excludingNormalized: [URL] = excluding.compactMap {
-                let model = $0 as? Self
-                return model?.modelPath.resolvingSymlinksInPath().standardizedFileURL
-            }
+            let excludingNormalized: Set<URL> = Set(excluding.compactMap { model -> URL? in
+                if let model = model as? LLMSession.DownloadModel {
+                    return model.modelPath.resolvingSymlinksInPath().standardizedFileURL
+                }
+                if let model = model as? LLMSession.LocalModel {
+                    return model.modelPath.resolvingSymlinksInPath().standardizedFileURL
+                }
+                return nil
+            })
 
             for case let fileURL as URL in enumerator {
                 if excludingNormalized.contains(fileURL.resolvingSymlinksInPath().standardizedFileURL) {
