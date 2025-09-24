@@ -302,6 +302,28 @@ public extension LLMSession {
         public func downloadModel(onProgress: @Sendable @escaping (Double) async -> Void = { _ in }) async throws {
             try await downloader.download(onProgress: onProgress)
         }
+
+        public static func pruneModels(in url: URL = FileDownloader.defaultRootDestination, excluding: [Model] = []) throws {
+            guard let enumerator = FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsPackageDescendants]) else { return }
+
+            let excludingNormalized: [URL] = excluding.compactMap {
+                let model = $0 as? Self
+                return model?.modelPath.resolvingSymlinksInPath().standardizedFileURL
+            }
+
+            for case let fileURL as URL in enumerator {
+                if excludingNormalized.contains(fileURL.resolvingSymlinksInPath().standardizedFileURL) {
+                    enumerator.skipDescendants()
+                    continue
+                }
+
+                if (try? fileURL.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == false {
+                    try FileManager.default.removeItem(at: fileURL)
+                }
+            }
+
+            try url.removeEmptyFolders()
+        }
     }
     
     struct LocalModel: Model {
