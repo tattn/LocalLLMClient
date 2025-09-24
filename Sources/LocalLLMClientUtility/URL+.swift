@@ -23,7 +23,7 @@ package extension URL {
         guard isFileURL else { return }
 
         let contents = try FileManager.default.contentsOfDirectory(at: self, includingPropertiesForKeys: [.isDirectoryKey])
-        let subdirectories = contents.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true }
+        let subdirectories = try contents.filter { try $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory ?? false }
 
         for subdirectory in subdirectories { try subdirectory.removeEmptyFolders() }
 

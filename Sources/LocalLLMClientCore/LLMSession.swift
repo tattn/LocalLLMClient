@@ -322,7 +322,7 @@ public extension LLMSession {
                     continue
                 }
 
-                if (try? fileURL.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == false {
+                if (try fileURL.resourceValues(forKeys: [.isDirectoryKey])).isDirectory == false {
                     try FileManager.default.removeItem(at: fileURL)
                 }
             }
