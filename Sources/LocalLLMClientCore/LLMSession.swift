@@ -303,10 +303,13 @@ public extension LLMSession {
             try await downloader.download(onProgress: onProgress)
         }
 
-        public static func pruneModels(in url: URL = FileDownloader.defaultRootDestination, excluding: [Model] = []) throws {
+        public static func removeAllModels(
+            in url: URL = FileDownloader.defaultRootDestination,
+            excludingModels: [any Model] = []
+        ) throws {
             guard let enumerator = FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsPackageDescendants]) else { return }
 
-            let excludingNormalized: Set<URL> = Set(excluding.compactMap { model -> URL? in
+            let excludingNormalized: Set<URL> = Set(excludingModels.compactMap { model -> URL? in
                 if let model = model as? LLMSession.DownloadModel {
                     return model.modelPath.resolvingSymlinksInPath().standardizedFileURL
                 }
