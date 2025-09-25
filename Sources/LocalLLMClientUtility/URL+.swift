@@ -18,17 +18,4 @@ package extension URL {
         return url
 #endif
     }
-
-    func removeEmptyFolders() throws {
-        guard isFileURL else { return }
-
-        let contents = try FileManager.default.contentsOfDirectory(at: self, includingPropertiesForKeys: [.isDirectoryKey])
-        let subdirectories = try contents.filter { try $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory ?? false }
-
-        for subdirectory in subdirectories { try subdirectory.removeEmptyFolders() }
-
-        guard try FileManager.default.contentsOfDirectory(at: self, includingPropertiesForKeys: nil).isEmpty else { return }
-
-        try FileManager.default.removeItem(at: self)
-    }
 }

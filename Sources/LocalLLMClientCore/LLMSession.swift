@@ -330,7 +330,7 @@ public extension LLMSession {
                 }
             }
 
-            try url.removeEmptyFolders()
+            try FileManager.default.removeEmptyDirectories(in: url)
         }
     }
     
