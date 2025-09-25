@@ -13,4 +13,24 @@ package extension FileManager {
 
         try removeItem(at: url)
     }
+
+    func removeAllItems(in url: URL, excludingURLs: [URL] = [], removingEmptyDirectories: Bool = true) throws {
+        guard let enumerator = enumerator(at: url, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsPackageDescendants]) else { return }
+
+        let excludingURLsNormalized: Set<URL> = Set(excludingURLs.map { $0.resolvingSymlinksInPath().standardizedFileURL
+        })
+
+        for case let fileURL as URL in enumerator {
+            if excludingURLsNormalized.contains(fileURL.resolvingSymlinksInPath().standardizedFileURL) {
+                enumerator.skipDescendants()
+                continue
+            }
+
+            if (try fileURL.resourceValues(forKeys: [.isDirectoryKey])).isDirectory == false {
+                try removeItem(at: fileURL)
+            }
+        }
+
+        if removingEmptyDirectories { try removeEmptyDirectories(in: url) }
+    }
 }

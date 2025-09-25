@@ -307,30 +307,15 @@ public extension LLMSession {
             in url: URL = FileDownloader.defaultRootDestination,
             excludingModels: [any Model] = []
         ) throws {
-            guard let enumerator = FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsPackageDescendants]) else { return }
-
-            let excludingNormalized: Set<URL> = Set(excludingModels.compactMap { model -> URL? in
-                if let model = model as? LLMSession.DownloadModel {
-                    return model.modelPath.resolvingSymlinksInPath().standardizedFileURL
-                }
-                if let model = model as? LLMSession.LocalModel {
-                    return model.modelPath.resolvingSymlinksInPath().standardizedFileURL
-                }
-                return nil
-            })
-
-            for case let fileURL as URL in enumerator {
-                if excludingNormalized.contains(fileURL.resolvingSymlinksInPath().standardizedFileURL) {
-                    enumerator.skipDescendants()
-                    continue
-                }
-
-                if (try fileURL.resourceValues(forKeys: [.isDirectoryKey])).isDirectory == false {
-                    try FileManager.default.removeItem(at: fileURL)
+            let excludedURLs: [URL] = excludingModels.compactMap { model -> URL? in
+                switch model {
+                case let model as LLMSession.DownloadModel: model.modelPath
+                case let model as LLMSession.LocalModel: model.modelPath
+                default: nil
                 }
             }
 
-            try FileManager.default.removeEmptyDirectories(in: url)
+            try FileManager.default.removeAllItems(in: url, excludingURLs: excludedURLs)
         }
     }
     
