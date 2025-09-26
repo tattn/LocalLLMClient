@@ -106,7 +106,7 @@ public struct AnyLLMClient: LLMClient {
         withToolCalls toolCalls: [LLMToolCall],
         toolOutputs: [(String, String)],
         originalInput: LLMInput
-    ) async throws -> AsyncThrowingStream<StreamingChunk, Error> {
+    ) async throws -> AsyncThrowingStream<StreamingChunk, any Error> {
         try await _resumeStream(toolCalls, toolOutputs, originalInput)
     }
 
