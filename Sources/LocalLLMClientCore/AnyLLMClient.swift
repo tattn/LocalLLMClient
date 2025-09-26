@@ -6,7 +6,7 @@ public struct AnyLLMClient: LLMClient {
     private let _textStream: @Sendable (LLMInput) async throws -> AsyncThrowingStream<String, Error>
     private let _generateToolCalls: @Sendable (LLMInput) async throws -> GeneratedContent
     private let _resume: @Sendable ([LLMToolCall], [(String, String)], LLMInput) async throws -> String
-    private let _resumeStream: @Sendable ([LLMToolCall], [(String, String)], LLMInput) async throws -> AsyncThrowingStream<StreamingChunk, Error>
+    private let _resumeStream: @Sendable ([LLMToolCall], [(String, String)], LLMInput) async throws -> AsyncThrowingStream<StreamingChunk, any Error>
     private let _responseStream: @Sendable (LLMInput) async throws -> AsyncThrowingStream<StreamingChunk, Error>
     private let _pauseGeneration: @Sendable () async -> Void
     private let _resumeGeneration: @Sendable () async -> Void
