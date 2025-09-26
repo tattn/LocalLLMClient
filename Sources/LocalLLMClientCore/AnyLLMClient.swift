@@ -6,6 +6,7 @@ public struct AnyLLMClient: LLMClient {
     private let _textStream: @Sendable (LLMInput) async throws -> AsyncThrowingStream<String, Error>
     private let _generateToolCalls: @Sendable (LLMInput) async throws -> GeneratedContent
     private let _resume: @Sendable ([LLMToolCall], [(String, String)], LLMInput) async throws -> String
+    private let _resumeStream: @Sendable ([LLMToolCall], [(String, String)], LLMInput) async throws -> AsyncThrowingStream<StreamingChunk, any Error>
     private let _responseStream: @Sendable (LLMInput) async throws -> AsyncThrowingStream<StreamingChunk, Error>
     private let _pauseGeneration: @Sendable () async -> Void
     private let _resumeGeneration: @Sendable () async -> Void
@@ -32,6 +33,17 @@ public struct AnyLLMClient: LLMClient {
                 toolOutputs: toolOutputs,
                 originalInput: originalInput
             )
+        }
+        self._resumeStream = { toolCalls, toolOutputs, originalInput in
+            Self.createAsyncStream { continuation in
+                for try await content in try await client.resumeStream(
+                    withToolCalls: toolCalls,
+                    toolOutputs: toolOutputs,
+                    originalInput: originalInput
+                ) {
+                    continuation.yield(content)
+                }
+            }
         }
         self._responseStream = { input in
             Self.createAsyncStream { continuation in
@@ -69,19 +81,19 @@ public struct AnyLLMClient: LLMClient {
             }
         }
     }
-    
+
     public func generateText(from input: LLMInput) async throws -> String {
         try await _generateText(input)
     }
-    
+
     public func textStream(from input: LLMInput) async throws -> AsyncThrowingStream<String, Error> {
         try await _textStream(input)
     }
-    
+
     public func generateToolCalls(from input: LLMInput) async throws -> GeneratedContent {
         try await _generateToolCalls(input)
     }
-    
+
     public func resume(
         withToolCalls toolCalls: [LLMToolCall],
         toolOutputs: [(String, String)],
@@ -89,7 +101,15 @@ public struct AnyLLMClient: LLMClient {
     ) async throws -> String {
         try await _resume(toolCalls, toolOutputs, originalInput)
     }
-    
+
+    public func resumeStream(
+        withToolCalls toolCalls: [LLMToolCall],
+        toolOutputs: [(String, String)],
+        originalInput: LLMInput
+    ) async throws -> AsyncThrowingStream<StreamingChunk, any Error> {
+        try await _resumeStream(toolCalls, toolOutputs, originalInput)
+    }
+
     public func responseStream(from input: LLMInput) async throws -> AsyncThrowingStream<StreamingChunk, Error> {
         try await _responseStream(input)
     }

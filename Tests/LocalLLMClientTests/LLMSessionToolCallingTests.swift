@@ -7,8 +7,7 @@ import LocalLLMClientTestUtilities
 
 @Suite
 struct LLMSessionToolCallingTests {
-    
-    
+
     // Mock LLM client for testing
     actor MockToolCallingClient: LLMClient {
         let tools: [AnyLLMTool]
@@ -17,29 +16,29 @@ struct LLMSessionToolCallingTests {
         var generateTextCallCount = 0
         var generateToolCallsCallCount = 0
         var responseStreamCallCount = 0
-        var resumeCallCount = 0
-        
+        var resumeStreamCallCount = 0
+
         init(tools: [AnyLLMTool] = []) {
             self.tools = tools
         }
-        
+
         func setMockToolCalls(_ calls: [LLMToolCall]) {
             mockToolCalls = calls
         }
-        
+
         func generateText(from input: LLMInput) async throws -> String {
             generateTextCallCount += 1
             return "Response without tool calls"
         }
-        
-        func textStream(from input: LLMInput) async throws -> AsyncThrowingStream<String, Error> {
+
+        func textStream(from input: LLMInput) async throws -> AsyncThrowingStream<String, any Error> {
             AsyncThrowingStream { continuation in
                 continuation.yield("Streaming ")
                 continuation.yield("response")
                 continuation.finish()
             }
         }
-        
+
         // Tool calling methods
         func generateToolCalls(from input: LLMInput) async throws -> GeneratedContent {
             generateToolCallsCallCount += 1
@@ -48,7 +47,7 @@ struct LLMSessionToolCallingTests {
                 toolCalls: mockToolCalls
             )
         }
-        
+
         func responseStream(from input: LLMInput) async throws -> AsyncThrowingStream<StreamingChunk, Error> {
             responseStreamCallCount += 1
             return AsyncThrowingStream { continuation in
@@ -61,15 +60,20 @@ struct LLMSessionToolCallingTests {
                 }
             }
         }
-        
-        func resume(
+
+        func resumeStream(
             withToolCalls toolCalls: [LLMToolCall],
             toolOutputs: [(String, String)],
             originalInput: LLMInput
-        ) async throws -> String {
-            resumeCallCount += 1
-            // Mock implementation - just return a success message
-            return "Based on the tool results: \(toolOutputs.map { $0.1 }.joined(separator: ", "))"
+        ) async throws -> AsyncThrowingStream<StreamingChunk, any Error> {
+            resumeStreamCallCount += 1
+            return AsyncThrowingStream { continuation in
+                Task {
+                    let resultText = "Based on the tool results: \(toolOutputs.map { $0.1 }.joined(separator: ", "))"
+                    continuation.yield(.text(resultText))
+                    continuation.finish()
+                }
+            }
         }
     }
     
@@ -105,8 +109,8 @@ struct LLMSessionToolCallingTests {
         // Verify that respond now uses streamResponse (which uses responseStream for tool calls)
         // The implementation should use responseStream and resume for tool handling
         #expect(await client.responseStreamCallCount >= 1)
-        #expect(await client.resumeCallCount >= 1)
-        
+        #expect(await client.resumeStreamCallCount >= 1)
+
         // Test streaming response with tools - should only return text
         // Reset mock tool calls for the next request
         await client.setMockToolCalls([
@@ -141,7 +145,7 @@ struct LLMSessionToolCallingTests {
         
         // Should use textStream instead of responseStream
         #expect(await client.responseStreamCallCount == 0)
-        #expect(await client.resumeCallCount == 0)
+        #expect(await client.resumeStreamCallCount == 0)
         #expect(response == "Streaming response")
     }
     
