@@ -95,27 +95,21 @@ public final actor MLXClient: LLMClient {
     ///   - originalInput: The original input that generated the tool call
     /// - Returns: The model's response to the tool outputs
     /// - Throws: An error if text generation fails
-    public func resume(
+    public func resumeStream(
         withToolCalls toolCalls: [LLMToolCall],
         toolOutputs: [(String, String)],
         originalInput: LLMInput
-    ) async throws -> String {
+    ) async throws -> AsyncThrowingStream<StreamingChunk, any Error> {
         guard case let .chat(messages) = originalInput.value else {
             throw LLMError.invalidParameter(reason: "Original input must be a chat")
         }
-        
-        var updatedMessages = messages
 
-        // Add tool messages for each tool output
+        var updatedMessages = messages
         for (toolCallID, output) in toolOutputs {
             updatedMessages.append(.tool(output, toolCallID: toolCallID))
         }
-        
-        // Create a new input with the updated messages
-        let updatedInput = LLMInput.chat(updatedMessages)
-        
-        // Generate a response to the tool outputs
-        return try await generateText(from: updatedInput)
+
+        return try await responseStream(from: .chat(updatedMessages))
     }
     
     /// Converts tool parameters to MLX format
@@ -214,7 +208,7 @@ public final actor MLXClient: LLMClient {
     /// - Parameter input: The input to process
     /// - Returns: An asynchronous sequence that emits response content (text chunks, tool calls, etc.)
     /// - Throws: An error if generation fails
-    public func responseStream(from input: LLMInput) async throws -> AsyncThrowingStream<StreamingChunk, Error> {
+    public func responseStream(from input: LLMInput) async throws -> AsyncThrowingStream<StreamingChunk, any Error> {
         return AsyncThrowingStream { continuation in
             Task {
                 do {

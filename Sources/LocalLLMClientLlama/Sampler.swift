@@ -13,7 +13,7 @@ package extension Sampler {
     func sample(context: Context, index: Int32) -> llama_token {
         let logits = llama_get_logits_ith(context.context, index)!
 
-        for tokenID in context.cursorPointer.indices { // faster than using range
+        for tokenID in context.cursorPointer.indices {
             context.cursorPointer[tokenID] = llama_token_data(
                 id: Int32(tokenID), logit: logits[tokenID], p: 0.0
             )

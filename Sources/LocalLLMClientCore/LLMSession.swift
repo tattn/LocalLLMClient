@@ -30,7 +30,6 @@ public final class LLMSession: Sendable {
         if generator.tools.isEmpty {
             return generator.streamResponse(to: prompt, attachments: attachments)
         } else {
-            // When tools are available, handle tool calls internally and only stream text
             return generator.streamResponseWithAutomaticToolCalling(to: prompt, attachments: attachments)
         }
     }
@@ -159,17 +158,13 @@ extension LLMSession {
                             switch content {
                             case .text(let chunk):
                                 collectedResponse += chunk
-                                // Only yield text to the user
                                 continuation.yield(chunk)
                             case .toolCall(let toolCall):
-                                // Collect tool calls but don't yield them to the user
                                 collectedToolCalls.append(toolCall)
                             }
                         }
                         
-                        // If we have tool calls, execute them automatically
                         if !collectedToolCalls.isEmpty {
-                            // Execute tool calls
                             var toolCallResults: [String: Result<ToolOutput, Error>] = [:]
                             for toolCall in collectedToolCalls {
                                 do {
@@ -177,7 +172,6 @@ extension LLMSession {
                                     toolCallResults[toolCall.id] = .success(output)
                                 } catch {
                                     toolCallResults[toolCall.id] = .failure(error)
-                                    // Find the tool and wrap the error
                                     if let tool = tools.first(where: { $0.name == toolCall.name }) {
                                         throw ToolCallError(tool: tool.underlyingTool, underlyingError: error)
                                     } else {
@@ -185,25 +179,33 @@ extension LLMSession {
                                     }
                                 }
                             }
-                            
-                            // Resume with tool results
+
                             let toolOutputs = collectedToolCalls.compactMap { toolCall -> (String, String)? in
                                 guard case .success(let output) = toolCallResults[toolCall.id] else { return nil }
                                 let outputString = output.data.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
                                 return (toolCall.id, outputString)
                             }
-                            
-                            let finalResponse = try await client.resume(
+
+                            var finalResponse = ""
+                            let resumeStream = try await client.resumeStream(
                                 withToolCalls: collectedToolCalls,
                                 toolOutputs: toolOutputs,
                                 originalInput: .chat(messages)
                             )
-                            
+
+                            for try await content in resumeStream {
+                                switch content {
+                                case .text(let chunk):
+                                    finalResponse += chunk
+                                    continuation.yield(chunk)
+                                case .toolCall:
+                                    // Tool calls in resume should be handled separately if needed
+                                    break
+                                }
+                            }
+
                             messages.append(.assistant(finalResponse))
-                            // Stream the final response to the user
-                            continuation.yield(finalResponse)
                         } else {
-                            // No tool calls, just add the response
                             messages.append(.assistant(collectedResponse))
                         }
                         

@@ -129,11 +129,21 @@ private final class MockStreamingToolCallClient: LLMClient, @unchecked Sendable 
     func generateToolCalls(from input: LLMInput) async throws -> GeneratedContent {
         GeneratedContent(text: "Mock response")
     }
-    
-    func resume(withToolCalls toolCalls: [LLMToolCall], toolOutputs: [(String, String)], originalInput: LLMInput) async throws -> String {
-        "Found information about weather"
+
+    func resumeStream(
+        withToolCalls toolCalls: [LLMToolCall],
+        toolOutputs: [(String, String)],
+        originalInput: LLMInput
+    ) async throws -> AsyncThrowingStream<StreamingChunk, any Error> {
+        return AsyncThrowingStream { continuation in
+            Task {
+                let resultText = "Based on the tool results: \(toolOutputs.map { $0.1 }.joined(separator: ", "))"
+                continuation.yield(.text(resultText))
+                continuation.finish()
+            }
+        }
     }
-    
+
     func responseStream(from input: LLMInput) async throws -> AsyncThrowingStream<StreamingChunk, Error> {
         AsyncThrowingStream { continuation in
             Task {
