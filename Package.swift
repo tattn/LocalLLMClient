@@ -3,19 +3,18 @@
 import PackageDescription
 import CompilerPluginSupport
 
-let llamaVersion = "b6519"
+let llamaVersion = "b6628"
 
 // MARK: - Package Dependencies
 
 var packageDependencies: [Package.Dependency] = [
     .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.4.0")),
-    .package(url: "https://github.com/johnmai-dev/Jinja", .upToNextMinor(from: "1.2.0")),
+    .package(url: "https://github.com/huggingface/swift-jinja", .upToNextMinor(from: "2.0.0")),
     .package(url: "https://github.com/swiftlang/swift-syntax", from: "600.0.0")
 ]
 
 #if os(iOS) || os(macOS)
 packageDependencies.append(contentsOf: [
-    .package(url: "https://github.com/huggingface/swift-transformers", .upToNextMinor(from: "0.1.21")),
     .package(url: "https://github.com/ml-explore/mlx-swift-examples", branch: "main"),
     .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.4.0")
 ])
@@ -58,7 +57,8 @@ var packageTargets: [Target] = [
     .target(
         name: "LocalLLMClientCore", 
         dependencies: [
-            "LocalLLMClientUtility"
+            "LocalLLMClientUtility",
+            .product(name: "Jinja", package: "swift-jinja")
         ]
     ),
 
@@ -112,8 +112,7 @@ packageTargets.append(contentsOf: [
         name: "LocalLLMClientLlama",
         dependencies: [
             "LocalLLMClientCore",
-            "LocalLLMClientLlamaC",
-            .product(name: "Jinja", package: "Jinja")
+            "LocalLLMClientLlamaC"
         ],
         resources: [.process("Resources")],
         swiftSettings: (Context.environment["BUILD_DOCC"] == nil ? [] : [
@@ -155,7 +154,7 @@ packageTargets.append(contentsOf: [
         name: "LocalLLMClientLlamaFramework",
         url:
             "https://github.com/ggml-org/llama.cpp/releases/download/\(llamaVersion)/llama-\(llamaVersion)-xcframework.zip",
-        checksum: "df054bcebc3363f2e21d0c9a18a7f9e0ee4e5ff44d458fa665b0cc0cc64d6fde"
+        checksum: "b25aad9f424ecb7d589d843deabd0ebc0f0d6f9ea126f7d31bb1ac5204543fa9"
     ),
     .target(
         name: "LocalLLMClientLlamaC",
@@ -203,8 +202,7 @@ packageTargets.append(contentsOf: [
         name: "LocalLLMClientLlama",
         dependencies: [
             "LocalLLMClientCore",
-            "LocalLLMClientLlamaC",
-            .product(name: "Jinja", package: "Jinja")
+            "LocalLLMClientLlamaC"
         ],
         resources: [.process("Resources")],
         swiftSettings: [

@@ -50,7 +50,7 @@ struct MessageProcessorTests {
             .assistant(assistantMarker),
         ])
         #expect(rendered.contains("<|start_header_id|>") && rendered.contains("<|end_header_id|>"))
-        #expect(chunks == [.text("  <|start_header_id|>user<|end_header_id|>\n\n\(userMarker)"), .image([.testImage]), .text("<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n\(assistantMarker)<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n")])
+        #expect(chunks == [.text("      <|start_header_id|>user<|end_header_id|>\n\n\(userMarker)"), .image([.testImage]), .text("<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n\(assistantMarker)<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n")])
     }
 
     @Test
@@ -60,7 +60,7 @@ struct MessageProcessorTests {
         let processor = MessageProcessorFactory.llama32VisionProcessor()
         let (rendered, chunks) = try validate(processor: processor, chatTemplate: template)
         #expect(rendered.contains("<|header_start|>") && rendered.contains("<|header_end|>"))
-        #expect(chunks == [.text("<|header_start|>system<|header_end|>\n\n\(systemMarker)<|eot|><|header_start|>user<|header_end|>\n\n\(userMarker)"), .image([.testImage]), .text("<|eot|><|header_start|>assistant<|header_end|>\n\n\(assistantMarker)<|eot|><|header_start|>assistant<|header_end|>\n\n")])
+        #expect(chunks == [.text("   <|header_start|>system<|header_end|>\n\n\(systemMarker)<|eot|> <|header_start|>user<|header_end|>\n\n\(userMarker)"), .image([.testImage]), .text("<|eot|><|header_start|>assistant<|header_end|>\n\n\(assistantMarker)<|eot|><|header_start|>assistant<|header_end|>\n\n")])
     }
 
     @Test

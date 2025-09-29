@@ -6,7 +6,7 @@ import Jinja
 struct TemplateContext {
     let specialTokens: [String: String]
     let additionalContext: [String: Any]
-    
+
     init(
         specialTokens: [String: String] = [:],
         additionalContext: [String: Any] = [:]
@@ -30,11 +30,11 @@ struct TemplateContext {
 /// Standard Jinja-based template renderer
  struct JinjaChatTemplateRenderer: ChatTemplateRenderer {
     private let toolProcessor: ToolInstructionProcessor
-    
+
      init(toolProcessor: ToolInstructionProcessor = StandardToolInstructionProcessor()) {
         self.toolProcessor = toolProcessor
     }
-    
+
      func render(
         messages: [LLMInput.ChatTemplateMessage],
         template: String,
@@ -47,10 +47,10 @@ struct TemplateContext {
         } catch {
             throw LLMError.invalidParameter(reason: "Failed to parse template: \(error.localizedDescription)")
         }
-        
+
         // Extract message data
         var messagesData = messages.map(\.value)
-        
+
         // Process tool instructions if needed
         let hasNativeToolSupport = toolProcessor.hasNativeToolSupport(in: template)
         messagesData = try toolProcessor.processMessages(
@@ -58,45 +58,52 @@ struct TemplateContext {
             tools: tools,
             templateHasNativeSupport: hasNativeToolSupport
         )
-        
+
         // Build template context
-        let templateContext = buildTemplateContext(
+        let templateContext = try buildTemplateContext(
             messages: messagesData,
             tools: tools,
             hasNativeToolSupport: hasNativeToolSupport,
             context: context
         )
-        
+
         // Render template
         do {
-            return try jinjaTemplate.render(templateContext)
+            let environment = Environment()
+            environment.lstripBlocks = true
+            environment.trimBlocks = true
+            return try jinjaTemplate.render(templateContext, environment: environment)
         } catch {
             throw LLMError.invalidParameter(reason: "Failed to render template: \(error.localizedDescription)")
         }
     }
-    
+
     private func buildTemplateContext(
         messages: [[String: any Sendable]],
         tools: [AnyLLMTool],
         hasNativeToolSupport: Bool,
         context: TemplateContext
-    ) -> [String: Any] {
-        var templateContext: [String: Any] = [
-            "add_generation_prompt": true,
-            "messages": messages
-        ]
-        
-        // Add special tokens
-        templateContext.merge(context.specialTokens) { _, new in new }
-        
-        // Add tools for templates with native support
-        if !tools.isEmpty && hasNativeToolSupport {
-            templateContext["tools"] = tools.compactMap { $0.toOAICompatJSON() }
+    ) throws(LLMError) -> [String: Value] {
+        do {
+            var templateContext: [String: Value] = [
+                "add_generation_prompt": .boolean(true),
+                "messages": try Value(any: messages)
+            ]
+
+            // Add special tokens
+            try templateContext.merge(context.specialTokens.mapValues { try Value(any: $0) }) { _, new in new }
+
+            // Add tools for templates with native support
+            if !tools.isEmpty && hasNativeToolSupport {
+                templateContext["tools"] = try Value(any: tools.compactMap { $0.toOAICompatJSON() })
+            }
+
+            // Add additional context
+            templateContext.merge(try context.additionalContext.mapValues { try Value(any: $0) }) { _, new in new }
+
+            return templateContext
+        } catch {
+            throw LLMError.invalidParameter(reason: "Failed to build template context: \(error.localizedDescription)")
         }
-        
-        // Add additional context
-        templateContext.merge(context.additionalContext) { _, new in new }
-        
-        return templateContext
     }
 }
