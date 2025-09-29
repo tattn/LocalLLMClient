@@ -9,13 +9,12 @@ let llamaVersion = "b6628"
 
 var packageDependencies: [Package.Dependency] = [
     .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.4.0")),
-    .package(url: "https://github.com/johnmai-dev/Jinja", .upToNextMinor(from: "1.2.0")),
+    .package(url: "https://github.com/huggingface/swift-jinja", .upToNextMinor(from: "2.0.0")),
     .package(url: "https://github.com/swiftlang/swift-syntax", from: "600.0.0")
 ]
 
 #if os(iOS) || os(macOS)
 packageDependencies.append(contentsOf: [
-    .package(url: "https://github.com/huggingface/swift-transformers", .upToNextMinor(from: "0.1.21")),
     .package(url: "https://github.com/ml-explore/mlx-swift-examples", branch: "main"),
     .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.4.0")
 ])
@@ -58,7 +57,8 @@ var packageTargets: [Target] = [
     .target(
         name: "LocalLLMClientCore", 
         dependencies: [
-            "LocalLLMClientUtility"
+            "LocalLLMClientUtility",
+            .product(name: "Jinja", package: "swift-jinja")
         ]
     ),
 
@@ -112,8 +112,7 @@ packageTargets.append(contentsOf: [
         name: "LocalLLMClientLlama",
         dependencies: [
             "LocalLLMClientCore",
-            "LocalLLMClientLlamaC",
-            .product(name: "Jinja", package: "Jinja")
+            "LocalLLMClientLlamaC"
         ],
         resources: [.process("Resources")],
         swiftSettings: (Context.environment["BUILD_DOCC"] == nil ? [] : [
@@ -203,8 +202,7 @@ packageTargets.append(contentsOf: [
         name: "LocalLLMClientLlama",
         dependencies: [
             "LocalLLMClientCore",
-            "LocalLLMClientLlamaC",
-            .product(name: "Jinja", package: "Jinja")
+            "LocalLLMClientLlamaC"
         ],
         resources: [.process("Resources")],
         swiftSettings: [
