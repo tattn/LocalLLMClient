@@ -123,16 +123,46 @@ public extension LLMClient {
 
 // Extension for default tool calling behavior
 public extension LLMClient where ResponseGenerator == AsyncThrowingStream<StreamingChunk, any Error>, ResumeGenerator == AsyncThrowingStream<StreamingChunk, any Error> {
+    /// Generates tool calls from the given input using default streaming implementation
     func generateToolCalls(from input: LLMInput) async throws -> GeneratedContent {
-        throw LLMError.invalidParameter(reason: "Tool calls are not supported by this LLM client")
+        var text = ""
+        var toolCalls: [LLMToolCall] = []
+
+        for try await content in try await responseStream(from: input) {
+            switch content {
+            case .text(let chunk):
+                text += chunk
+            case .toolCall(let toolCall):
+                toolCalls.append(toolCall)
+            }
+        }
+
+        return GeneratedContent(text: text, toolCalls: toolCalls)
     }
 
+    /// Resumes a conversation with tool outputs
+    ///
+    /// - Parameters:
+    ///   - toolCalls: The tool calls that were made
+    ///   - toolOutputs: The outputs from executing the tools (toolCallID, output)
+    ///   - originalInput: The original input that generated the tool call
+    /// - Returns: The model's response to the tool outputs
+    /// - Throws: An error if text generation fails
     func resumeStream(
         withToolCalls toolCalls: [LLMToolCall],
         toolOutputs: [(String, String)],
         originalInput: LLMInput
     ) async throws -> AsyncThrowingStream<StreamingChunk, any Error> {
-        throw LLMError.invalidParameter(reason: "Tool calls are not supported by this LLM client")
+        guard case let .chat(messages) = originalInput.value else {
+            throw LLMError.invalidParameter(reason: "Original input must be a chat")
+        }
+
+        var updatedMessages = messages
+        for (toolCallID, output) in toolOutputs {
+            updatedMessages.append(.tool(output, toolCallID: toolCallID))
+        }
+
+        return try await responseStream(from: .chat(updatedMessages))
     }
 
     func responseStream(from input: LLMInput) async throws -> AsyncThrowingStream<StreamingChunk, any Error> {

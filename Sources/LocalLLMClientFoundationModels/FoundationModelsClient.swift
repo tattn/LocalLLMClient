@@ -24,30 +24,39 @@ public final actor FoundationModelsClient: LLMClient {
     
     let model: SystemLanguageModel
     let generationOptions: GenerationOptions
+    let tools: [any Tool]
     let pauseHandler: PauseHandler
 
     init(
         model: SystemLanguageModel,
         generationOptions: GenerationOptions,
-        options: Options = .init()
+        options: Options,
+        tools: [any Tool]
     ) {
         self.model = model
         self.generationOptions = generationOptions
+        self.tools = tools
         self.pauseHandler = PauseHandler(disableAutoPause: options.disableAutoPause)
     }
 
     public func textStream(from input: LLMInput) async throws -> AsyncStream<String> {
+        switch model.availability {
+        case .available: ()
+        case .unavailable(let unavailableReason):
+            throw FoundationModelsClientError.modelUnavailable(unavailableReason)
+        }
         return .init { continuation in
             let task = Task {
                 do {
                     var position: String.Index?
-                    let session = LanguageModelSession(model: model, transcript: input.makeTranscript(generationOptions: generationOptions))
+                    let session = LanguageModelSession(model: model, tools: tools, transcript: input.makeTranscript(generationOptions: generationOptions))
                     for try await text in session.streamResponse(to: input.makePrompt(), options: generationOptions) {
                         await pauseHandler.checkPauseState()
                         continuation.yield(String(text.content[(position ?? text.content.startIndex)...]))
                         position = text.content.endIndex
                     }
                 } catch {
+                    print(error)
                 }
                 continuation.finish()
             }
@@ -56,7 +65,29 @@ public final actor FoundationModelsClient: LLMClient {
             }
         }
     }
-    
+
+    /// Streams responses from the input
+    /// - Parameter input: The input to process
+    /// - Returns: An asynchronous sequence that emits response content (text chunks, tool calls, etc.)
+    /// - Throws: An error if generation fails
+    public func responseStream(from input: LLMInput) async throws -> AsyncThrowingStream<StreamingChunk, any Error> {
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    for await text in try await textStream(from: input) {
+                        continuation.yield(.text(text))
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
+        }
+    }
+
     /// Pauses any ongoing text generation
     public func pauseGeneration() async {
         await pauseHandler.pause()
@@ -73,6 +104,13 @@ public final actor FoundationModelsClient: LLMClient {
             await pauseHandler.isPaused
         }
     }
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@available(tvOS, unavailable)
+@available(watchOS, unavailable)
+public enum FoundationModelsClientError: Error {
+    case modelUnavailable(SystemLanguageModel.Availability.UnavailableReason)
 }
 
 @available(iOS 26.0, macOS 26.0, *)
@@ -153,9 +191,10 @@ public extension LocalLLMClient {
     static func foundationModels(
         model: SystemLanguageModel = .default,
         parameter: GenerationOptions = .init(),
-        options: FoundationModelsClient.Options = .init()
+        options: FoundationModelsClient.Options = .init(),
+        tools: [any Tool] = []
     ) async throws -> FoundationModelsClient {
-        FoundationModelsClient(model: model, generationOptions: parameter, options: options)
+        FoundationModelsClient(model: model, generationOptions: parameter, options: options, tools: tools)
     }
 }
 
