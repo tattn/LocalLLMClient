@@ -9,7 +9,18 @@ public extension LLMSession.DownloadModel {
         destination: URL? = nil,
         parameter: MLXClient.Parameter = .default
     ) -> LLMSession.DownloadModel {
-        let source = FileDownloader.Source.huggingFace(id: id, globs: .mlx)
+        .mlx(
+            source: FileDownloader.Source.huggingFace(id: id, globs: .mlx),
+            destination: destination,
+            parameter: parameter
+        )
+    }
+
+    static func mlx(
+        source: FileDownloader.Source,
+        destination: URL? = nil,
+        parameter: MLXClient.Parameter = .default
+    ) -> LLMSession.DownloadModel {
         let rootDestination = destination ?? URL.defaultRootDirectory
         return LLMSession.DownloadModel(
             source: source,
