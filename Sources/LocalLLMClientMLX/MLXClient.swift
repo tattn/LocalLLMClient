@@ -37,17 +37,17 @@ public final actor MLXClient: LLMClient {
     /// - Throws: An `LLMError.visionUnsupported` error if the input contains images and the loaded model does not support vision.
     ///           It can also throw errors related to model processing or input preparation.
     public func textStream(from input: LLMInput) async throws -> AsyncStream<String> {
-        let chat = input.chatMessages
+        try await context.modelContainer.perform { @Sendable context in
+            let chat = input.chatMessages
 
-        var userInput = UserInput(chat: chat, additionalContext: ["enable_thinking": false]) // TODO: public API
-        userInput.processing.resize = .init(width: 448, height: 448)
+            var userInput = UserInput(chat: chat, additionalContext: ["enable_thinking": false]) // TODO: public API
+            userInput.processing.resize = .init(width: 448, height: 448)
 
-        if chat.contains(where: { !$0.images.isEmpty }), !context.supportsVision {
-            throw LLMError.visionUnsupported
-        }
-        let modelContainer =  context.modelContainer
+            if chat.contains(where: { !$0.images.isEmpty }), !self.context.supportsVision {
+                throw LLMError.visionUnsupported
+            }
 
-        return try await modelContainer.perform { [userInput] context in
+
             let lmInput = try await context.processor.prepare(input: userInput)
             let stream = try MLXLMCommon.generate(
                 input: lmInput,
@@ -77,7 +77,7 @@ public final actor MLXClient: LLMClient {
         }
         
         let required = parameters["required"] as? [String] ?? []
-        
+
         return properties.compactMap { key, value in
             guard let type = value["type"] as? String,
                   let description = value["description"] as? String else {
@@ -86,7 +86,7 @@ public final actor MLXClient: LLMClient {
             
             let mlxType = convertToToolParameterType(from: type, value: value)
             
-            var extraProperties: [String: Any] = [:]
+            var extraProperties: [String: any Sendable] = [:]
             if let enumValues = value["enum"] as? [String] {
                 extraProperties["enum"] = enumValues
             }
@@ -178,26 +178,22 @@ public final actor MLXClient: LLMClient {
                             parameters: convertParametersToMLXFormat(tool.argumentsSchema)
                         ) { _ in EmptyOutput() }.schema
                     }
-                    
-                    // Create chat messages from input
-                    let chat = input.chatMessages
-                    
-                    // Create UserInput with tools
-                    var userInput = UserInput(
-                        chat: chat,
-                        tools: toolSchemas.isEmpty ? nil : toolSchemas,
-                        additionalContext: ["enable_thinking": false]
-                    )
-                    userInput.processing.resize = CGSize(width: 448, height: 448)
-                    
-                    if chat.contains(where: { !$0.images.isEmpty }), !context.supportsVision {
-                        throw LLMError.visionUnsupported
-                    }
-                    
-                    let modelContainer = context.modelContainer
-                    
-                    let stream = try await modelContainer.perform { [userInput] (context: ModelContext) -> AsyncStream<Generation> in
-                        let lmInput = try await context.processor.prepare(input: userInput)
+
+                    let stream = try await context.modelContainer.perform { @Sendable (context: ModelContext) -> AsyncStream<Generation> in
+                        let chat = input.chatMessages
+
+                        if chat.contains(where: { !$0.images.isEmpty }), !self.context.supportsVision {
+                            throw LLMError.visionUnsupported
+                        }
+
+                        var innerLocalUserInput = UserInput(
+                            chat: chat,
+                            tools: toolSchemas.isEmpty ? nil : toolSchemas,
+                            additionalContext: ["enable_thinking": false]
+                        )
+                        innerLocalUserInput.processing.resize = CGSize(width: 448, height: 448)
+
+                        let lmInput = try await context.processor.prepare(input: innerLocalUserInput)
                         return try MLXLMCommon.generate(
                             input: lmInput,
                             parameters: parameter.parameters,

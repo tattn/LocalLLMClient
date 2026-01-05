@@ -21,7 +21,7 @@ public final class Context: Sendable {
         let (model, tokenizer) = try await Self.loadModel(
             url: url, configuration: configuration
         )
-        let (processor, supportsVision) = Self.makeProcessor(
+        let (processor, supportsVision) = await Self.makeProcessor(
             url: url, configuration: configuration, tokenizer: tokenizer
         )
 
@@ -45,12 +45,12 @@ public final class Context: Sendable {
             )
             let model: any LanguageModel
             do {
-                model = try VLMTypeRegistry.shared.createModel(
+                model = try await VLMTypeRegistry.shared.createModel(
                     configuration: configurationURL,
                     modelType: baseConfiguration.modelType
                 )
             } catch {
-                model = try LLMTypeRegistry.shared.createModel(
+                model = try await LLMTypeRegistry.shared.createModel(
                     configuration: configurationURL,
                     modelType: baseConfiguration.modelType
                 )
@@ -67,7 +67,7 @@ public final class Context: Sendable {
 
     private static func makeProcessor(
         url: URL, configuration: ModelConfiguration, tokenizer: any Tokenizer,
-    ) -> (any UserInputProcessor, Bool) {
+    ) async -> (any UserInputProcessor, Bool) {
         do {
             let processorConfiguration = url.appending(
                 component: "preprocessor_config.json"
@@ -77,7 +77,7 @@ public final class Context: Sendable {
                 from: Data(contentsOf: processorConfiguration)
             )
 
-            return (try VLMProcessorTypeRegistry.shared.createModel(
+            return await (try VLMProcessorTypeRegistry.shared.createModel(
                 configuration: processorConfiguration,
                 processorType: baseProcessorConfig.processorClass,
                 tokenizer: tokenizer
