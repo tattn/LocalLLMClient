@@ -304,6 +304,21 @@ public extension LLMSession {
         public func downloadModel(onProgress: @Sendable @escaping (Double) async -> Void = { _ in }) async throws {
             try await downloader.download(onProgress: onProgress)
         }
+
+        public static func removeAllModels(
+            in url: URL = FileDownloader.defaultRootDestination,
+            excludingModels: [any Model] = []
+        ) throws {
+            let excludedURLs: [URL] = excludingModels.compactMap { model -> URL? in
+                switch model {
+                case let model as LLMSession.DownloadModel: model.modelPath
+                case let model as LLMSession.LocalModel: model.modelPath
+                default: nil
+                }
+            }
+
+            try FileManager.default.removeAllItems(in: url, excludingURLs: excludedURLs)
+        }
     }
     
     struct LocalModel: Model {
