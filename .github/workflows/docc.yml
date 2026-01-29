@@ -28,6 +28,11 @@ jobs:
         uses: actions/configure-pages@v4
 
       - name: Build DocC
+        # NOTE: LocalLLMClientMLX documentation is excluded because mlx-swift
+        # symbol extraction requires Metal GPU support which is not available
+        # in GitHub Actions hosted runners. See mlx-swift-lm's approach:
+        # https://github.com/ml-explore/mlx-swift-lm/blob/main/.github/workflows/pull_request.yml
+        # They use self-hosted macOS runners with Metal support.
         run: |
           BUILD_DOCC=1 swift package --allow-writing-to-directory \
             ./docs generate-documentation --output-path ./docs \
@@ -35,7 +40,7 @@ jobs:
             --enable-experimental-external-link-support \
             --hosting-base-path "LocalLLMClient" \
             --transform-for-static-hosting \
-            --target LocalLLMClient --target LocalLLMClientMLX \
+            --target LocalLLMClient \
             --target LocalLLMClientUtility --target LocalLLMClientLlama
 
       - name: Upload artifact

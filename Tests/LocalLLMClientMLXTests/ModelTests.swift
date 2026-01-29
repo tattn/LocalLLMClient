@@ -5,7 +5,11 @@ import LocalLLMClientMLX
 import LocalLLMClientUtility
 import LocalLLMClientTestUtilities
 
-private let disabledTests = ![nil, "MLX"].contains(ProcessInfo.processInfo.environment["GITHUB_ACTIONS_TEST"])
+// TODO: Re-enable MLX tests on GitHub Actions when Metal cooperative tensor operations
+// are supported in virtualized environments. Currently, mlx-swift requires physical
+// Apple Silicon GPU with Metal 3 cooperative_matrix support.
+private let disabledTests = TestEnvironment.onGitHubAction ||
+    ![nil, "MLX"].contains(ProcessInfo.processInfo.environment["GITHUB_ACTIONS_TEST"])
 
 extension LocalLLMClient {
     enum TestType {

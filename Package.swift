@@ -253,7 +253,7 @@ packageTargets.append(contentsOf: [
 
 let package = Package(
     name: "LocalLLMClient",
-    platforms: [.iOS(.v16), .macOS(.v14)],
+    platforms: [.iOS(.v17), .macOS(.v14)],
     products: packageProducts,
     dependencies: packageDependencies,
     targets: packageTargets,
