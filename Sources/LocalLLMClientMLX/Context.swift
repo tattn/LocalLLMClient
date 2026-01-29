@@ -4,7 +4,6 @@ import LocalLLMClientCore
 import MLX
 import MLXLLM
 import MLXLMCommon
-import MLXRandom
 import Tokenizers
 
 public final class Context: Sendable {
@@ -40,18 +39,19 @@ public final class Context: Sendable {
     ) async throws(LLMError) -> (any LanguageModel, any Tokenizer) {
         do {
             let configurationURL = url.appending(component: "config.json")
+            let configurationData = try Data(contentsOf: configurationURL)
             let baseConfiguration = try JSONDecoder().decode(
-                BaseConfiguration.self, from: Data(contentsOf: configurationURL)
+                BaseConfiguration.self, from: configurationData
             )
             let model: any LanguageModel
             do {
                 model = try await VLMTypeRegistry.shared.createModel(
-                    configuration: configurationURL,
+                    configuration: configurationData,
                     modelType: baseConfiguration.modelType
                 )
             } catch {
                 model = try await LLMTypeRegistry.shared.createModel(
-                    configuration: configurationURL,
+                    configuration: configurationData,
                     modelType: baseConfiguration.modelType
                 )
             }
@@ -72,13 +72,14 @@ public final class Context: Sendable {
             let processorConfiguration = url.appending(
                 component: "preprocessor_config.json"
             )
+            let configurationData = try Data(contentsOf: processorConfiguration)
             let baseProcessorConfig = try JSONDecoder().decode(
                 BaseProcessorConfiguration.self,
-                from: Data(contentsOf: processorConfiguration)
+                from: configurationData
             )
 
             return await (try VLMProcessorTypeRegistry.shared.createModel(
-                configuration: processorConfiguration,
+                configuration: configurationData,
                 processorType: baseProcessorConfig.processorClass,
                 tokenizer: tokenizer
             ), true)

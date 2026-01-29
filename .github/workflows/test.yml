@@ -21,19 +21,16 @@ on:
       - "Example/**"
       - ".github/workflows/test.yml"
 
-env:
-  DEVELOPER_DIR: "/Applications/Xcode_16.4.app/Contents/Developer"
-
 jobs:
-  test-macos-xcode-16:
-    name: Test on macOS with Xcode 16 (${{ matrix.test-type }})
-    runs-on: macos-15
+  test-macos:
+    name: Test on macOS (${{ matrix.test-type }})
+    runs-on: macos-26
     strategy:
       fail-fast: false
       matrix:
-        test-type: [Llama, MLX]
+        test-type: [Llama, MLX, FoundationModels]
     env:
-      DEVELOPER_DIR: "/Applications/Xcode_16.4.0.app/Contents/Developer"
+      DEVELOPER_DIR: "/Applications/Xcode_26.2.app/Contents/Developer"
       TEST_RUNNER_GITHUB_MODEL_CACHE: "${{ github.workspace }}/model_cache"
     steps:
       - &checkout
@@ -49,46 +46,23 @@ jobs:
           path: model_cache
           key: model_cache
 
-      - name: Run ${{ matrix.test-type }} tests
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 30
-          max_attempts: 3
-          retry_on: error
-          command: TEST_RUNNER_GITHUB_ACTIONS_TEST="${{ matrix.test-type }}" xcodebuild test -scheme LocalLLMClient-Package -destination 'platform=macOS'
-
-  test-macos:
-    name: Test on macOS (${{ matrix.test-type }})
-    runs-on: macos-26
-    strategy:
-      fail-fast: false
-      matrix:
-        test-type: [Llama, MLX, FoundationModels]
-    env:
-      DEVELOPER_DIR: "/Applications/Xcode_26.0.app/Contents/Developer"
-      TEST_RUNNER_GITHUB_MODEL_CACHE: "${{ github.workspace }}/model_cache"
-    steps:
-      - *checkout
-
-      - *cache_model
-
       # https://developer.apple.com/documentation/xcode-release-notes/xcode-26-release-notes
       - &xcode26_metal_workaround
         name: "Workaround: Xcode 26 Beta (17A5241e)"
         continue-on-error: true
         run: |
           xcodebuild -downloadComponent metalToolchain -exportPath /tmp/MyMetalExport/
-          sed -i '' -e 's/17A5241c/17A5241e/g' /tmp/MyMetalExport/MetalToolchain-17A5241c.exportedBundle/ExportMetadata.plist
-          xcodebuild -importComponent metalToolchain -importPath /tmp/MyMetalExport/MetalToolchain-17A5241c.exportedBundle
+          # sed -i '' -e 's/17A5241c/17A5241e/g' /tmp/MyMetalExport/MetalToolchain-17A5241c.exportedBundle/ExportMetadata.plist
+          # xcodebuild -importComponent metalToolchain -importPath /tmp/MyMetalExport/MetalToolchain-17A5241c.exportedBundle
 
       - name: Run ${{ matrix.test-type }} tests with Xcode 26
         run: TEST_RUNNER_GITHUB_ACTIONS_TEST="${{ matrix.test-type }}" xcodebuild test -scheme LocalLLMClient-Package -destination 'platform=macOS'
 
   build-example-macos:
-    runs-on: macos-15
+    runs-on: macos-26
     needs: test-macos
     env:
-      DEVELOPER_DIR: "/Applications/Xcode_26.0.app/Contents/Developer"
+      DEVELOPER_DIR: "/Applications/Xcode_26.2.app/Contents/Developer"
     steps:
       - *checkout
 
@@ -101,10 +75,10 @@ jobs:
           xcodebuild build -project LocalLLMClientExample.xcodeproj -scheme LocalLLMClientExample -destination 'platform=macOS' CODE_SIGN_IDENTITY="-"
 
   build-example-ios:
-    runs-on: macos-15
+    runs-on: macos-26
     needs: test-macos
     env:
-      DEVELOPER_DIR: "/Applications/Xcode_26.0.app/Contents/Developer"
+      DEVELOPER_DIR: "/Applications/Xcode_26.2.app/Contents/Developer"
     steps:
       - *checkout
 
@@ -114,7 +88,7 @@ jobs:
         working-directory: Example
         run: |
           xcodebuild -downloadPlatform iOS
-          xcodebuild build -project LocalLLMClientExample.xcodeproj -scheme LocalLLMClientExample -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.6' CODE_SIGN_IDENTITY="-"
+          xcodebuild build -project LocalLLMClientExample.xcodeproj -scheme LocalLLMClientExample -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.2' CODE_SIGN_IDENTITY="-"
 
   test-ubuntu-x86_64:
     runs-on: ubuntu-latest

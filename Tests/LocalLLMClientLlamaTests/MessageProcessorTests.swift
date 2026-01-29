@@ -16,7 +16,7 @@ struct MessageProcessorTests {
         let processor = MessageProcessorFactory.qwen2VLProcessor()
         let (rendered, chunks) = try validate(processor: processor, chatTemplate: template)
         #expect(rendered.contains("<|vision_start|>") && rendered.contains("<|vision_end|>"))
-        #expect(chunks == [.text("<|im_start|>system \(systemMarker)<|im_end|> <|im_start|>user <|vision_start|>"), .image([.testImage]), .text("<|vision_end|>\(userMarker)<|im_end|> <|im_start|>assistant \(assistantMarker)<|im_end|> <|im_start|>assistant ")])
+        #expect(chunks == [.text("<|im_start|>system \(systemMarker)<|im_end|> <|im_start|>user \(userMarker)<|vision_start|>"), .image([.testImage]), .text("<|vision_end|><|im_end|> <|im_start|>assistant \(assistantMarker)<|im_end|> <|im_start|>assistant ")])
     }
 
     @Test
@@ -36,7 +36,7 @@ struct MessageProcessorTests {
         let processor = MessageProcessorFactory.gemma3Processor()
         let (rendered, chunks) = try validate(processor: processor, chatTemplate: template)
         #expect(rendered.contains("<start_of_turn>") && rendered.contains("<end_of_turn>"))
-        #expect(chunks == [.text("<start_of_turn>user \(systemMarker) "), .image([.testImage]), .text("\(userMarker)<end_of_turn> <start_of_turn>model \(assistantMarker)<end_of_turn> <start_of_turn>model ")])
+        #expect(chunks == [.text("<start_of_turn>user \(systemMarker) \(userMarker)"), .image([.testImage]), .text("<end_of_turn> <start_of_turn>model \(assistantMarker)<end_of_turn> <start_of_turn>model ")])
     }
 
     @Test
