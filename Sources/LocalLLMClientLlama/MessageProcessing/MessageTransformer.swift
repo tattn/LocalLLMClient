@@ -37,9 +37,11 @@ struct StandardMessageTransformer: MessageTransformer {
         }.count
 
         if imageCount > 0 {
-            return (0..<imageCount).map { _ in
-                ["type": "image"] as [String: String]
-            } + [["type": "text", "text": message.content] as [String: String]]
+            // Text must come FIRST, then images - this matches working implementations
+            return [["type": "text", "text": message.content] as [String: String]]
+                + (0..<imageCount).map { _ in
+                    ["type": "image"] as [String: String]
+                }
         } else {
             // Always return array format for consistency with templates
             return [["type": "text", "text": message.content] as [String: String]]
