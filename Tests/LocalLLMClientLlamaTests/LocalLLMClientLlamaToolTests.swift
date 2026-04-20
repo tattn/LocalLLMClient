@@ -17,15 +17,6 @@ extension ModelTests {
 }
 
 extension ModelTests.LocalLLMClientLlamaToolTests {
-    private func makeToolClient() async throws -> LlamaClient {
-        try await LocalLLMClient.llama(
-            testType: .tool,
-            // Qwen2.5 uses <tool_call> tags; tools must be declared so the PEG parser
-            // includes the tool-call grammar branches.
-            // These tools come from LocalLLMClientTestUtilities (WeatherTool, CalculatorTool).
-        )
-    }
-
     private func buildChatParams(tools: [any LLMTool]) async throws -> (LlamaClient, UnsafeMutablePointer<llm_chat_params>?) {
         let client = try await LocalLLMClient.llama(tools: tools, testType: .tool)
         let wrapped = tools.map { AnyLLMTool($0) }
@@ -33,34 +24,141 @@ extension ModelTests.LocalLLMClientLlamaToolTests {
         return (client, params)
     }
 
+    private func makeToolCallResponse(
+        name: String,
+        argumentsJSON: String,
+        client: LlamaClient
+    ) throws -> String {
+        if usesQwen35XMLToolCallSyntax(chatTemplate: client._context.model.chatTemplate) {
+            let argumentsData = try #require(argumentsJSON.data(using: .utf8))
+            let argumentsObject = try JSONSerialization.jsonObject(with: argumentsData)
+            let qwen35Parameters = try #require(renderQwen35Parameters(argumentsObject))
+            return """
+            <tool_call>
+            <function=\(name)>
+            \(qwen35Parameters)
+            </function>
+            </tool_call>
+            """
+        }
+
+        switch client.chatFormat {
+        case COMMON_CHAT_FORMAT_PEG_GEMMA4:
+            let argumentsData = try #require(argumentsJSON.data(using: .utf8))
+            let argumentsObject = try JSONSerialization.jsonObject(with: argumentsData)
+            let gemmaArguments = try #require(renderGemma4Arguments(argumentsObject))
+            return "<|tool_call>call:\(name)\(gemmaArguments)<tool_call|>"
+        default:
+            return """
+            <tool_call>
+            {"name": "\(name)", "arguments": \(argumentsJSON)}
+            </tool_call>
+            """
+        }
+    }
+
+    private func usesQwen35XMLToolCallSyntax(chatTemplate: String) -> Bool {
+        chatTemplate.contains("<function=") && chatTemplate.contains("<parameter=")
+    }
+
+    private func renderQwen35Parameters(_ value: Any) -> String? {
+        guard let object = value as? [String: Any] else {
+            return nil
+        }
+
+        return object.keys.sorted().map { key in
+            let value = object[key]!
+            return """
+            <parameter=\(key)>
+            \(renderQwen35Value(value))
+            </parameter>
+            """
+        }
+        .joined(separator: "\n")
+    }
+
+    private func renderQwen35Value(_ value: Any) -> String {
+        switch value {
+        case let string as String:
+            return string
+        case let number as NSNumber:
+            if CFGetTypeID(number) == CFBooleanGetTypeID() {
+                return number.boolValue ? "true" : "false"
+            }
+            return number.stringValue
+        case _ as NSNull:
+            return "null"
+        default:
+            let data = try? JSONSerialization.data(withJSONObject: value)
+            return data.flatMap { String(data: $0, encoding: .utf8) } ?? String(describing: value)
+        }
+    }
+
+    private func renderGemma4Arguments(_ value: Any) -> String? {
+        guard let object = value as? [String: Any] else {
+            return nil
+        }
+
+        let renderedPairs = object.keys.sorted().map { key in
+            let value = object[key]!
+            return "\(key):\(renderGemma4Value(value))"
+        }
+        return "{\(renderedPairs.joined(separator: ","))}"
+    }
+
+    private func renderGemma4Value(_ value: Any) -> String {
+        switch value {
+        case let string as String:
+            return #"<|\"|>\#(string)<|\"|>"#
+        case let number as NSNumber:
+            if CFGetTypeID(number) == CFBooleanGetTypeID() {
+                return number.boolValue ? "true" : "false"
+            }
+            return number.stringValue
+        case _ as NSNull:
+            return "null"
+        case let array as [Any]:
+            return "[\(array.map(renderGemma4Value).joined(separator: ","))]"
+        case let dictionary as [String: Any]:
+            let pairs = dictionary.keys.sorted().map { key in
+                let value = dictionary[key]!
+                return "\(key):\(renderGemma4Value(value))"
+            }
+            return "{\(pairs.joined(separator: ","))}"
+        default:
+            fatalError("Unsupported Gemma 4 argument type: \(type(of: value))")
+        }
+    }
+
     @Test
-    func parseToolCallFromHermesStyleResponse() async throws {
-        let (_, chatParams) = try await buildChatParams(tools: [WeatherTool()])
+    func parseToolCallFromModelNativeResponse() async throws {
+        let (client, chatParams) = try await buildChatParams(tools: [WeatherTool()])
         defer { if let chatParams { free_chat_params(chatParams) } }
 
-        let response = """
-        <tool_call>
-        {"name": "get_weather", "arguments": {"location": "Tokyo", "unit": "celsius"}}
-        </tool_call>
-        """
+        let response = try makeToolCallResponse(
+            name: "get_weather",
+            argumentsJSON: #"{"location":"Tokyo","unit":"celsius"}"#,
+            client: client
+        )
 
         let calls = LlamaToolCallParser.parseToolCalls(from: response, chatParams: chatParams)
         try #require(calls != nil, "Expected tool calls to be extracted from a well-formed response")
         #expect(calls?.count == 1)
         #expect(calls?.first?.name == "get_weather")
+        #expect(calls?.first?.id.isEmpty == false, "An auto-generated UUID should be assigned when the model omits an id")
         #expect(calls?.first?.arguments.contains("Tokyo") == true)
     }
 
     @Test
-    func parseToolCallWithCalculatorTool() async throws {
-        let (_, chatParams) = try await buildChatParams(tools: [WeatherTool(), CalculatorTool()])
+    func parseToolCallWithDeclaredToolSet() async throws {
+        let (client, chatParams) = try await buildChatParams(tools: [WeatherTool(), CalculatorTool()])
         defer { if let chatParams { free_chat_params(chatParams) } }
 
-        let response = """
-        <tool_call>
-        {"name": "calculate", "arguments": {"expression": "15 * 4"}}
-        </tool_call>
-        """
+        let response = try makeToolCallResponse(
+            name: "calculate",
+            argumentsJSON: #"{"expression":"15 * 4"}"#,
+            client: client
+        )
 
         let calls = LlamaToolCallParser.parseToolCalls(from: response, chatParams: chatParams)
         try #require(calls != nil)
@@ -87,22 +185,6 @@ extension ModelTests.LocalLLMClientLlamaToolTests {
 
         let calls = LlamaToolCallParser.parseToolCalls(from: "", chatParams: chatParams)
         #expect(calls == nil)
-    }
-
-    @Test
-    func parseToolCallAssignsIDWhenMissing() async throws {
-        let (_, chatParams) = try await buildChatParams(tools: [WeatherTool()])
-        defer { if let chatParams { free_chat_params(chatParams) } }
-
-        let response = """
-        <tool_call>
-        {"name": "get_weather", "arguments": {"location": "Tokyo", "unit": "celsius"}}
-        </tool_call>
-        """
-
-        let calls = LlamaToolCallParser.parseToolCalls(from: response, chatParams: chatParams)
-        try #require(calls?.first != nil)
-        #expect(!calls!.first!.id.isEmpty, "An auto-generated UUID should be assigned when the model omits an id")
     }
 
     @Test
