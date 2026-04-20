@@ -18,7 +18,7 @@ final class Model {
 #endif
         model_params.use_mmap = true
 
-        guard let model = llama_model_load_from_file(url.path(), model_params) else {
+        guard let model = llama_model_load_from_file(url.path(percentEncoded: false), model_params) else {
             throw .failedToLoad(reason: "Failed to load model from file")
         }
 

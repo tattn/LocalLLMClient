@@ -159,6 +159,37 @@ actor ModelTests {
     }
 
     @Test
+    func loadModelFromPathWithSpaces() async throws {
+        // Regression for https://github.com/tattn/LocalLLMClient/issues/91
+        // Simulates iOS's "Library/Application Support/..." which contains a space.
+        let info = LocalLLMClient.modelInfo(for: .general, modelSize: .light)
+        let cachedDir = try await LocalLLMClient.downloadModel(testType: .general, modelSize: .light)
+        let cachedModel = cachedDir.appending(component: info.model)
+
+        let tempDir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appending(component: "Application Support", directoryHint: .isDirectory)
+            .appending(component: "Issue91 Models", directoryHint: .isDirectory)
+        try? FileManager.default.removeItem(at: tempDir)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let linkedModel = tempDir.appending(component: info.model)
+        try FileManager.default.createSymbolicLink(at: linkedModel, withDestinationURL: cachedModel)
+
+        // Sanity: the file must be reachable via the decoded path; the encoded
+        // path is what `url.path()` produces and is what the bug would pass down
+        // to fopen().
+        #expect(linkedModel.path().contains("%20"))
+        #expect(FileManager.default.fileExists(atPath: linkedModel.path(percentEncoded: false)))
+
+        let client = try await LocalLLMClient.llama(
+            url: linkedModel,
+            parameter: .init(context: 512, options: .init(verbose: true))
+        )
+        #expect(!client._context.model.chatTemplate.isEmpty)
+    }
+
+    @Test
     func validateRenderedTemplate() async throws {
         let client = try await LocalLLMClient.llama(testType: .general, modelSize: .light)
         let processor = MessageProcessorFactory.createAutoProcessor(chatTemplate: client._context.model.chatTemplate)

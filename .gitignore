@@ -6,7 +6,8 @@
 .LSOverride
 
 # Icon must end with two \r
-Icon
+Icon
+
 
 # Thumbnails
 ._*
@@ -123,4 +124,6 @@ iOSInjectionProject/
 
 tmp
 dev
+.serena
+.claude/settings.local.json
 Tests/LocalLLMClientLlamaTests/dev

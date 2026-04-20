@@ -14,7 +14,7 @@ public class MultimodalContext: @unchecked Sendable {
             mparams.n_threads = Int32(numberOfThreads)
         }
         mparams.verbosity = parameter.options.verbose ? GGML_LOG_LEVEL_DEBUG : GGML_LOG_LEVEL_CONT;
-        guard let multimodalContext = mtmd_init_from_file(url.path(), context.model.model, mparams) else {
+        guard let multimodalContext = mtmd_init_from_file(url.path(percentEncoded: false), context.model.model, mparams) else {
             throw .failedToLoad(reason: "Failed to load the mmproj file")
         }
         self.multimodalContext = multimodalContext
