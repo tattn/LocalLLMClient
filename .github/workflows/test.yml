@@ -58,7 +58,7 @@ jobs:
           xcodebuild -downloadComponent MetalToolchain
 
       - name: Run ${{ matrix.test-type }} tests with Xcode 26
-        run: TEST_RUNNER_GITHUB_ACTIONS_TEST="${{ matrix.test-type }}" xcodebuild test -scheme LocalLLMClient-Package -destination 'platform=macOS'
+        run: TEST_RUNNER_GITHUB_ACTIONS_TEST="${{ matrix.test-type }}" xcodebuild test -skipMacroValidation -scheme LocalLLMClient-Package -destination 'platform=macOS'
 
       - name: Upload test results
         if: failure()
@@ -84,7 +84,7 @@ jobs:
         working-directory: Example
         run: |
           xcodebuild -downloadPlatform iOS
-          xcodebuild build -project LocalLLMClientExample.xcodeproj -scheme LocalLLMClientExample -destination 'platform=macOS' CODE_SIGN_IDENTITY="-"
+          xcodebuild build -skipMacroValidation -project LocalLLMClientExample.xcodeproj -scheme LocalLLMClientExample -destination 'platform=macOS' CODE_SIGN_IDENTITY="-"
 
   build-example-ios:
     runs-on: macos-26
@@ -100,7 +100,7 @@ jobs:
         working-directory: Example
         run: |
           xcodebuild -downloadPlatform iOS
-          xcodebuild build -project LocalLLMClientExample.xcodeproj -scheme LocalLLMClientExample -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.4' CODE_SIGN_IDENTITY="-"
+          xcodebuild build -skipMacroValidation -project LocalLLMClientExample.xcodeproj -scheme LocalLLMClientExample -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.4' CODE_SIGN_IDENTITY="-"
 
   test-ubuntu-x86_64:
     runs-on: ubuntu-latest
