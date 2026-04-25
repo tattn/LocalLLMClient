@@ -186,7 +186,16 @@ public struct MessageProcessorFactory {
             chunkExtractor: RegexChunkExtractor(imageTokenPattern: "<start_of_image>")
         )
     }
-    
+
+    /// Create a processor for Gemma4 models
+    public static func gemma4Processor() -> MessageProcessor {
+        MessageProcessor(
+            transformer: StandardMessageTransformer(),
+            renderer: JinjaChatTemplateRenderer(),
+            chunkExtractor: RegexChunkExtractor(imageTokenPattern: "<\\|image\\|>")
+        )
+    }
+
     /// Create a processor for SmolVLM models  
     public static func smolVLMProcessor() -> MessageProcessor {
         MessageProcessor(
@@ -199,7 +208,10 @@ public struct MessageProcessorFactory {
     /// Create an auto-detecting processor based on chat template
     public static func createAutoProcessor(chatTemplate: String) -> MessageProcessor {
         // Check for specific template patterns
-        if chatTemplate.contains("<|im_start|>") && chatTemplate.contains("<end_of_utterance>") {
+        if chatTemplate.contains("<|turn>") {
+            // Gemma4 format (checked first because the template also contains content-type checks similar to Qwen2VL)
+            return gemma4Processor()
+        } else if chatTemplate.contains("<|im_start|>") && chatTemplate.contains("<end_of_utterance>") {
             // SmolVLM format
             return smolVLMProcessor()
         } else if chatTemplate.contains("content[i].type == 'image'") || chatTemplate.contains("<vision>") {

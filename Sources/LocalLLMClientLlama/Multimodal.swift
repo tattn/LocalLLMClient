@@ -13,7 +13,6 @@ public class MultimodalContext: @unchecked Sendable {
         if let numberOfThreads = parameter.numberOfThreads {
             mparams.n_threads = Int32(numberOfThreads)
         }
-        mparams.verbosity = parameter.options.verbose ? GGML_LOG_LEVEL_DEBUG : GGML_LOG_LEVEL_CONT;
         guard let multimodalContext = mtmd_init_from_file(url.path(percentEncoded: false), context.model.model, mparams) else {
             throw .failedToLoad(reason: "Failed to load the mmproj file")
         }
@@ -40,7 +39,7 @@ public class MultimodalContext: @unchecked Sendable {
 
         let chunks = mtmd_input_chunks_init()!
 
-        let textStorage = "    \(MTMD_DEFAULT_IMAGE_MARKER)    " // spaces for the workaround of tokenizer
+        let textStorage = "    \(String(cString: mtmd_default_marker()))    " // spaces for the workaround of tokenizer
         var text = textStorage.withCString {
             mtmd_input_text(text: $0, add_special: false, parse_special: true)
         }

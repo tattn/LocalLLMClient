@@ -4,6 +4,7 @@ import LocalLLMClientCore
 import MLX
 import MLXLLM
 import MLXLMCommon
+import MLXHuggingFace
 import Tokenizers
 
 public final class Context: Sendable {
@@ -36,7 +37,7 @@ public final class Context: Sendable {
 
     private static func loadModel(
         url: URL, configuration: ModelConfiguration
-    ) async throws(LLMError) -> (any LanguageModel, any Tokenizer) {
+    ) async throws(LLMError) -> (any LanguageModel, any MLXLMCommon.Tokenizer) {
         do {
             let configurationURL = url.appending(component: "config.json")
             let configurationData = try Data(contentsOf: configurationURL)
@@ -58,7 +59,8 @@ public final class Context: Sendable {
 
             try loadWeights(modelDirectory: url, model: model, perLayerQuantization: baseConfiguration.perLayerQuantization)
 
-            let tokenizer = try await loadTokenizer(configuration: configuration, hub: .shared)
+            let tokenizerLoader: any MLXLMCommon.TokenizerLoader = #huggingFaceTokenizerLoader()
+            let tokenizer = try await tokenizerLoader.load(from: url)
             return (model, tokenizer)
         } catch {
             throw .failedToLoad(reason: error.localizedDescription)
@@ -66,13 +68,15 @@ public final class Context: Sendable {
     }
 
     private static func makeProcessor(
-        url: URL, configuration: ModelConfiguration, tokenizer: any Tokenizer,
+        url: URL, configuration: ModelConfiguration, tokenizer: any MLXLMCommon.Tokenizer,
     ) async -> (any UserInputProcessor, Bool) {
         do {
-            let processorConfiguration = url.appending(
-                component: "preprocessor_config.json"
-            )
-            let configurationData = try Data(contentsOf: processorConfiguration)
+            let preprocessorURL = url.appending(component: "preprocessor_config.json")
+            let processorURL = url.appending(component: "processor_config.json")
+            let configURL = FileManager.default.fileExists(atPath: preprocessorURL.path)
+                ? preprocessorURL
+                : processorURL
+            let configurationData = try Data(contentsOf: configURL)
             let baseProcessorConfig = try JSONDecoder().decode(
                 BaseProcessorConfiguration.self,
                 from: configurationData
@@ -94,12 +98,12 @@ public final class Context: Sendable {
 }
 
 private struct LLMUserInputProcessor: UserInputProcessor {
-    let tokenizer: Tokenizer
+    let tokenizer: MLXLMCommon.Tokenizer
     let configuration: ModelConfiguration
     let messageGenerator: MessageGenerator
 
     init(
-        tokenizer: any Tokenizer, configuration: ModelConfiguration,
+        tokenizer: any MLXLMCommon.Tokenizer, configuration: ModelConfiguration,
         messageGenerator: MessageGenerator
     ) {
         self.tokenizer = tokenizer

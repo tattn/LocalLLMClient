@@ -97,6 +97,22 @@ struct MessageProcessorTests {
     }
 
     @Test
+    func gemma_4() async throws {
+        // Gemma 4 uses <|turn>...<turn|> framing with <|image|> for multimodal content.
+        // Real template: https://huggingface.co/google/gemma-4-E4B-it/raw/main/chat_template.jinja (≈16 KB).
+        // Use a minimal variant here so the test does not depend on that specific file.
+        let template = #"{% for message in messages %}<|turn>{{ message['role'] }} {%- if message['content'] is string -%}{{ message['content'] }}{%- else -%}{%- for item in message['content'] -%}{%- if item['type'] == 'image' -%}<|image|>{%- elif item['type'] == 'text' -%}{{ item['text'] }}{%- endif -%}{%- endfor -%}{%- endif -%}<turn|>{% endfor %}{% if add_generation_prompt %}<|turn>model {% endif %}"#
+        let autoProcessor = MessageProcessorFactory.createAutoProcessor(chatTemplate: template)
+        let (rendered, chunks) = try validate(processor: autoProcessor, chatTemplate: template)
+        #expect(rendered.contains("<|turn>") && rendered.contains("<turn|>"))
+        // Image content must be split out as a dedicated `.image` chunk via the `<|image|>` pattern.
+        let containsImageChunk = chunks.contains { chunk in
+            if case .image = chunk { return true } else { return false }
+        }
+        #expect(containsImageChunk, "Gemma 4 auto-detection should pick the processor whose chunk extractor matches <|image|>")
+    }
+
+    @Test
     func autoDetection() async throws {
         // Test that auto-detection works correctly for different templates
         let templates = [

@@ -12,9 +12,11 @@ enum LLMModel: Sendable, CaseIterable, Identifiable {
     case qwen3_4b
     case qwen2_5VL_3b
     case gemma3_4b_mlx
+    case gemma4_e2b_mlx
     case phi4mini
     case gemma3
     case gemma3_4b
+    case gemma4_E2B
     case mobileVLM_3b
 
     static let `default` = qwen3
@@ -25,9 +27,11 @@ enum LLMModel: Sendable, CaseIterable, Identifiable {
         case .qwen3_4b: "MLX / Qwen3 4B"
         case .qwen2_5VL_3b: "MLX / Qwen2.5VL 3B"
         case .gemma3_4b_mlx: "MLX / Gemma3 4B"
+        case .gemma4_e2b_mlx: "MLX / Gemma4 E2B (4bit)"
         case .phi4mini: "llama.cpp / Phi-4 Mini 3.8B"
         case .gemma3: "llama.cpp / Gemma3 1B"
         case .gemma3_4b: "llama.cpp / Gemma3 4B"
+        case .gemma4_E2B: "llama.cpp / Gemma4 E2B"
         case .mobileVLM_3b: "llama.cpp / MobileVLM 3B"
         }
     }
@@ -38,30 +42,35 @@ enum LLMModel: Sendable, CaseIterable, Identifiable {
         case .qwen3_4b: "mlx-community/Qwen3-4B-4bit"
         case .qwen2_5VL_3b: "mlx-community/Qwen2.5-VL-3B-Instruct-abliterated-4bit"
         case .gemma3_4b_mlx: "mlx-community/gemma-3-4b-it-qat-4bit"
+        case .gemma4_e2b_mlx: "mlx-community/gemma-4-e2b-it-4bit"
         case .phi4mini: "unsloth/Phi-4-mini-instruct-GGUF"
         case .gemma3: "lmstudio-community/gemma-3-1B-it-qat-GGUF"
         case .gemma3_4b: "lmstudio-community/gemma-3-4B-it-qat-GGUF"
+        case .gemma4_E2B: "lmstudio-community/gemma-4-E2B-it-GGUF"
         case .mobileVLM_3b: "Blombert/MobileVLM-3B-GGUF"
         }
     }
 
     var filename: String? {
         switch self {
-        case .qwen3, .qwen3_4b, .qwen2_5VL_3b, .gemma3_4b_mlx: nil
+        case .qwen3, .qwen3_4b, .qwen2_5VL_3b, .gemma3_4b_mlx, .gemma4_e2b_mlx: nil
         case .phi4mini: "Phi-4-mini-instruct-Q4_K_M.gguf"
         case .gemma3: "gemma-3-1B-it-QAT-Q4_0.gguf"
         case .gemma3_4b: "gemma-3-4B-it-QAT-Q4_0.gguf"
+        case .gemma4_E2B: "gemma-4-E2B-it-Q4_K_M.gguf"
         case .mobileVLM_3b: "ggml-MobileVLM-3B-q5_k_s.gguf"
         }
     }
 
     var mmprojFilename: String? {
         switch self {
-        case .qwen3, .qwen3_4b, .qwen2_5VL_3b, .gemma3_4b_mlx, .phi4mini, .gemma3: nil
+        case .qwen3, .qwen3_4b, .qwen2_5VL_3b, .gemma3_4b_mlx, .gemma4_e2b_mlx, .phi4mini, .gemma3: nil
 #if os(macOS)
         case .gemma3_4b: "mmproj-model-f16.gguf"
+        case .gemma4_E2B: "mmproj-gemma-4-E4B-it-BF16.gguf"
 #elseif os(iOS)
-        case .gemma3_4b: nil
+        // Total footprint (model + mmproj ≈ 6 GB) exceeds what most iPhones can map; text-only on iOS.
+        case .gemma3_4b, .gemma4_E2B: nil
 #endif
         case .mobileVLM_3b: "mmproj-model-f16.gguf"
         }
@@ -75,11 +84,11 @@ enum LLMModel: Sendable, CaseIterable, Identifiable {
         switch self {
         case .qwen3, .qwen3_4b, .phi4mini, .gemma3: false
 #if os(macOS)
-        case .gemma3_4b: true
+        case .gemma3_4b, .gemma4_E2B: true
 #elseif os(iOS)
-        case .gemma3_4b: false
+        case .gemma3_4b, .gemma4_E2B: false
 #endif
-        case .qwen2_5VL_3b, .gemma3_4b_mlx, .mobileVLM_3b: true
+        case .qwen2_5VL_3b, .gemma3_4b_mlx, .gemma4_e2b_mlx, .mobileVLM_3b: true
         }
     }
 
@@ -87,14 +96,16 @@ enum LLMModel: Sendable, CaseIterable, Identifiable {
         switch self {
         case .gemma3_4b_mlx:
             return ["<end_of_turn>"]
-        case .qwen3, .qwen3_4b, .qwen2_5VL_3b, .phi4mini, .gemma3, .gemma3_4b, .mobileVLM_3b:
+        case .gemma4_e2b_mlx:
+            return ["<turn|>"]
+        case .qwen3, .qwen3_4b, .qwen2_5VL_3b, .phi4mini, .gemma3, .gemma3_4b, .gemma4_E2B, .mobileVLM_3b:
             return []
         }
     }
-    
+
     var supportsTools: Bool {
         switch self {
-        case .qwen3, .qwen3_4b, .phi4mini, .gemma3, .gemma3_4b:
+        case .qwen3, .qwen3_4b, .phi4mini, .gemma3, .gemma3_4b, .gemma4_E2B, .gemma4_e2b_mlx:
             return true
         case .qwen2_5VL_3b, .gemma3_4b_mlx, .mobileVLM_3b:
             return false

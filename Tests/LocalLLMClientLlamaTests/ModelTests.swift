@@ -53,9 +53,9 @@ extension LocalLLMClient {
                 )
             case .normal:
                 return (
-                    id: "lmstudio-community/gemma-3-4B-it-qat-GGUF",
-                    model: "gemma-3-4B-it-QAT-Q4_0.gguf",
-                    clip: "mmproj-model-f16.gguf"
+                    id: "lmstudio-community/gemma-4-E4B-it-GGUF",
+                    model: "gemma-4-E4B-it-Q4_K_M.gguf",
+                    clip: "mmproj-gemma-4-E4B-it-BF16.gguf"
                 )
             }
         }

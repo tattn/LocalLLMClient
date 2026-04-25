@@ -9,8 +9,10 @@ public struct Globs: Sendable, Equatable {
         self.rawValue = globs
     }
 
-    /// Default glob patterns for MLX models, typically including "*.safetensors" and "*.json".
-    public static let mlx = Globs(["*.safetensors", "*.json"])
+    /// Default glob patterns for MLX models, covering weights, config JSON and
+    /// the chat template (newer models such as Gemma 4 ship it as a separate
+    /// `chat_template.jinja` file instead of inlining it in `tokenizer_config.json`).
+    public static let mlx = Globs(["*.safetensors", "*.json", "*.jinja"])
 
     /// Appends a new glob pattern to the set.
     /// - Parameter glob: A string representing a glob pattern to be added.

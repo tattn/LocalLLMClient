@@ -9,5 +9,5 @@ nonisolated(unsafe) private var isMLXInitialized = false
 public func initializeMLX() {
     guard !isMLXInitialized else { return }
     isMLXInitialized = true
-    MLX.GPU.set(cacheLimit: 20 * 1024 * 1024)
+    MLX.Memory.cacheLimit = 20 * 1024 * 1024
 }

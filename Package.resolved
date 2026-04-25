@@ -1,5 +1,5 @@
 {
-  "originHash" : "c708fe6da241f5f654a397439002b63f3d60f654ef69d1075851dde3f967586f",
+  "originHash" : "f2adb03887aa68beac074e1a360a1252567315c0efcac21bf08bf605120abb14",
   "pins" : [
     {
       "identity" : "eventsource",
@@ -24,7 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ml-explore/mlx-swift-lm",
       "state" : {
-        "revision" : "2a296f145c3129fea4290bb6e4a0a5fb458efa06"
+        "revision" : "1c05248bb0899e2a7a4962b84d319cf12f4e12aa",
+        "version" : "3.31.3"
       }
     },
     {
@@ -104,8 +105,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/huggingface/swift-jinja",
       "state" : {
-        "revision" : "62b91283572c80a9d79fe77e2fa344cfd9233cfa",
-        "version" : "2.0.2"
+        "revision" : "0aeefadec459ce8e11a333769950fb86183aca43",
+        "version" : "2.3.5"
       }
     },
     {
@@ -129,7 +130,7 @@
     {
       "identity" : "swift-syntax",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/swiftlang/swift-syntax.git",
+      "location" : "https://github.com/swiftlang/swift-syntax",
       "state" : {
         "revision" : "0687f71944021d616d34d922343dcef086855920",
         "version" : "600.0.1"
@@ -147,10 +148,10 @@
     {
       "identity" : "swift-transformers",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/huggingface/swift-transformers.git",
+      "location" : "https://github.com/huggingface/swift-transformers",
       "state" : {
-        "revision" : "58c4bc11963a140358d791f678a60a2745a23146",
-        "version" : "1.2.1"
+        "revision" : "b38443e44d93eca770f2eb68e2a4d0fa100f9aa2",
+        "version" : "1.3.0"
       }
     },
     {
