@@ -67,3 +67,28 @@ echo "Updating git submodules..."
 git fetch --tags
 git -C "$PROJECT_ROOT/Sources/LocalLLMClientLlamaC/exclude/llama.cpp" checkout tags/$TARGET_TAG
 echo "All submodules have been updated."
+
+# Verify that every symlink in LocalLLMClientLlamaC still resolves against the new submodule.
+echo
+echo "Verifying symlinks under LocalLLMClientLlamaC/..."
+LLAMAC_DIR="$PROJECT_ROOT/Sources/LocalLLMClientLlamaC"
+BROKEN_SYMLINKS_FILE="$(mktemp)"
+find "$LLAMAC_DIR" -path "$LLAMAC_DIR/exclude" -prune -o -type l -print | while read -r link; do
+    if [ ! -e "$link" ]; then
+        target=$(readlink "$link")
+        printf '  %s -> %s\n' "${link#"$PROJECT_ROOT/"}" "$target" >> "$BROKEN_SYMLINKS_FILE"
+    fi
+done
+
+if [ -s "$BROKEN_SYMLINKS_FILE" ]; then
+    echo "WARNING: the following symlinks no longer resolve after updating to $TARGET_TAG:"
+    cat "$BROKEN_SYMLINKS_FILE"
+    rm -f "$BROKEN_SYMLINKS_FILE"
+    echo
+    echo "Upstream probably renamed or moved these files. Inspect the new tree under"
+    echo "  Sources/LocalLLMClientLlamaC/exclude/llama.cpp/"
+    echo "and update the symlinks (and any compile/header references) before committing."
+    exit 1
+fi
+rm -f "$BROKEN_SYMLINKS_FILE"
+echo "All symlinks resolve."

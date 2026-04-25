@@ -32,14 +32,14 @@ extension LocalLLMClient {
             switch size {
             case .light:
                 return (
-                    id: "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
-                    model: "qwen2.5-0.5b-instruct-q8_0.gguf",
+                    id: "unsloth/Qwen3.5-2B-GGUF",
+                    model: "Qwen3.5-2B-Q4_K_M.gguf",
                     clip: nil
                 )
             case .normal:
                 return (
-                    id: "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
-                    model: "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+                    id: "unsloth/Qwen3.5-2B-GGUF",
+                    model: "Qwen3.5-2B-Q4_K_M.gguf",
                     clip: nil
                 )
             }
@@ -53,9 +53,9 @@ extension LocalLLMClient {
                 )
             case .normal:
                 return (
-                    id: "lmstudio-community/gemma-3-4B-it-qat-GGUF",
-                    model: "gemma-3-4B-it-QAT-Q4_0.gguf",
-                    clip: "mmproj-model-f16.gguf"
+                    id: "lmstudio-community/gemma-4-E4B-it-GGUF",
+                    model: "gemma-4-E4B-it-Q4_K_M.gguf",
+                    clip: "mmproj-gemma-4-E4B-it-BF16.gguf"
                 )
             }
         }

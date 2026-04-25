@@ -39,8 +39,9 @@ struct FilesMetadataTests {
     func testHuggingFaceGlobsMLXDefault() {
         let mlxGlobs = Globs.mlx
 
-        #expect(mlxGlobs.rawValue.count == 2)
+        #expect(mlxGlobs.rawValue.count == 3)
         #expect(mlxGlobs.rawValue.contains("*.safetensors"))
         #expect(mlxGlobs.rawValue.contains("*.json"))
+        #expect(mlxGlobs.rawValue.contains("*.jinja"))
     }
 }

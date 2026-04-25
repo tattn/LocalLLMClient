@@ -1,0 +1,15 @@
+module LocalLLMClientLlamaC {
+    header "LocalLLMClientLlamaC.h"
+    header "clip.h"
+    header "ggml-alloc.h"
+    header "ggml-backend.h"
+    header "ggml-cpu.h"
+    header "ggml-opt.h"
+    header "ggml.h"
+    header "gguf.h"
+    header "llama.h"
+    header "mtmd-helper.h"
+    header "mtmd.h"
+    header "utils.h"
+    export *
+}

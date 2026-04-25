@@ -24,7 +24,7 @@ final class Model {
 
         self.model = model
 
-        let chatTemplate = getString(capacity: 8192) { buffer, length in
+        let chatTemplate = getString { buffer, length in
             // LLM_KV_TOKENIZER_CHAT_TEMPLATE
             llama_model_meta_val_str(model, "tokenizer.chat_template", buffer, length)
         }
@@ -47,33 +47,56 @@ final class Model {
     func tokenizerConfigs() -> [String: Any] {
         let numberOfConfigs = llama_model_meta_count(model)
         return (0..<numberOfConfigs).reduce(into: [:]) { partialResult, i in
-            let key = getString(capacity: 64) { buffer, length in
+            let key = getString(minimumCapacity: 64) { buffer, length in
                 llama_model_meta_key_by_index(model, i, buffer, length)
             }
-            let value = getString(capacity: 2048) { buffer, length in
+            let value = getString(minimumCapacity: 2048) { buffer, length in
                 llama_model_meta_val_str_by_index(model, i, buffer, length)
             }
             partialResult[key] = value
         }
     }
 
-    func chatFormat() -> common_chat_format {
+    /// Build a chat parser context for this model using the provided tools.
+    ///
+    /// In the PEG-grammar era of llama.cpp, the generated parser depends on both
+    /// the chat template and the tool list, so ownership belongs to whoever has
+    /// the tool list (i.e. `LlamaClient`), not the `Model` itself.
+    ///
+    /// The returned pointer must be freed with `free_chat_params`.
+    func buildChatParams(tools: [AnyLLMTool]) -> UnsafeMutablePointer<llm_chat_params>? {
         let inputs = create_chat_templates_inputs()
-        defer { 
+        defer {
             free_chat_templates_inputs(inputs)
         }
-
-        add_message_to_inputs(inputs, "user", "test")
-        let params = apply_chat_templates_with_model(model, inputs)
-        return params.format
+        add_message_to_inputs(inputs, "user", "probe")
+        for tool in tools {
+            let oaiJSON = tool.toOAICompatJSON()
+            guard let function = oaiJSON["function"] as? [String: Any],
+                  let name = function["name"] as? String else { continue }
+            let description = function["description"] as? String ?? ""
+            let parametersJSON: String
+            if let parameters = function["parameters"],
+               let data = try? JSONSerialization.data(withJSONObject: parameters),
+               let str = String(data: data, encoding: .utf8) {
+                parametersJSON = str
+            } else {
+                parametersJSON = "{}"
+            }
+            add_tool_to_inputs(inputs, name, description, parametersJSON)
+        }
+        return create_chat_params(model, inputs)
     }
 }
 
-private func getString(capacity: Int = 1024, getter: (UnsafeMutablePointer<CChar>?, Int) -> Int32) -> String {
-    String(unsafeUninitializedCapacity: capacity) { buffer in
+private func getString(minimumCapacity: Int = 1024, getter: (UnsafeMutablePointer<CChar>?, Int) -> Int32) -> String {
+    var probe: CChar = 0
+    let required = Int(getter(&probe, 1))
+    let capacity = max(minimumCapacity, required + 1)
+    return String(unsafeUninitializedCapacity: capacity) { buffer in
         buffer.withMemoryRebound(to: CChar.self) { buffer in
             let length = Int(getter(buffer.baseAddress, capacity))
-            return max(0, length)
+            return max(0, min(length, capacity))
         }
     }
 }

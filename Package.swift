@@ -3,36 +3,21 @@
 import PackageDescription
 import CompilerPluginSupport
 
-let llamaVersion = "b6871"
+let llamaVersion = "b8851"
+let llamaBuildNumber = String(llamaVersion.dropFirst())
 
 // MARK: - Package Dependencies
 
 var packageDependencies: [Package.Dependency] = [
     .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.4.0")),
-    .package(url: "https://github.com/huggingface/swift-jinja", .upToNextMinor(from: "2.0.0")),
+    .package(url: "https://github.com/huggingface/swift-jinja", from: "2.3.5"),
     .package(url: "https://github.com/swiftlang/swift-syntax", from: "600.0.0")
 ]
 
 #if os(iOS) || os(macOS)
 packageDependencies.append(contentsOf: [
-    // mlx-swift-lm v3 (PR #118 merged 2026-04-01) removed
-    // `loadTokenizer(configuration:hub:)` and reshaped the Hub/Downloader
-    // API; `LocalLLMClientMLX/Context.swift` still uses the old API. Until
-    // the MLX backend is migrated to v3 (`AutoTokenizer.from(directory:)` +
-    // `Downloader`), pin to the last pre-v3 commit so consumers can build.
-    // Tracked in LocalLLMClient#93 — switch back to `branch: "main"` once
-    // Context.swift is migrated.
-    .package(
-        url: "https://github.com/ml-explore/mlx-swift-lm",
-        revision: "2a296f145c3129fea4290bb6e4a0a5fb458efa06"  // 2026-03-27, last pre-v3
-    ),
-    // `Tokenizers` (from swift-transformers) is what `LocalLLMClientMLX`
-    // imports for `any Tokenizer`. Pre-v3 mlx-swift-lm transitively pulled
-    // swift-transformers in, but its Package.swift didn't declare it as a
-    // public re-export, so consumers still need to depend on it directly.
-    // Range matches the pre-v3 mlx-swift-lm transitive pin so SPM resolves.
-    // Bump to `from: "1.3.0"` once Context.swift is migrated to mlx-swift-lm v3.
-    .package(url: "https://github.com/huggingface/swift-transformers.git", "1.2.0"..<"1.3.0"),
+    .package(url: "https://github.com/ml-explore/mlx-swift-lm", from: "3.31.3"),
+    .package(url: "https://github.com/huggingface/swift-transformers", from: "1.3.0"),
     .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.4.0")
 ])
 #endif
@@ -152,6 +137,7 @@ packageTargets.append(contentsOf: [
             "LocalLLMClientCore",
             .product(name: "MLXLLM", package: "mlx-swift-lm"),
             .product(name: "MLXVLM", package: "mlx-swift-lm"),
+            .product(name: "MLXHuggingFace", package: "mlx-swift-lm"),
             .product(name: "Tokenizers", package: "swift-transformers"),
         ],
     ),
@@ -172,7 +158,7 @@ packageTargets.append(contentsOf: [
         name: "LocalLLMClientLlamaFramework",
         url:
             "https://github.com/ggml-org/llama.cpp/releases/download/\(llamaVersion)/llama-\(llamaVersion)-xcframework.zip",
-        checksum: "ac657d70112efadbf5cd1db5c4f67eea94ca38556ada9e7442d5a5a461010d6f"
+        checksum: "f5eb26820b9890ae026aee4963cd4f43af1c567d39534012f2685601a59c2519"
     ),
     .target(
         name: "LocalLLMClientLlamaC",
@@ -180,10 +166,15 @@ packageTargets.append(contentsOf: [
         exclude: ["exclude"],
         cSettings: [
             .unsafeFlags(["-w"]),
-            .headerSearchPath(".")
+            .define("LLAMA_BUILD_NUMBER", to: llamaBuildNumber),
+            .headerSearchPath("."),
+            .headerSearchPath("common")
         ],
         cxxSettings: [
-            .headerSearchPath(".")
+            .unsafeFlags(["-UDEBUG"]),
+            .define("LLAMA_BUILD_NUMBER", to: llamaBuildNumber),
+            .headerSearchPath("."),
+            .headerSearchPath("common")
         ],
         swiftSettings: [
             .interoperabilityMode(.Cxx)
@@ -194,7 +185,8 @@ packageTargets.append(contentsOf: [
         name: "LocalLLMClientUtilityTests",
         dependencies: [
             "LocalLLMClientUtility",
-            .product(name: "MLXLMCommon", package: "mlx-swift-lm")
+            .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
+            .product(name: "Hub", package: "swift-transformers"),
         ]
     )
 ])

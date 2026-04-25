@@ -10,9 +10,11 @@ public final class LlamaClient: LLMClient {
     private let multimodal: MultimodalContext?
     private let messageProcessor: MessageProcessor
     let tools: [AnyLLMTool]
+    /// Owned by this client; freed in `deinit`.
+    nonisolated(unsafe) private let chatParamsPtr: UnsafeMutablePointer<llm_chat_params>?
 
     var chatFormat: common_chat_format {
-        context.model.chatFormat()
+        get_chat_params_format(chatParamsPtr)
     }
 
     /// Initializes a new Llama client.
@@ -38,7 +40,15 @@ public final class LlamaClient: LLMClient {
             multimodal = nil
         }
         self.messageProcessor = messageProcessor ?? MessageProcessorFactory.createAutoProcessor(chatTemplate: context.model.chatTemplate)
-        self.tools = tools.map { AnyLLMTool($0) }
+        let wrappedTools = tools.map { AnyLLMTool($0) }
+        self.tools = wrappedTools
+        self.chatParamsPtr = context.model.buildChatParams(tools: wrappedTools)
+    }
+
+    deinit {
+        if let chatParamsPtr {
+            free_chat_params(chatParamsPtr)
+        }
     }
 
     /// Generates a text stream from the given input.
@@ -82,8 +92,7 @@ public final class LlamaClient: LLMClient {
     public func responseStream(from input: LLMInput) async throws -> AsyncThrowingStream<StreamingChunk, any Error> {
         // Create the stream first (this can throw)
         let textStreamGenerator = try textStream(from: input)
-        let chatFormat = self.chatFormat
-        
+
         return AsyncThrowingStream { continuation in
             let processor = StreamingToolCallProcessor(
                 startTag: getToolCallStartTag(),
@@ -103,7 +112,11 @@ public final class LlamaClient: LLMClient {
                         }
                     }
 
-                    var toolCalls = processor.toolCalls + (LlamaToolCallParser.parseToolCalls(from: fullText, format: chatFormat) ?? [])
+                    let parserToolCalls = LlamaToolCallParser.parseToolCalls(
+                        from: fullText,
+                        chatParams: chatParamsPtr
+                    ) ?? []
+                    var toolCalls = processor.toolCalls + parserToolCalls
                     toolCalls = toolCalls.reduce(into: []) { result, toolCall in
                         if !result.contains(where: { $0.name == toolCall.name }) {
                             result.append(toolCall)
@@ -124,17 +137,19 @@ public final class LlamaClient: LLMClient {
     
     /// Get the tool call start tag based on chat format
     private func getToolCallStartTag() -> String {
-        // Different chat formats may use different tags
         switch chatFormat {
+        case COMMON_CHAT_FORMAT_PEG_GEMMA4:
+            return "<|tool_call>"
         default:
             return "<tool_call>"
         }
     }
-    
+
     /// Get the tool call end tag based on chat format
     private func getToolCallEndTag() -> String {
-        // Different chat formats may use different tags
         switch chatFormat {
+        case COMMON_CHAT_FORMAT_PEG_GEMMA4:
+            return "<tool_call|>"
         default:
             return "</tool_call>"
         }

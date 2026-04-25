@@ -35,7 +35,7 @@ jobs:
         # To enable MLX tests, use self-hosted runners: runs-on: [self-hosted, macos]
         test-type: [Llama, FoundationModels]
     env:
-      DEVELOPER_DIR: "/Applications/Xcode_26.2.app/Contents/Developer"
+      DEVELOPER_DIR: "/Applications/Xcode_26.4.app/Contents/Developer"
       TEST_RUNNER_GITHUB_MODEL_CACHE: "${{ github.workspace }}/model_cache"
     steps:
       - &checkout
@@ -58,7 +58,7 @@ jobs:
           xcodebuild -downloadComponent MetalToolchain
 
       - name: Run ${{ matrix.test-type }} tests with Xcode 26
-        run: TEST_RUNNER_GITHUB_ACTIONS_TEST="${{ matrix.test-type }}" xcodebuild test -scheme LocalLLMClient-Package -destination 'platform=macOS'
+        run: TEST_RUNNER_GITHUB_ACTIONS_TEST="${{ matrix.test-type }}" xcodebuild test -skipMacroValidation -scheme LocalLLMClient-Package -destination 'platform=macOS'
 
       - name: Upload test results
         if: failure()
@@ -74,7 +74,7 @@ jobs:
     runs-on: macos-26
     needs: test-macos
     env:
-      DEVELOPER_DIR: "/Applications/Xcode_26.2.app/Contents/Developer"
+      DEVELOPER_DIR: "/Applications/Xcode_26.4.app/Contents/Developer"
     steps:
       - *checkout
 
@@ -84,13 +84,13 @@ jobs:
         working-directory: Example
         run: |
           xcodebuild -downloadPlatform iOS
-          xcodebuild build -project LocalLLMClientExample.xcodeproj -scheme LocalLLMClientExample -destination 'platform=macOS' CODE_SIGN_IDENTITY="-"
+          xcodebuild build -skipMacroValidation -project LocalLLMClientExample.xcodeproj -scheme LocalLLMClientExample -destination 'platform=macOS' CODE_SIGN_IDENTITY="-"
 
   build-example-ios:
     runs-on: macos-26
     needs: test-macos
     env:
-      DEVELOPER_DIR: "/Applications/Xcode_26.2.app/Contents/Developer"
+      DEVELOPER_DIR: "/Applications/Xcode_26.4.app/Contents/Developer"
     steps:
       - *checkout
 
@@ -100,7 +100,7 @@ jobs:
         working-directory: Example
         run: |
           xcodebuild -downloadPlatform iOS
-          xcodebuild build -project LocalLLMClientExample.xcodeproj -scheme LocalLLMClientExample -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.2' CODE_SIGN_IDENTITY="-"
+          xcodebuild build -skipMacroValidation -project LocalLLMClientExample.xcodeproj -scheme LocalLLMClientExample -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.4' CODE_SIGN_IDENTITY="-"
 
   test-ubuntu-x86_64:
     runs-on: ubuntu-latest
