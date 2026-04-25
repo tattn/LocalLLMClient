@@ -483,7 +483,7 @@ swift run LocalLLMCLI --model /path/to/your/model.gguf "Your prompt here"
 ## Tested Models
 
 - LLaMA 3
-- Gemma 3 / 2
+- Gemma 4 / 3
 - Qwen 3 / 2
 - Phi 4
 
