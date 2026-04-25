@@ -22,6 +22,24 @@ on:
       - ".github/workflows/test.yml"
 
 jobs:
+  build-spm-consumer-no-submodules:
+    # Regression test for #94: a downstream SPM consumer never recurses
+    # submodules, so this job checks out *without* `submodules: recursive`
+    # and builds the Llama target. If this is green, anyone consuming
+    # LocalLLMClient via `.package(url:..., from:)` etc. can build it.
+    name: Build (no submodules) — regression test for #94
+    runs-on: macos-26
+    env:
+      DEVELOPER_DIR: "/Applications/Xcode_26.2.app/Contents/Developer"
+    steps:
+      - uses: actions/checkout@v4
+        # Deliberately *no* `submodules: recursive` — mirrors how SPM
+        # consumers receive this package.
+      - name: swift build LocalLLMClientLlama
+        run: swift build --target LocalLLMClientLlama
+      - name: swift build LocalLLMClientMLX
+        run: swift build --target LocalLLMClientMLX
+
   test-macos:
     name: Test on macOS (${{ matrix.test-type }})
     runs-on: macos-26
