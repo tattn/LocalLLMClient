@@ -19,10 +19,15 @@ final class Model {
         // setting. On the iOS Simulator there is no Metal device available
         // for llama.cpp, so we force CPU-only regardless of the requested
         // value to avoid runtime failures.
+        //
+        // We use 999 as the "all layers" sentinel (the same value used
+        // throughout the llama.cpp examples). `Int32.max` was tried first
+        // but appears to trigger internal arithmetic edge cases in
+        // `llama_batch` allocation paths on b8851; 999 sidesteps that.
 #if targetEnvironment(simulator)
         model_params.n_gpu_layers = 0
 #else
-        model_params.n_gpu_layers = parameter.nGpuLayers == -1 ? Int32.max : Int32(parameter.nGpuLayers)
+        model_params.n_gpu_layers = parameter.nGpuLayers == -1 ? 999 : Int32(parameter.nGpuLayers)
 #endif
         model_params.use_mmap = true
 

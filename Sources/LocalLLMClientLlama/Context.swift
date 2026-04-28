@@ -117,6 +117,18 @@ public final class Context: @unchecked Sendable {
     }
 
     public func clear() {
+        // Reset the prefill batch as well as the KV cache. Without this, a
+        // generation that was cut short by an external stop condition (e.g.
+        // stop sequences applied at the consumer level) leaves
+        // `batch.n_tokens > 0` because the generator's per-token `batch.add`
+        // is followed by an early `break` in the consumer's `for try await`,
+        // skipping the next `decode()` that would have called `batch.clear()`.
+        // The next `textStream(...)` call's prefill then walks past the end
+        // of the batch's `seq_id` array (allocated for `parameter.batch`
+        // entries) and crashes on a force-unwrap of nil. Clearing the batch
+        // here makes `clear()` safe to call between any two generations.
+        batch.clear()
+
         guard let kv = llama_get_memory(context) else {
             return
         }
