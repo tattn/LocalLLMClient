@@ -44,9 +44,24 @@ public final class Context: @unchecked Sendable {
         ctx_params.n_threads = Int32(parameter.numberOfThreads ?? max(1, min(8, ProcessInfo.processInfo.processorCount - 2)))
         ctx_params.n_threads_batch = ctx_params.n_threads
 
+        // Flash Attention — significantly faster on Apple Silicon and uses
+        // less attention-buffer memory. llama.cpp `b8851` exposes this as a
+        // tri-state enum (auto / disabled / enabled). We map our boolean to
+        // explicit enabled/disabled so behavior is deterministic.
+        ctx_params.flash_attn_type = parameter.flashAttention
+            ? LLAMA_FLASH_ATTN_TYPE_ENABLED
+            : LLAMA_FLASH_ATTN_TYPE_DISABLED
+
+        // KV cache quantization. Lower precision halves (or quarters) the
+        // memory cost of the cache, which scales linearly with `n_ctx`.
+        // `f16` keeps full precision (default); `q8_0` and `q4_0` trade a
+        // small amount of quality for substantial memory savings.
+        ctx_params.type_k = Self.ggmlType(for: parameter.kvCacheTypeK)
+        ctx_params.type_v = Self.ggmlType(for: parameter.kvCacheTypeV)
+
         self.parameter = parameter
         self.pauseHandler = PauseHandler(disableAutoPause: parameter.options.disableAutoPause)
-        self.model = try Model(url: url)
+        self.model = try Model(url: url, parameter: parameter)
         self.context = try model.makeAndAllocateContext(with: ctx_params)
         batch = llama_batch_init(Int32(parameter.batch), 0, 1)
         extraEOSTokens = parameter.options.extraEOSTokens
@@ -90,6 +105,15 @@ public final class Context: @unchecked Sendable {
         llama_sampler_free(sampling)
         llama_batch_free(batch)
         llama_free(context)
+    }
+
+    /// Maps the public Swift KV cache type enum to the underlying GGML type.
+    private static func ggmlType(for type: LlamaClient.KVCacheType) -> ggml_type {
+        switch type {
+        case .f16:  return GGML_TYPE_F16
+        case .q8_0: return GGML_TYPE_Q8_0
+        case .q4_0: return GGML_TYPE_Q4_0
+        }
     }
 
     public func clear() {

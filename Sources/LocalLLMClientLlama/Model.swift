@@ -11,10 +11,18 @@ final class Model {
         llama_model_get_vocab(model)
     }
 
-    init(url: URL) throws(LLMError) {
+    init(url: URL, parameter: LlamaClient.Parameter = .default) throws(LLMError) {
         var model_params = llama_model_default_params()
+
+        // GPU layer offload. On Apple Silicon (real device + Mac) the GPU has
+        // unified memory access so offloading "all" layers is the desired
+        // setting. On the iOS Simulator there is no Metal device available
+        // for llama.cpp, so we force CPU-only regardless of the requested
+        // value to avoid runtime failures.
 #if targetEnvironment(simulator)
         model_params.n_gpu_layers = 0
+#else
+        model_params.n_gpu_layers = parameter.nGpuLayers == -1 ? Int32.max : Int32(parameter.nGpuLayers)
 #endif
         model_params.use_mmap = true
 

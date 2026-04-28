@@ -17,6 +17,10 @@ public extension LlamaClient {
         ///   - typicalP: Limits sampling based on typical probability. Default is `1`.
         ///   - penaltyLastN: The number of recent tokens to consider for penalty. Default is `64`.
         ///   - penaltyRepeat: The penalty factor for repeating tokens. Default is `1.1`.
+        ///   - nGpuLayers: Number of model layers to offload to the GPU (Metal on Apple platforms). `-1` means "all layers". `0` runs everything on CPU. Default is `-1`.
+        ///   - flashAttention: Enable Flash Attention. On Apple Silicon this is significantly faster and uses less memory. Default is `true`.
+        ///   - kvCacheTypeK: Quantization type for the key half of the KV cache. Lower precision (`.q8_0`, `.q4_0`) reduces memory roughly proportionally, allowing larger context. Default is `.f16` (no quantization).
+        ///   - kvCacheTypeV: Quantization type for the value half of the KV cache. Default is `.f16`.
         ///   - options: Additional options for the Llama client.
         public init(
             context: Int = 2048,
@@ -29,6 +33,10 @@ public extension LlamaClient {
             typicalP: Float = 1,
             penaltyLastN: Int = 64,
             penaltyRepeat: Float = 1.1,
+            nGpuLayers: Int = -1,
+            flashAttention: Bool = true,
+            kvCacheTypeK: KVCacheType = .f16,
+            kvCacheTypeV: KVCacheType = .f16,
             options: Options = .init()
         ) {
             self.context = context
@@ -41,9 +49,13 @@ public extension LlamaClient {
             self.typicalP = typicalP
             self.penaltyLastN = penaltyLastN
             self.penaltyRepeat = penaltyRepeat
+            self.nGpuLayers = nGpuLayers
+            self.flashAttention = flashAttention
+            self.kvCacheTypeK = kvCacheTypeK
+            self.kvCacheTypeV = kvCacheTypeV
             self.options = options
         }
-        
+
         /// The size of the context window in tokens.
         public var context: Int
         /// The random seed for generation. `nil` means a random seed will be used.
@@ -65,11 +77,36 @@ public extension LlamaClient {
         /// The penalty factor for repeating tokens.
         public var penaltyRepeat: Float
 
+        /// Number of model layers to offload to the GPU (Metal on Apple platforms).
+        /// `-1` means "all layers" — typically the desired setting on Apple Silicon
+        /// where the GPU has unified memory access. `0` forces CPU-only execution.
+        public var nGpuLayers: Int
+        /// Enable Flash Attention. On Apple Silicon (M-series, A-series) this is
+        /// significantly faster and uses less memory. Set to `false` only for
+        /// hardware that lacks support or for debugging.
+        public var flashAttention: Bool
+        /// Quantization type for the key half of the KV cache.
+        public var kvCacheTypeK: KVCacheType
+        /// Quantization type for the value half of the KV cache.
+        public var kvCacheTypeV: KVCacheType
+
         /// Additional options for the Llama client.
         public var options: Options
 
         /// Default parameter settings.
         public static let `default` = Parameter()
+    }
+
+    /// KV cache quantization types. Lower precision reduces memory used by the
+    /// KV cache, which scales linearly with `context` size. The quality cost
+    /// is usually negligible at `.q8_0` and only modest at `.q4_0`.
+    enum KVCacheType: String, Sendable, CaseIterable {
+        /// Half precision (16-bit float). Default; no quantization.
+        case f16
+        /// 8-bit quantization. Roughly 50% memory of `.f16`, very low quality cost.
+        case q8_0
+        /// 4-bit quantization. Roughly 25% memory of `.f16`, modest quality cost.
+        case q4_0
     }
 
     /// Defines additional, less commonly used options for the Llama client.
