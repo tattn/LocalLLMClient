@@ -63,6 +63,16 @@ public final class LlamaClient: LLMClient {
                 context.clear()
                 try context.decode(text: text)
             case .chatTemplate(let messages):
+                // Match the `.plain` path: reset the prefill batch + KV cache
+                // before each new generation. Without this, a previous
+                // generation that was cut short by an external stop condition
+                // (consumer-level stop sequence or maxTokens break) leaves
+                // stale `batch.n_tokens > 0` and the next prefill walks past
+                // the end of `seq_id`, crashing on the force-unwrap at
+                // Batch.swift:20. The asymmetry between `.plain` (cleared)
+                // and `.chat`/`.chatTemplate` (not cleared) was the root
+                // cause of the residual crash in d71786a.
+                context.clear()
                 try messageProcessor.process(
                     templateMessages: messages,
                     context: context,
@@ -70,6 +80,7 @@ public final class LlamaClient: LLMClient {
                     tools: tools
                 )
             case .chat(let messages):
+                context.clear()
                 try messageProcessor.process(
                     messages: messages,
                     context: context,
