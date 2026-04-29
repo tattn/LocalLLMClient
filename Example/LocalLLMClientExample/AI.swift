@@ -67,7 +67,7 @@ enum LLMModel: Sendable, CaseIterable, Identifiable {
         case .qwen3, .qwen3_4b, .qwen2_5VL_3b, .gemma3_4b_mlx, .gemma4_e2b_mlx, .phi4mini, .gemma3: nil
 #if os(macOS)
         case .gemma3_4b: "mmproj-model-f16.gguf"
-        case .gemma4_E2B: "mmproj-gemma-4-E4B-it-BF16.gguf"
+        case .gemma4_E2B: "mmproj-gemma-4-E2B-it-BF16.gguf"
 #elseif os(iOS)
         // Total footprint (model + mmproj ≈ 6 GB) exceeds what most iPhones can map; text-only on iOS.
         case .gemma3_4b, .gemma4_E2B: nil
