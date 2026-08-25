@@ -45,6 +45,24 @@ packageProducts.append(contentsOf: [
 ])
 #endif
 
+// MARK: - llama.cpp Target Settings
+
+// Shared by the Apple and Linux definitions of LocalLLMClientLlamaC so they cannot drift apart.
+let llamaCSettings: [CSetting] = [
+    .unsafeFlags(["-w"]),
+    .define("LLAMA_BUILD_NUMBER", to: llamaBuildNumber),
+    .headerSearchPath("."),
+    .headerSearchPath("common")
+]
+
+// mtmd-audio.cpp declares `constexpr bool DEBUG`, which a `DEBUG` macro would break.
+let llamaCxxSettings: [CXXSetting] = [
+    .unsafeFlags(["-UDEBUG"]),
+    .define("LLAMA_BUILD_NUMBER", to: llamaBuildNumber),
+    .headerSearchPath("."),
+    .headerSearchPath("common")
+]
+
 // MARK: - Package Targets
 
 var packageTargets: [Target] = [
@@ -168,18 +186,8 @@ packageTargets.append(contentsOf: [
         name: "LocalLLMClientLlamaC",
         dependencies: ["LocalLLMClientLlamaFramework"],
         exclude: ["exclude"],
-        cSettings: [
-            .unsafeFlags(["-w"]),
-            .define("LLAMA_BUILD_NUMBER", to: llamaBuildNumber),
-            .headerSearchPath("."),
-            .headerSearchPath("common")
-        ],
-        cxxSettings: [
-            .unsafeFlags(["-UDEBUG"]),
-            .define("LLAMA_BUILD_NUMBER", to: llamaBuildNumber),
-            .headerSearchPath("."),
-            .headerSearchPath("common")
-        ],
+        cSettings: llamaCSettings,
+        cxxSettings: llamaCxxSettings,
         swiftSettings: [
             .interoperabilityMode(.Cxx)
         ]
@@ -239,13 +247,8 @@ packageTargets.append(contentsOf: [
     .target(
         name: "LocalLLMClientLlamaC",
         exclude: ["exclude"],
-        cSettings: [
-            .unsafeFlags(["-w"]),
-            .headerSearchPath(".")
-        ],
-        cxxSettings: [
-            .headerSearchPath(".")
-        ],
+        cSettings: llamaCSettings,
+        cxxSettings: llamaCxxSettings,
         swiftSettings: [
             .interoperabilityMode(.Cxx)
         ],

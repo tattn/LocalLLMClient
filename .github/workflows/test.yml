@@ -37,6 +37,7 @@ jobs:
     env:
       DEVELOPER_DIR: "/Applications/Xcode_26.4.app/Contents/Developer"
       TEST_RUNNER_GITHUB_MODEL_CACHE: "${{ github.workspace }}/model_cache"
+      TEST_RUNNER_GGML_METAL_DEVICES: "0"
     steps:
       - &checkout
         uses: actions/checkout@v4
@@ -100,7 +101,7 @@ jobs:
         working-directory: Example
         run: |
           xcodebuild -downloadPlatform iOS
-          xcodebuild build -skipMacroValidation -project LocalLLMClientExample.xcodeproj -scheme LocalLLMClientExample -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.4' CODE_SIGN_IDENTITY="-"
+          xcodebuild build -skipMacroValidation -project LocalLLMClientExample.xcodeproj -scheme LocalLLMClientExample -destination 'generic/platform=iOS Simulator' CODE_SIGN_IDENTITY="-"
 
   test-ubuntu-x86_64:
     runs-on: ubuntu-latest
@@ -137,10 +138,10 @@ jobs:
           mkdir -p ${{ github.workspace }}/lib
 
           # Download and extract llama.cpp binaries
-          LLAMA_URL="https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_VERSION}/llama-${LLAMA_VERSION}-bin-ubuntu-x64.zip"
+          LLAMA_URL="https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_VERSION}/llama-${LLAMA_VERSION}-bin-ubuntu-x64.tar.gz"
           echo "Downloading llama.cpp binaries from: $LLAMA_URL"
-          curl -L $LLAMA_URL -o llama-bin.zip
-          unzip -j llama-bin.zip "*.so" -d "${{ github.workspace }}/lib"
+          curl -fL $LLAMA_URL -o llama-bin.tar.gz
+          tar -xzf llama-bin.tar.gz -C "${{ github.workspace }}/lib" --strip-components=1 --wildcards '*/*.so*'
           ls -la ${{ github.workspace }}/lib
 
       - name: Build package

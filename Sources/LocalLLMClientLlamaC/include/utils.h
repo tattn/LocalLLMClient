@@ -1,3 +1,5 @@
+#pragma once
+
 #include <memory>
 
 #include "../common/chat.h"
