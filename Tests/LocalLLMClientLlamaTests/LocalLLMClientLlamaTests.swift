@@ -96,6 +96,22 @@ extension ModelTests.LocalLLMClientLlamaTests {
     }
 
     @Test
+    func decodeAfterCancelledGeneration() async throws {
+        let client = try await LocalLLMClient.llama(parameter: .init(context: 512, batch: 8))
+
+        let task = Task {
+            for try await _ in try await client.textStream(from: prompt) {}
+        }
+        try await Task.sleep(for: .seconds(3))
+        task.cancel()
+        try? await task.value
+
+        // The token the cancelled run left pending must not end up in the next prompt.
+        let result = try await client.generateText(from: String(repeating: "Hello, world! ", count: 40))
+        #expect(!result.isEmpty)
+    }
+
+    @Test
     func overflowBatchSize() async throws {
         let result = try await LocalLLMClient.llama(parameter: .init(context: 512, batch: 2, options: .init(verbose: true))).generateText(from: "Hello, world!")
         #expect(!result.isEmpty)

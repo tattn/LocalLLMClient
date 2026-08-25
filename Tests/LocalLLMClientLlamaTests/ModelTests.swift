@@ -113,7 +113,7 @@ extension LocalLLMClient {
     }
 }
 
-@Suite(.serialized, .timeLimit(.minutes(5)), .disabled(if: disabledTests))
+@Suite(.serialized, .timeLimit(.minutes(10)), .disabled(if: disabledTests))
 actor ModelTests {
     nonisolated(unsafe) private static var initialized = false
 

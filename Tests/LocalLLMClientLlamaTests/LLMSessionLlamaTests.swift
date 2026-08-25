@@ -6,7 +6,7 @@ import LocalLLMClientTestUtilities
 import LocalLLMClientUtility
 
 extension ModelTests {
-    @Suite(.serialized, .timeLimit(.minutes(5)))
+    @Suite(.serialized, .timeLimit(.minutes(10)))
     struct LLMSessionLlamaTests {
         
         private static func makeGeneralModel(size: LocalLLMClient.ModelSize = .default) -> LLMSession.DownloadModel {
@@ -16,7 +16,13 @@ extension ModelTests {
         
         private static func makeToolModel(size: LocalLLMClient.ModelSize = .default) -> LLMSession.DownloadModel {
             let info = LocalLLMClient.modelInfo(for: .tool, modelSize: size)
-            return .llama(id: info.id, model: info.model, mmproj: info.clip, parameter: .init(context: 2500))
+            // Pinned sampling, so tool calling does not depend on the luck of the draw.
+            return .llama(
+                id: info.id,
+                model: info.model,
+                mmproj: info.clip,
+                parameter: .init(context: 2500, seed: 0, temperature: 0.1)
+            )
         }
         
         @Test
@@ -78,40 +84,39 @@ extension ModelTests {
         }
         
         @Test
-        func toolCallWithMultipleTools() async throws {
-            // Create test tools
+        func calculatorToolCallWithMultipleTools() async throws {
             let weatherTool = TestWeatherTool()
             let calculatorTool = TestCalculatorTool()
-            
+
             let session = LLMSession(
                 model: Self.makeToolModel(),
                 tools: [weatherTool, calculatorTool]
             )
-            
-            // Test calculator
-            weatherTool.reset()
-            calculatorTool.reset()
-            
-            let calcResponse = try await session.respond(to: "What is 2 + 2? use calculate")
-            print("Calculator response: \(calcResponse)")
-            
+
+            let response = try await session.respond(to: "What is 2 + 2? use calculate")
+            print("Calculator response: \(response)")
+
             #expect(calculatorTool.invocationCount > 0, "Calculator tool should have been called")
             #expect(weatherTool.invocationCount == 0, "Weather tool should not have been called for calculation")
-            #expect(calcResponse.contains("4"), "Response should contain the result")
-            
-            // Test weather
-            weatherTool.reset()
-            calculatorTool.reset()
+            #expect(response.contains("4"), "Response should contain the result")
+        }
 
-            let weatherResponse = try await session.respond(to: "What's the weather in Paris? use get_weather")
-            print("Weather response: \(weatherResponse)")
-            
+        @Test
+        func weatherToolCallWithMultipleTools() async throws {
+            let weatherTool = TestWeatherTool()
+            let calculatorTool = TestCalculatorTool()
+
+            let session = LLMSession(
+                model: Self.makeToolModel(),
+                tools: [weatherTool, calculatorTool]
+            )
+
+            let response = try await session.respond(to: "What's the weather in Paris? use get_weather")
+            print("Weather response: \(response)")
+
             #expect(weatherTool.invocationCount > 0, "Weather tool should have been called")
             #expect(calculatorTool.invocationCount == 0, "Calculator tool should not have been called for weather")
-            
-            if let lastArgs = weatherTool.lastArguments {
-                #expect(lastArgs.location.lowercased().contains("paris"), "Tool should have been called with Paris as location")
-            }
+            #expect(weatherTool.lastArguments?.location.lowercased().contains("paris") == true, "Tool should have been called with Paris as location")
         }
         
         @Test

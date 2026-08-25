@@ -36,12 +36,18 @@ public final class Context: @unchecked Sendable {
         return llama_memory_seq_pos_max(kv, 0) + 1
     }
 
+    /// Keeps a couple of cores free on larger machines without starving small ones.
+    private static var defaultNumberOfThreads: Int {
+        let cores = ProcessInfo.processInfo.activeProcessorCount
+        return cores > 4 ? min(8, cores - 2) : max(1, cores)
+    }
+
     public init(url: URL, parameter: LlamaClient.Parameter = .default) throws(LLMError) {
         initializeLlama()
 
         var ctx_params = llama_context_default_params()
         ctx_params.n_ctx = UInt32(parameter.context)
-        ctx_params.n_threads = Int32(parameter.numberOfThreads ?? max(1, min(8, ProcessInfo.processInfo.processorCount - 2)))
+        ctx_params.n_threads = Int32(parameter.numberOfThreads ?? Self.defaultNumberOfThreads)
         ctx_params.n_threads_batch = ctx_params.n_threads
 
         self.parameter = parameter
@@ -93,11 +99,19 @@ public final class Context: @unchecked Sendable {
     }
 
     public func clear() {
+        discardPendingTokens()
+
         guard let kv = llama_get_memory(context) else {
             return
         }
 
         llama_memory_clear(kv, true)
+    }
+
+    /// Drops tokens a generation left pending when it ended before decoding them.
+    /// Appending the next prompt on top of them would write past the batch allocation.
+    func discardPendingTokens() {
+        batch.clear()
     }
 
     func addCache(for chunk: MessageChunk, position: llama_pos) {
