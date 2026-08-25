@@ -27,7 +27,7 @@ public extension LLMSession.DownloadModel {
                         url: downloadDestination.appending(component: model),
                         mmprojURL: mmproj.map { downloadDestination.appending(component: $0) },
                         parameter: parameter,
-                        tools: tools.map { $0.underlyingTool }
+                        erasedTools: tools
                     )
                 )
             }
@@ -51,7 +51,7 @@ public extension LLMSession.LocalModel {
                         url: url,
                         mmprojURL: mmprojURL,
                         parameter: parameter,
-                        tools: tools.map { $0.underlyingTool }
+                        erasedTools: tools
                     )
                 )
             }
