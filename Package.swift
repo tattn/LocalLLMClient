@@ -11,7 +11,7 @@ let llamaBuildNumber = String(llamaVersion.dropFirst())
 var packageDependencies: [Package.Dependency] = [
     .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.4.0")),
     .package(url: "https://github.com/huggingface/swift-jinja", from: "2.3.5"),
-    .package(url: "https://github.com/swiftlang/swift-syntax", from: "600.0.0")
+    .package(url: "https://github.com/swiftlang/swift-syntax", "600.0.0"..<"604.0.0")
 ]
 
 #if os(iOS) || os(macOS)
@@ -25,7 +25,11 @@ packageDependencies.append(contentsOf: [
 // MARK: - Package Products
 
 var packageProducts: [Product] = [
-    .library(name: "LocalLLMClient", targets: ["LocalLLMClient"])
+    .library(name: "LocalLLMClient", targets: ["LocalLLMClient"]),
+    // The core module on its own, without the macro layer on top. A host that
+    // builds its tools from runtime data never uses the macros, and pulling them
+    // in would drag swift-syntax into its dependency graph for nothing.
+    .library(name: "LocalLLMClientCore", targets: ["LocalLLMClientCore"]),
 ]
 
 #if os(iOS) || os(macOS)
