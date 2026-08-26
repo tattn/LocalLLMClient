@@ -26,12 +26,31 @@ public final class LlamaClient: LLMClient {
     ///   - messageProcessor: The message processor to use for chat messages (optional).
     ///   - tools: An array of tools that can be used by the model for function calling.
     /// - Throws: An error if the client fails to initialize.
-    public init(
+    public convenience init(
         url: URL,
         mmprojURL: URL?,
         parameter: Parameter,
         messageProcessor: MessageProcessor?,
         tools: [any LLMTool] = []
+    ) throws {
+        try self.init(
+            url: url, mmprojURL: mmprojURL, parameter: parameter,
+            messageProcessor: messageProcessor,
+            erasedTools: tools.map { AnyLLMTool($0) })
+    }
+
+    /// Initializes a client with tools that are already type-erased.
+    ///
+    /// A host whose tools come from a runtime registry has no Swift type to
+    /// derive a schema from, so it builds `AnyLLMTool` values directly. Erasing
+    /// here would be the second erasure, and the first one is the one that
+    /// cannot happen.
+    public init(
+        url: URL,
+        mmprojURL: URL?,
+        parameter: Parameter,
+        messageProcessor: MessageProcessor?,
+        erasedTools: [AnyLLMTool]
     ) throws {
         context = try Context(url: url, parameter: parameter)
         if let mmprojURL {
@@ -40,9 +59,8 @@ public final class LlamaClient: LLMClient {
             multimodal = nil
         }
         self.messageProcessor = messageProcessor ?? MessageProcessorFactory.createAutoProcessor(chatTemplate: context.model.chatTemplate)
-        let wrappedTools = tools.map { AnyLLMTool($0) }
-        self.tools = wrappedTools
-        self.chatParamsPtr = context.model.buildChatParams(tools: wrappedTools)
+        self.tools = erasedTools
+        self.chatParamsPtr = context.model.buildChatParams(tools: erasedTools)
     }
 
     deinit {
@@ -203,6 +221,24 @@ public extension LocalLLMClient {
             parameter: parameter,
             messageProcessor: messageProcessor,
             tools: tools
+        )
+    }
+
+    /// Creates a new Llama client from tools that are already type-erased.
+    static func llama(
+        url: URL,
+        mmprojURL: URL? = nil,
+        parameter: LlamaClient.Parameter = .default,
+        messageProcessor: MessageProcessor? = nil,
+        erasedTools: [AnyLLMTool]
+    ) async throws -> LlamaClient {
+        setLlamaVerbose(parameter.options.verbose)
+        return try LlamaClient(
+            url: url,
+            mmprojURL: mmprojURL,
+            parameter: parameter,
+            messageProcessor: messageProcessor,
+            erasedTools: erasedTools
         )
     }
 }

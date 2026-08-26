@@ -61,6 +61,32 @@ public struct AnyLLMTool: Sendable {
         }
     }
     
+    /// Creates a type-erased tool whose name, description and JSON schema are
+    /// all supplied at runtime.
+    ///
+    /// The schema-from-a-static-type route above cannot serve a host whose tools
+    /// come from a registry — an agent runtime discovers them while running, as
+    /// data, so there is no Swift type to hang `argumentsSchema` on. Every stored
+    /// field is already dynamic, so this is the same wrapper reached another way.
+    ///
+    /// - Parameters:
+    ///   - name: The tool name the model will call.
+    ///   - description: What the tool does.
+    ///   - argumentsSchema: JSON Schema for the parameters, as a dictionary.
+    ///   - call: Receives the raw arguments JSON the model produced.
+    public init(
+        name: String,
+        description: String,
+        argumentsSchema: [String: any Sendable],
+        call: @escaping @Sendable (String) async throws -> ToolOutput
+    ) {
+        self._name = name
+        self._description = description
+        self._argumentsSchema = argumentsSchema
+        self._tool = DynamicLLMTool(name: name, description: description)
+        self._call = call
+    }
+
     /// Executes the tool with JSON-encoded arguments
     /// - Parameter argumentsJSON: JSON string containing the arguments
     /// - Returns: The tool output
