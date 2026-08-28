@@ -112,6 +112,7 @@ struct ChatBubbleView: View {
     }
 }
 
+#if DEBUG
 #Preview("Text") {
     @Previewable @State var ai: AI = {
         let ai = AI()
@@ -128,6 +129,7 @@ struct ChatBubbleView: View {
     }
     .environment(ai)
 }
+#endif
 
 extension LLMAttachment {
     static let imagePreview = try! Self.image(LLMInputImage(data: .init(contentsOf: URL(string: "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.jpeg")!))!)

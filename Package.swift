@@ -126,6 +126,7 @@ packageTargets.append(contentsOf: [
         ],
         swiftSettings: [
             .interoperabilityMode(.Cxx)
+            .enableExperimentalFeature("SymbolLinkageMarkers")
         ],
         linkerSettings: [
             .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path"])
